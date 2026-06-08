@@ -1,15 +1,14 @@
 import pandas as pd
 from sweetviz.sv_types import NumWithPercent, FeatureType, FeatureToProcess
 from sweetviz.type_detection import determine_feature_type
-from sweetviz.utils import clean_numeric_series
+from sweetviz.utils import clean_numeric_with_diagnostics
 import sweetviz.series_analyzer_numeric
 import sweetviz.series_analyzer_cat
 import sweetviz.series_analyzer_text
 
 
 def get_counts(series: pd.Series) -> dict:
-    cleaned = clean_numeric_series(series)
-    value_counts_with_nan = cleaned.value_counts(dropna=False)
+    value_counts_with_nan = series.value_counts(dropna=False)
 
     if len(value_counts_with_nan) == 1:
         if pd.isna(value_counts_with_nan.index[0]):
@@ -26,7 +25,7 @@ def get_counts(series: pd.Series) -> dict:
     return {
         "value_counts_without_nan": value_counts_without_nan,
         "distinct_count_without_nan": distinct_count_without_nan,
-        "num_rows_with_data": cleaned.count(),
+        "num_rows_with_data": series.count(),
         "num_rows_total": len(series),
     }
 
@@ -49,20 +48,22 @@ def fill_out_missing_counts_in_other_series(my_counts:dict, other_counts:dict):
                 else:
                     my_counts[to_fill].at[key] = 0
 
-def add_series_base_stats_to_dict(series: pd.Series, counts: dict, updated_dict: dict) -> dict:
+def add_series_base_stats_to_dict(series: pd.Series, counts: dict, updated_dict: dict, diagnostics: dict) -> dict:
     updated_dict["stats"] = dict()
     updated_dict["base_stats"] = dict()
+    updated_dict["diagnostics"] = diagnostics
     base_stats = updated_dict["base_stats"]
     num_total = counts["num_rows_total"]
-    cleaned = clean_numeric_series(series)
     try:
-        num_zeros = cleaned[cleaned == 0].count()
+        num_zeros = series[series == 0].count()
     except TypeError:
         num_zeros = 0
     non_nan = counts["num_rows_with_data"]
+    num_infinite = diagnostics.get("num_inf", 0) + diagnostics.get("num_neg_inf", 0)
     base_stats["total_rows"] = num_total
     base_stats["num_values"] = NumWithPercent(non_nan, num_total)
     base_stats["num_missing"] = NumWithPercent(num_total - non_nan, num_total)
+    base_stats["num_infinite"] = NumWithPercent(num_infinite, num_total)
     base_stats["num_zeroes"] = NumWithPercent(num_zeros, num_total)
     base_stats["num_distinct"] = NumWithPercent(counts["distinct_count_without_nan"], num_total)
 
@@ -70,6 +71,12 @@ def add_series_base_stats_to_dict(series: pd.Series, counts: dict, updated_dict:
 # This generates everything EXCEPT the "detail pane"
 def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
     # start = time.perf_counter()
+
+    # === UNIFIED ENTRY: clean numeric series once, all downstream consume the same cleaned data ===
+    to_process.source, source_diagnostics = clean_numeric_with_diagnostics(to_process.source)
+    compare_diagnostics = None
+    if to_process.compare is not None:
+        to_process.compare, compare_diagnostics = clean_numeric_with_diagnostics(to_process.compare)
 
     # Validation: Make sure the targets are the same length as the series
     if to_process.source_target is not None and to_process.source is not None:
@@ -85,7 +92,7 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
     returned_feature_dict["order_index"] = to_process.order
     returned_feature_dict["is_target"] = True if to_process.order == -1 else False
 
-    # Determine SOURCE feature type
+    # Determine SOURCE feature type (consumes cleaned series via to_process.source)
     to_process.source_counts = get_counts(to_process.source)
     returned_feature_dict["type"] = determine_feature_type(to_process.source, to_process.source_counts,
                                                            to_process.predetermined_type, "SOURCE")
@@ -100,7 +107,6 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
                                               returned_feature_dict["type"], "COMPARED")
         if compare_type != FeatureType.TYPE_ALL_NAN and \
             source_type != FeatureType.TYPE_ALL_NAN:
-            # Explicitly show missing categories on each set
             if compare_type == FeatureType.TYPE_CAT or compare_type == FeatureType.TYPE_BOOL:
                 fill_out_missing_counts_in_other_series(to_process.compare_counts, to_process.source_counts)
                 fill_out_missing_counts_in_other_series(to_process.source_counts, to_process.compare_counts)
@@ -110,7 +116,6 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
 
     # Settle all-NaN series, depending on source versus compared
     if to_process.compare is not None:
-        # Settle all-Nan WITH COMPARE: Must consider all cases between source and compare
         if compare_type == FeatureType.TYPE_ALL_NAN and source_type == FeatureType.TYPE_ALL_NAN:
             returned_feature_dict["type"] = FeatureType.TYPE_TEXT
             compare_dict["type"] = FeatureType.TYPE_TEXT
@@ -119,16 +124,15 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
         elif source_type == FeatureType.TYPE_ALL_NAN:
             returned_feature_dict["type"] = compare_type
     else:
-        # Settle all-Nan WITHOUT COMPARE ( trivial: consider as TEXT )
         if source_type == FeatureType.TYPE_ALL_NAN:
             returned_feature_dict["type"] = FeatureType.TYPE_TEXT
 
-    # Establish base stats
-    add_series_base_stats_to_dict(to_process.source, to_process.source_counts, returned_feature_dict)
-    if to_process.compare is not None:
-        add_series_base_stats_to_dict(to_process.compare, to_process.compare_counts, compare_dict)
+    # Establish base stats (pass diagnostics for inf count reporting)
+    add_series_base_stats_to_dict(to_process.source, to_process.source_counts, returned_feature_dict, source_diagnostics)
+    if to_process.compare is not None and compare_diagnostics is not None:
+        add_series_base_stats_to_dict(to_process.compare, to_process.compare_counts, compare_dict, compare_diagnostics)
 
-    # Perform full analysis on source/compare/target
+    # Perform full analysis on source/compare/target (all numeric analyzers consume pre-cleaned series)
     if returned_feature_dict["type"] == FeatureType.TYPE_NUM:
         sweetviz.series_analyzer_numeric.analyze(to_process, returned_feature_dict)
     elif returned_feature_dict["type"] == FeatureType.TYPE_CAT:

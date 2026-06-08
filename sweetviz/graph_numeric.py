@@ -7,7 +7,6 @@ import warnings
 from sweetviz.config import config
 from sweetviz import sv_html_formatters
 from sweetviz.sv_types import FeatureType, FeatureToProcess
-from sweetviz.utils import clean_numeric_series
 import sweetviz.graph
 
 
@@ -54,26 +53,28 @@ class GraphNumeric(sweetviz.graph.Graph):
         axs.xaxis.set_major_formatter(mtick.FuncFormatter(self.format_smart))
         axs.yaxis.set_major_formatter(mtick.PercentFormatter(xmax=1.0, decimals=0))
 
-        cleaned_source_all = clean_numeric_series(to_process.source)
+        # Numeric series are pre-cleaned at analyze_feature_to_dictionary entry
+        # (inf/-inf replaced with nan); here we extract finite values for histogram plotting
+        source_all = to_process.source
         saved_err_dict = np.geterr()
         np.seterr(all='raise')
-        cleaned_source = cleaned_source_all[np.isfinite(cleaned_source_all)]
-        if len(cleaned_source):
-            norm_source = np.full(len(cleaned_source), 1.0 / len(cleaned_source))
+        finite_source = source_all[np.isfinite(source_all)]
+        if len(finite_source):
+            norm_source = np.full(len(finite_source), 1.0 / len(finite_source))
         else:
             norm_source = []
         if to_process.compare is not None:
-            cleaned_compare_all = clean_numeric_series(to_process.compare)
-            cleaned_compare = cleaned_compare_all[np.isfinite(cleaned_compare_all)]
-            plot_data = (cleaned_source, cleaned_compare)
-            if len(cleaned_compare):
-                norm_compare = np.full(len(cleaned_compare), 1.0 / len(cleaned_compare))
+            compare_all = to_process.compare
+            finite_compare = compare_all[np.isfinite(compare_all)]
+            plot_data = (finite_source, finite_compare)
+            if len(finite_compare):
+                norm_compare = np.full(len(finite_compare), 1.0 / len(finite_compare))
             else:
                 norm_compare = []
             normalizing_weights = (norm_source, norm_compare)
 
         else:
-            plot_data = cleaned_source
+            plot_data = finite_source
             normalizing_weights = norm_source
 
         gap_percent = config["Graphs"].getfloat("summary_graph_categorical_gap")
@@ -97,7 +98,6 @@ class GraphNumeric(sweetviz.graph.Graph):
 
         # Format x ticks
         x_ticks = plt.xticks()
-        # tick_range = max(x_ticks[0]) - min(x_ticks[0])
         new_labels = [
             sv_html_formatters.fmt_smart_range_tight(val, max(x_ticks[0]))
             for val in x_ticks[0]
@@ -109,7 +109,7 @@ class GraphNumeric(sweetviz.graph.Graph):
         if to_process.source_target is not None:
             if to_process.predetermined_type_target == FeatureType.TYPE_NUM:
                 source_bins_series = pd.cut(
-                    cleaned_source_all, bins=bin_limits, labels=False, right=False
+                    source_all, bins=bin_limits, labels=False, right=False
                 )
                 source_bins_series = source_bins_series.fillna(num_bins - 1)
                 bin_averages = [None] * num_bins
@@ -133,7 +133,7 @@ class GraphNumeric(sweetviz.graph.Graph):
                     and to_process.compare_target is not None
                 ):
                     compare_bins_series = pd.cut(
-                        cleaned_compare_all, bins=bin_limits, labels=False, right=False
+                        compare_all, bins=bin_limits, labels=False, right=False
                     )
                     source_bins_series = source_bins_series.fillna(num_bins - 1)
                     bin_averages = [None] * num_bins
@@ -148,7 +148,7 @@ class GraphNumeric(sweetviz.graph.Graph):
                         color=sweetviz.graph.COLOR_TARGET_COMPARE,
                     )
             elif to_process.predetermined_type_target == FeatureType.TYPE_BOOL:
-                source_true = cleaned_source_all[to_process.source_target == 1]
+                source_true = source_all[to_process.source_target == 1]
                 source_bins_series = pd.cut(
                     source_true, bins=bin_limits, labels=False, right=False
                 )
@@ -156,7 +156,7 @@ class GraphNumeric(sweetviz.graph.Graph):
                 total_counts_source = (
                     bin_counts[0] if to_process.compare is not None else bin_counts
                 )
-                total_counts_source = total_counts_source * len(cleaned_source)
+                total_counts_source = total_counts_source * len(finite_source)
                 bin_true_counts_source = [None] * num_bins
                 for b in range(0, num_bins):
                     if total_counts_source[b] > 0:
@@ -183,13 +183,13 @@ class GraphNumeric(sweetviz.graph.Graph):
                     to_process.compare is not None
                     and to_process.compare_target is not None
                 ):
-                    compare_true = cleaned_compare_all[to_process.compare_target == 1]
+                    compare_true = compare_all[to_process.compare_target == 1]
 
                     compare_bins_series = pd.cut(
                         compare_true, bins=bin_limits, labels=False, right=False
                     )
                     source_bins_series = source_bins_series.fillna(num_bins - 1)
-                    total_counts_compare = bin_counts[1] * len(cleaned_compare)
+                    total_counts_compare = bin_counts[1] * len(finite_compare)
                     bin_true_counts_compare = [None] * num_bins
                     for b in range(0, num_bins):
                         if total_counts_compare[b] > 0:
@@ -221,7 +221,5 @@ class GraphNumeric(sweetviz.graph.Graph):
         self.apply_pixel_padding(f, needed_pixels_padding)
         self.graph_base64 = self.get_encoded_base64(f)
         plt.close("all")
-        # plt.close(f)
-        # print(matplotlib.rcParams)
         np.seterr(**saved_err_dict)
         return
