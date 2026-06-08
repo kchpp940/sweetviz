@@ -2,16 +2,21 @@ from decimal import Decimal
 import numpy as np
 from sweetviz.graph_associations import CORRELATION_ERROR
 from sweetviz.graph_associations import CORRELATION_IDENTICAL
+from sweetviz.utils import is_valid_finite
+
+
+def _needs_marker(value) -> bool:
+    return not is_valid_finite(value)
 
 
 def fmt_int_commas(value: float) -> str:
+    if _needs_marker(value):
+        return "---"
     return f"{value:,}"
 
 
 def fmt_int_limit(value: float) -> str:
-    # Use commas until 1 million, then "12.5M" etc.
-    if value is None:
-        # Support for empty fields
+    if _needs_marker(value):
         return "---"
     if value > 999999:
         return f"{value/1000000:.1f}M"
@@ -21,13 +26,14 @@ def fmt_int_limit(value: float) -> str:
 def fmt_assoc(value: float) -> str:
     if value == CORRELATION_IDENTICAL:
         value = 1.0
-    if value == CORRELATION_ERROR:
+    if value == CORRELATION_ERROR or _needs_marker(value):
         return "---"
     return f"{value:.2f}"
 
 
 def fmt_percent_parentheses(value: float) -> str:
-    # This returns the percentage as a rounded number. 100% is only used if truly 100%
+    if _needs_marker(value):
+        return "(---)"
     if value > 99.0 and value < 100.0:
         return "(>99%)"
     if  value < 1.0 and value > 0.0:
@@ -37,9 +43,7 @@ def fmt_percent_parentheses(value: float) -> str:
 
 
 def fmt_percent(value: float) -> str:
-    # This returns the percentage as a rounded number. 100% is only used if truly 100%
-    if value is None or np.isnan(value):
-        # Support for empty fields
+    if _needs_marker(value):
         return "---"
     if value < 1.0 and value > 0.0:
         return "<1%"
@@ -50,7 +54,7 @@ def fmt_percent(value: float) -> str:
 
 
 def fmt_percent1d(value: float) -> str:
-    if value is None or np.isnan(value):
+    if _needs_marker(value):
         return "---"
     if value < 0.1 and value > 0.0:
         return "<0.1%"
@@ -60,9 +64,7 @@ def fmt_percent1d(value: float) -> str:
 
 
 def fmt_smart(value: float) -> str:
-    # Mainly used to shall average, etc. in the second column of numerical summary
-    # Keep to ~5 display digits based on scale of input number
-    if np.isnan(value):
+    if _needs_marker(value):
         return "---"
     absolute = abs(value)
     if absolute == 0.0:
@@ -89,7 +91,8 @@ def fmt_smart(value: float) -> str:
         return f"{value/1000000000000.0:.1f}T"
 
 def fmt_RAM(value: float) -> str:
-    # Keep to ~5 display digits based on scale of input number
+    if _needs_marker(value):
+        return "---"
     absolute = abs(value)
     if absolute < 1000:
         return f"{value:,.0f}b"
@@ -101,12 +104,11 @@ def fmt_RAM(value: float) -> str:
         return f"{value/1000000000.0:.1f} GB"
 
 def fmt_smart_range(value: float, range: float) -> str:
-    # Keep to ~5 display digits based on scale given by range number
-    if np.isnan(value):
+    if _needs_marker(value):
         return "---"
-    absolute_range = abs(range)
+    absolute_range = abs(range) if _needs_marker(range) == False else 0.0
     if absolute_range == 0.0:
-        return "0.00"
+        return fmt_smart(value)
     elif absolute_range < 0.001:
         return f"{value:.5f}"
     elif absolute_range < 0.1:
@@ -129,11 +131,9 @@ def fmt_smart_range(value: float, range: float) -> str:
         return f"{value / 1000000000000.0:.1f}T"
 
 def fmt_smart_range_tight(value: float, range: float) -> str:
-    # Used for graph labels
-    # Keep to ~4 display digits based on scale given by range number
-    if np.isnan(value):
+    if _needs_marker(value):
         return "---"
-    absolute_range = abs(range)
+    absolute_range = abs(range) if _needs_marker(range) == False else 0.0
     if absolute_range < 1.0:
         return f"{value:.3f}"
     elif absolute_range < 10:
@@ -147,12 +147,10 @@ def fmt_smart_range_tight(value: float, range: float) -> str:
     elif absolute_range < 999999:
         return f"{value / 1000.0:.0f}k"
     elif absolute_range < 99999999:
-        # 99.9M
         return f"{value / 1000000.0:.1f}M"
     elif absolute_range < 999999999:
         return f"{value / 1000000.0:.0f}M"
     elif absolute_range < 99999999999:
-        # 99.9B
         return f"{value / 1000000000.0:.1f}B"
     elif absolute_range < 999999999999:
         return f"{value / 1000000000.0:.0f}B"
@@ -160,12 +158,12 @@ def fmt_smart_range_tight(value: float, range: float) -> str:
         return f"{value / 1000000000000.0:.1f}T"
 
 def fmt_div_color_override_missing(value: float) -> str:
-    if value is None or np.isnan(value) or value <= 0:
+    if _needs_marker(value) or value <= 0:
         return ''
     return 'style="color:#202020"'
 
 def fmt_div_icon_missing(value: float) -> str:
-    if value is None or np.isnan(value) or value <= 0:
+    if _needs_marker(value) or value <= 0:
         return ''
 
     returned = '<div class="'

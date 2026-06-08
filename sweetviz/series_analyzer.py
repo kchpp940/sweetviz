@@ -1,42 +1,33 @@
 import pandas as pd
 from sweetviz.sv_types import NumWithPercent, FeatureType, FeatureToProcess
 from sweetviz.type_detection import determine_feature_type
+from sweetviz.utils import clean_numeric_series
 import sweetviz.series_analyzer_numeric
 import sweetviz.series_analyzer_cat
 import sweetviz.series_analyzer_text
 
 
 def get_counts(series: pd.Series) -> dict:
-    # The value_counts() function is used to get a Series containing counts of unique values.
-    value_counts_with_nan = series.value_counts(dropna=False)
+    cleaned = clean_numeric_series(series)
+    value_counts_with_nan = cleaned.value_counts(dropna=False)
 
-    # Fix for data with only a single value; reset_index was flipping the data returned
     if len(value_counts_with_nan) == 1:
         if pd.isna(value_counts_with_nan.index[0]):
-            value_counts_without_nan = pd.Series()
+            value_counts_without_nan = pd.Series(dtype=value_counts_with_nan.dtype)
         else:
             value_counts_without_nan = value_counts_with_nan
     else:
         reset_value_counts = value_counts_with_nan.reset_index()
-        # Force column naming behavior to be similar for value_counts() being reset between 1.x and 2.x.: make sure col 0 is "index" and 1 is series.name
-        # -> This is a no-op in Pandas 1.x
         reset_value_counts.rename(columns={reset_value_counts.columns[0]: "index", reset_value_counts.columns[1]:series.name}, inplace=True)
 
         value_counts_without_nan = (reset_value_counts.dropna().set_index("index").iloc[:, 0])
-    # print(value_counts_without_nan.index.dtype.name)
-
-    # IGNORING NAN FOR NOW AS IT CAUSES ISSUES [FIX]
-    # distinct_count_with_nan = value_counts_with_nan.count()
 
     distinct_count_without_nan = value_counts_without_nan.count()
     return {
         "value_counts_without_nan": value_counts_without_nan,
         "distinct_count_without_nan": distinct_count_without_nan,
-        "num_rows_with_data": series.count(),
+        "num_rows_with_data": cleaned.count(),
         "num_rows_total": len(series),
-        # IGNORING NAN FOR NOW AS IT CAUSES ISSUES [FIX]:
-        # "value_counts_with_nan": value_counts_with_nan,
-        # "distinct_count_with_nan": distinct_count_with_nan,
     }
 
 
@@ -63,8 +54,9 @@ def add_series_base_stats_to_dict(series: pd.Series, counts: dict, updated_dict:
     updated_dict["base_stats"] = dict()
     base_stats = updated_dict["base_stats"]
     num_total = counts["num_rows_total"]
+    cleaned = clean_numeric_series(series)
     try:
-        num_zeros = series[series == 0].count()
+        num_zeros = cleaned[cleaned == 0].count()
     except TypeError:
         num_zeros = 0
     non_nan = counts["num_rows_with_data"]

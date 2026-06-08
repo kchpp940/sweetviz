@@ -4,27 +4,30 @@ from sweetviz.graph_numeric import GraphNumeric
 import sweetviz.sv_html as sv_html
 from sweetviz.sv_types import NumWithPercent, FeatureType, FeatureToProcess
 from sweetviz.config import config
+from sweetviz.utils import clean_numeric_series, is_valid_finite
 
 
 def do_stats_numeric(series: pd.Series, updated_dict: dict):
+    cleaned = clean_numeric_series(series)
     stats = updated_dict["stats"]
-    stats["max"] = series.max()
-    stats["mean"] = series.mean()
-    for percentile, value in series.quantile([0.95, 0.75, 0.50, 0.25, 0.05]).to_dict().items():
+    stats["max"] = cleaned.max()
+    stats["mean"] = cleaned.mean()
+    for percentile, value in cleaned.quantile([0.95, 0.75, 0.50, 0.25, 0.05]).to_dict().items():
         stats[f"perc{int(percentile*100)}"] = value
-    stats["min"] = series.min()
+    stats["min"] = cleaned.min()
 
     stats["range"] = stats["max"] - stats["min"]
     stats["iqr"] = stats["perc75"] - stats["perc25"]
 
-    stats["std"] = series.std()
-    stats["variance"] = series.var()
-    stats["kurtosis"] = series.kurt()
-    stats["skewness"] = series.skew()
-    stats["sum"] = series.sum()
-    # MAD was unused!!!
-    # stats["mad"] = (series - series.mean()).abs().mean() # deprecated: series.mad()
-    stats["cv"] = stats["std"] / stats["mean"] if stats["mean"] else np.NaN
+    stats["std"] = cleaned.std()
+    stats["variance"] = cleaned.var()
+    stats["kurtosis"] = cleaned.kurt()
+    stats["skewness"] = cleaned.skew()
+    stats["sum"] = cleaned.sum()
+    if is_valid_finite(stats["mean"]) and stats["mean"] != 0 and is_valid_finite(stats["std"]):
+        stats["cv"] = stats["std"] / stats["mean"]
+    else:
+        stats["cv"] = None
     return updated_dict
 
 

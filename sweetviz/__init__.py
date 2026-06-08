@@ -1,5 +1,15 @@
 # sweetviz public interface
 # -----------------------------------------------------------------------------------
+try:
+    from importlib.metadata import metadata # Python 3.8+
+except ImportError:
+    from importlib_metadata import metadata # Python 3.7
+
+_metadata = metadata("sweetviz")
+__title__ = _metadata["name"]
+__version__ = _metadata["version"]
+__author__ = _metadata["Author-email"]
+__license__ = "MIT"
 
 # These are the main API functions
 from sweetviz.sv_public import analyze, compare, compare_intra
@@ -11,13 +21,3 @@ from sweetviz.dataframe_report import DataframeReport
 
 # This is the config_parser, use to customize settings
 from sweetviz.config import config as config_parser
-
-# Package metadata (loaded AFTER public API imports so API availability
-# does not depend on packaging metadata being present)
-from sweetviz._metadata import get_package_metadata, _LICENSE
-
-_meta = get_package_metadata()
-__title__ = _meta["name"]
-__version__ = _meta["version"]
-__author__ = _meta["author"]
-__license__ = _LICENSE

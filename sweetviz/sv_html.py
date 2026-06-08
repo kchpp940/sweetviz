@@ -7,6 +7,7 @@ from sweetviz.config import config
 from sweetviz.sv_types import NumWithPercent, FeatureType, OTHERS_GROUPED
 from sweetviz.graph_associations import CORRELATION_ERROR
 from sweetviz.graph_associations import CORRELATION_IDENTICAL
+from sweetviz.utils import is_valid_finite
 from functools import cmp_to_key
 
 package_loader = PackageLoader("sweetviz", "templates")
@@ -134,8 +135,8 @@ def generate_html_summary_numeric(feature_dict: dict, compare_dict: dict):
 
     # Edge case fix for if there is only data in the compare
     if compare_dict is not None:
-        if np.isnan(feature_dict["stats"]["range"]) and \
-             np.isnan(compare_dict["stats"]["range"]) == False:
+        if not is_valid_finite(feature_dict["stats"]["range"]) and \
+             is_valid_finite(compare_dict["stats"]["range"]):
             feature_dict["stats"]["range"] = compare_dict["stats"]["range"]
 
     # NEW: Move numbers if there is not enough room

@@ -1,6 +1,24 @@
+import numpy as np
 import pandas as pd
 
 from sweetviz.sv_types import OTHERS_GROUPED
+
+
+def clean_numeric_series(series: pd.Series) -> pd.Series:
+    if not pd.api.types.is_numeric_dtype(series):
+        return series
+    return series.replace([np.inf, -np.inf], np.nan)
+
+
+def is_valid_finite(value) -> bool:
+    if value is None:
+        return False
+    try:
+        if np.isnan(value) or np.isinf(value):
+            return False
+    except (TypeError, ValueError):
+        return False
+    return True
 
 
 def get_clamped_value_counts(value_counts: pd.Series, max_categories_incl_other: int) -> pd.Series:
