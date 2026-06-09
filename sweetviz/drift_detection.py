@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from sweetviz.config import config
 from sweetviz.sv_types import FeatureType
 
@@ -6,6 +7,30 @@ from sweetviz.sv_types import FeatureType
 NEAR_ZERO_THRESHOLD = 1e-3
 TYPE_MISMATCH_WEIGHT = 50.0
 MAX_RELATIVE_DIFF_THRESHOLD = 500.0
+
+
+def _is_numeric_dtype(dtype):
+    if dtype is None:
+        return False
+    try:
+        return pd.api.types.is_numeric_dtype(dtype) and not pd.api.types.is_bool_dtype(dtype)
+    except (TypeError, ValueError):
+        return False
+
+
+def _dtype_kind_name(dtype):
+    if dtype is None:
+        return "未知"
+    try:
+        if pd.api.types.is_bool_dtype(dtype):
+            return "布尔 (Boolean)"
+        if pd.api.types.is_numeric_dtype(dtype):
+            return f"数值 ({dtype})"
+        if isinstance(dtype, pd.CategoricalDtype) or dtype.kind in ('O',):
+            return f"分类/文本 ({dtype})"
+        return str(dtype)
+    except (TypeError, ValueError):
+        return str(dtype)
 
 
 class DriftConfig:
@@ -354,8 +379,28 @@ def detect_category_top_drift(source_counts, compare_counts, source_total, compa
     return items
 
 
-def detect_type_mismatch(source_type, compare_type):
+def detect_type_mismatch(source_type, compare_type, source_dtype=None, compare_dtype=None):
     cfg = get_config()
+    src_numeric = _is_numeric_dtype(source_dtype)
+    cmp_numeric = _is_numeric_dtype(compare_dtype)
+    if source_dtype is not None and compare_dtype is not None:
+        if src_numeric != cmp_numeric:
+            src_name = _dtype_kind_name(source_dtype)
+            cmp_name = _dtype_kind_name(compare_dtype)
+            diff_percent = 100.0
+            item = _make_drift_item(
+                drift_type="type_mismatch",
+                sub_type="type_mismatch",
+                label=f"字段类型不一致: Source={src_name} → Compare={cmp_name}",
+                source_val=src_name,
+                compare_val=cmp_name,
+                diff_value=1.0,
+                diff_percent=diff_percent,
+                max_weight=TYPE_MISMATCH_WEIGHT,
+                category="basic"
+            )
+            return item
+        return None
     if source_type == compare_type:
         return None
     if source_type == FeatureType.TYPE_ALL_NAN or compare_type == FeatureType.TYPE_ALL_NAN:
@@ -377,7 +422,8 @@ def detect_type_mismatch(source_type, compare_type):
     return item
 
 
-def aggregate_feature_drift(all_drift_items, feature_type, type_mismatch=None):
+def aggregate_feature_drift(all_drift_items, feature_type, type_mismatch=None,
+                          source_dtype=None, compare_dtype=None):
     cfg = get_config()
     result = {
         "has_drift": False,
@@ -393,9 +439,13 @@ def aggregate_feature_drift(all_drift_items, feature_type, type_mismatch=None):
         "type_mismatch": type_mismatch is not None,
     }
     if type_mismatch is not None:
-        src_type, cmp_type = type_mismatch
-        result["source_type"] = get_feature_type_name(src_type)
-        result["compare_type"] = get_feature_type_name(cmp_type)
+        if source_dtype is not None and compare_dtype is not None:
+            result["source_type"] = _dtype_kind_name(source_dtype)
+            result["compare_type"] = _dtype_kind_name(compare_dtype)
+        else:
+            src_type, cmp_type = type_mismatch
+            result["source_type"] = get_feature_type_name(src_type)
+            result["compare_type"] = get_feature_type_name(cmp_type)
     if len(all_drift_items) == 0:
         return result
     total_score = 0.0
@@ -430,7 +480,8 @@ def compute_feature_drift(feature_type, source_type, compare_type,
                           source_base, compare_base,
                           source_stats=None, compare_stats=None,
                           source_counts=None, compare_counts=None,
-                          source_total=None, compare_total=None):
+                          source_total=None, compare_total=None,
+                          source_dtype=None, compare_dtype=None):
     cfg = get_config()
     empty_result = {
         "has_drift": False,
@@ -445,24 +496,33 @@ def compute_feature_drift(feature_type, source_type, compare_type,
         return empty_result
     type_mismatch_info = None
     all_items = []
-    type_mismatch_item = detect_type_mismatch(source_type, compare_type)
+    type_mismatch_item = detect_type_mismatch(source_type, compare_type,
+                                                 source_dtype, compare_dtype)
     if type_mismatch_item is not None:
-        type_mismatch_info = (source_type, compare_type)
+        if source_dtype is not None and compare_dtype is not None:
+            type_mismatch_info = ("dtype", "dtype")
+        else:
+            type_mismatch_info = (source_type, compare_type)
         all_items.append(type_mismatch_item)
     source_all_missing = _is_all_missing(source_base)
     compare_all_missing = _is_all_missing(compare_base)
     if source_all_missing and compare_all_missing:
         if type_mismatch_info is not None:
-            return aggregate_feature_drift(all_items, feature_type, type_mismatch_info)
+            return aggregate_feature_drift(all_items, feature_type, type_mismatch_info,
+                                         source_dtype, compare_dtype)
         return empty_result
     all_items.extend(detect_missing_rate_drift(source_base, compare_base))
     if not (source_all_missing or compare_all_missing):
         all_items.extend(detect_distinct_count_drift(source_base, compare_base))
+    source_is_numeric = _is_numeric_dtype(source_dtype)
+    compare_is_numeric = _is_numeric_dtype(compare_dtype)
+    both_numeric = source_is_numeric and compare_is_numeric
+    either_numeric = source_is_numeric or compare_is_numeric
     if type_mismatch_info is None:
-        if feature_type == FeatureType.TYPE_NUM and not (source_all_missing or compare_all_missing):
+        if both_numeric and not (source_all_missing or compare_all_missing):
             all_items.extend(detect_numeric_quantile_drift(source_stats, compare_stats))
-        if feature_type in (FeatureType.TYPE_CAT, FeatureType.TYPE_BOOL, FeatureType.TYPE_TEXT) \
-                and not (source_all_missing or compare_all_missing):
+        if (not either_numeric) and not (source_all_missing or compare_all_missing):
             all_items.extend(detect_category_top_drift(source_counts, compare_counts,
                                                        source_total, compare_total))
-    return aggregate_feature_drift(all_items, feature_type, type_mismatch_info)
+    return aggregate_feature_drift(all_items, feature_type, type_mismatch_info,
+                                 source_dtype, compare_dtype)

@@ -174,12 +174,34 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
         to_process.compare_target = saved_compare_target
         returned_feature_dict["compare"] = saved_compare_dict
 
+    source_is_numeric = False
+    compare_is_numeric = False
+    try:
+        source_is_numeric = pd.api.types.is_numeric_dtype(to_process.source.dtype) \
+                            and not pd.api.types.is_bool_dtype(to_process.source.dtype)
+        if to_process.compare is not None:
+            compare_is_numeric = pd.api.types.is_numeric_dtype(to_process.compare.dtype) \
+                                 and not pd.api.types.is_bool_dtype(to_process.compare.dtype)
+    except (TypeError, ValueError):
+        pass
+    if source_is_numeric and "mean" not in returned_feature_dict.get("stats", {}):
+        if "stats" not in returned_feature_dict:
+            returned_feature_dict["stats"] = dict()
+        sweetviz.series_analyzer_numeric.do_stats_numeric(to_process.source, returned_feature_dict)
+    if compare_is_numeric and compare_dict is not None and "mean" not in compare_dict.get("stats", {}):
+        if "stats" not in compare_dict:
+            compare_dict["stats"] = dict()
+        if to_process.compare is not None:
+            sweetviz.series_analyzer_numeric.do_stats_numeric(to_process.compare, compare_dict)
+
     # Perform drift detection if compare is present
     if compare_dict is not None:
         source_total = returned_feature_dict["base_stats"]["num_values"].number
         compare_total = compare_dict["base_stats"]["num_values"].number
         source_type = source_type
         compare_type_val = compare_dict.get("type", source_type)
+        source_dtype = to_process.source.dtype
+        compare_dtype = to_process.compare.dtype if to_process.compare is not None else None
         returned_feature_dict["drift"] = drift_detection.compute_feature_drift(
             feature_type=returned_feature_dict["type"],
             source_type=source_type,
@@ -191,7 +213,9 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
             source_counts=to_process.source_counts,
             compare_counts=to_process.compare_counts,
             source_total=source_total,
-            compare_total=compare_total
+            compare_total=compare_total,
+            source_dtype=source_dtype,
+            compare_dtype=compare_dtype
         )
     else:
         returned_feature_dict["drift"] = {
