@@ -405,3 +405,100 @@ def corrplot(correlation_dataframe, dataframe_report, size_scale=100, marker='s'
         dataframe_report = dataframe_report
     )
 
+
+class GraphAssocLegend(sweetviz.graph.Graph):
+    def __init__(self, which_graph: str):
+        styles = ["graph_base.mplstyle"]
+        self.set_style(styles)
+
+        legend_width = config["Graphs"].getfloat("legend_width")
+        legend_height = config["Graphs"].getfloat("legend_height")
+        fig = plt.figure(figsize=(legend_width, legend_height))
+        axs = fig.add_axes([0, 0, 1, 1])
+        axs.axis('off')
+        scale = axs.transAxes.transform((1, 1))
+        scale = [1.0 / x for x in scale]
+
+        def to_fractionsxy(x, y):
+            return (x * scale[0], y * scale[1])
+
+        cycle_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+        if which_graph == "all":
+            gfx_x = 10
+            gfx_y = 10
+            sq_size = np.array([10, 10])
+            mid_color = (0.85, 0.425, 0.425)
+            axs.add_patch(patches.Rectangle(
+                to_fractionsxy(gfx_x, gfx_y),
+                sq_size[0] * scale[0], sq_size[1] * scale[1],
+                facecolor=mid_color, antialiased=True))
+            text_x = gfx_x + sq_size[0] + 6
+            text_y = gfx_y + sq_size[1] / 2
+            plt.text(text_x * scale[0], text_y * scale[1],
+                     "Squares: categorical associations (uncertainty coeff. & correlation ratio) 0 to 1",
+                     fontsize=7, color=cycle_colors[0], va='center')
+
+            circle_x = gfx_x + sq_size[0] / 2
+            circle_y = gfx_y + 20 + sq_size[1] / 2
+            axs.add_patch(patches.Circle(
+                to_fractionsxy(circle_x, circle_y),
+                sq_size[1] / 2 * scale[0],
+                facecolor=mid_color, antialiased=True))
+            text_x = gfx_x + sq_size[0] + 6
+            text_y = circle_y
+            plt.text(text_x * scale[0], text_y * scale[1],
+                     "Circles: symmetrical numerical correlations (Pearson's) -1 to 1",
+                     fontsize=7, color=cycle_colors[0], va='center')
+
+        elif which_graph == "cat-cat":
+            gfx_x = 10
+            gfx_y = 10
+            sq_size = np.array([10, 10])
+            mid_color = (0.85, 0.425, 0.425)
+            axs.add_patch(patches.Rectangle(
+                to_fractionsxy(gfx_x, gfx_y),
+                sq_size[0] * scale[0], sq_size[1] * scale[1],
+                facecolor=mid_color, antialiased=True))
+            text_x = gfx_x + sq_size[0] + 6
+            text_y = gfx_y + sq_size[1] / 2
+            plt.text(text_x * scale[0], text_y * scale[1],
+                     "Squares: categorical-categorical, uncertainty coefficient (Theil's U) 0 to 1, asymmetrical",
+                     fontsize=7, color=cycle_colors[0], va='center')
+
+        elif which_graph == "num-num":
+            gfx_x = 10
+            gfx_y = 10
+            sq_size = np.array([10, 10])
+            mid_color = (0.85, 0.425, 0.425)
+            circle_x = gfx_x + sq_size[0] / 2
+            circle_y = gfx_y + sq_size[1] / 2
+            axs.add_patch(patches.Circle(
+                to_fractionsxy(circle_x, circle_y),
+                sq_size[1] / 2 * scale[0],
+                facecolor=mid_color, antialiased=True))
+            text_x = gfx_x + sq_size[0] + 6
+            text_y = circle_y
+            plt.text(text_x * scale[0], text_y * scale[1],
+                     "Circles: numerical-numerical, Pearson correlation coefficient -1 to 1, symmetrical",
+                     fontsize=7, color=cycle_colors[0], va='center')
+
+        elif which_graph == "cat-num":
+            gfx_x = 10
+            gfx_y = 10
+            sq_size = np.array([10, 10])
+            mid_color = (0.85, 0.425, 0.425)
+            axs.add_patch(patches.Rectangle(
+                to_fractionsxy(gfx_x, gfx_y),
+                sq_size[0] * scale[0], sq_size[1] * scale[1],
+                facecolor=mid_color, antialiased=True))
+            text_x = gfx_x + sq_size[0] + 6
+            text_y = gfx_y + sq_size[1] / 2
+            plt.text(text_x * scale[0], text_y * scale[1],
+                     "Squares: categorical-numerical, correlation ratio 0 to 1 (rows: cat, cols: num)",
+                     fontsize=7, color=cycle_colors[0], va='center')
+
+        self.graph_base64 = self.get_encoded_base64(fig)
+        plt.close('all')
+        return
+

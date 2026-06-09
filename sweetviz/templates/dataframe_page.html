@@ -53,6 +53,11 @@
                 span.association-graph-compare-{{ which_graph }}::before { content: url(data:image/png;base64,{{ dataframe._association_graphs_compare[which_graph].graph_base64.decode('ascii') }});}
             {% endfor %}
         {% endif %}
+        {% if dataframe._associations is not none: %}
+            {% for which_graph in ['all', 'cat-cat', 'num-num', 'cat-num']: %}
+                span.association-legend-{{ which_graph }}::before { content: url(data:image/png;base64,{{ dataframe._association_legends[which_graph].graph_base64.decode('ascii') }});}
+            {% endfor %}
+        {% endif %}
         span.graph-legend { content: url(data:image/png;base64,{{ dataframe.graph_legend.graph_base64.decode('ascii') }});}
     </style>
 <script>

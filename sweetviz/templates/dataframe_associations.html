@@ -22,7 +22,9 @@
         <button type="button" class="button-assoc-type" data-which="{{ which }}" data-graph="cat-num" style="font-family: RobotoBoldCond; font-size: 11px; padding: 2px 8px;">Cat-Num</button>
     </div>
 
-    <div id="assoc-desc-{{ which }}" class="text-med" style="position: absolute; left: 37px; top: 92px; width: 800px; font-size: 11px; line-height: 11px;">
+    <span id="assoc-legend-span-{{ which }}" class="association-legend-all" style="position: absolute; left: 28px; top: 98px; z-index: 15;"></span>
+
+    <div id="assoc-desc-{{ which }}" class="text-med" style="position: absolute; left: 37px; top: 130px; width: 800px; font-size: 11px; line-height: 11px;">
         <div class="assoc-desc" data-graph="all" style="display: block;">
              &#9632; <b>Squares</b> are categorical associations (uncertainty coefficient &amp; correlation ratio) from 0 to 1. The uncertainty coefficient is <b>assymmetrical</b>,
             (i.e. ROW LABEL values indicate how much they PROVIDE INFORMATION to each LABEL at the TOP).
@@ -42,7 +44,7 @@
         </div>
     </div>
 
-    <span id="assoc-graph-span-{{ which }}" class="association-graph-{{ which }}-all pos-detail-assoc-graph"></span>
+    <span id="assoc-graph-span-{{ which }}" class="association-graph-{{ which }}-all" style="position: absolute; left: 28px; top: 200px;"></span>
 </div>
 </div>
 

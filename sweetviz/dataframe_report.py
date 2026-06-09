@@ -9,7 +9,7 @@ from sweetviz.sv_types import NumWithPercent, FeatureToProcess, FeatureType
 import sweetviz.from_dython as associations
 import sweetviz.series_analyzer as sa
 import sweetviz.utils as su
-from sweetviz.graph_associations import GraphAssoc
+from sweetviz.graph_associations import GraphAssoc, GraphAssocLegend
 from sweetviz.graph_associations import CORRELATION_ERROR
 from sweetviz.graph_associations import CORRELATION_IDENTICAL
 from sweetviz.graph_legend import GraphLegend
@@ -304,9 +304,11 @@ class DataframeReport:
             self.progress_bar.set_description_str("[Step 3/3] Generating associations graph")
             self.associations_html_source = True # Generated later in the process
             self.associations_html_compare = True # Generated later in the process
+            self._association_legends = dict()
             for which in ["all", "cat-cat", "num-num", "cat-num"]:
                 self._association_graphs[which] = GraphAssoc(self, which, self._associations)
                 self._association_graphs_compare[which] = GraphAssoc(self, which, self._associations_compare)
+                self._association_legends[which] = GraphAssocLegend(which)
             self.progress_bar.set_description_str("Done! Use 'show' commands to display/save. ")
             self.progress_bar.update(1)
         else:
