@@ -11,10 +11,6 @@ from sweetviz.sv_types import NumWithPercent, FeatureType
 
 SCHEMA_VERSION = "1.0"
 
-NUMERIC_STATS_GROUP_1 = ["max", "perc95", "perc75", "mean", "perc50", "perc25", "perc5", "min"]
-NUMERIC_STATS_GROUP_2 = ["range", "iqr", "std", "variance", "kurtosis", "skewness", "sum"]
-ALL_NUMERIC_STATS = NUMERIC_STATS_GROUP_1 + NUMERIC_STATS_GROUP_2
-
 
 def _serialize_value(value: Any) -> Any:
     if isinstance(value, NumWithPercent):
@@ -90,9 +86,8 @@ def _serialize_base_stats(feature_dict: Dict) -> Dict:
 def _serialize_numeric_stats(feature_dict: Dict) -> Dict:
     stats = feature_dict.get("stats", {})
     result = {}
-    for key in ALL_NUMERIC_STATS + ["cv"]:
-        if key in stats:
-            result[key] = _serialize_value(stats[key])
+    for key in stats.keys():
+        result[key] = _serialize_value(stats[key])
     return result
 
 
@@ -131,117 +126,16 @@ def _serialize_numeric_details(feature_dict: Dict) -> Dict:
     return result
 
 
-def _numwithpercent_to_primitives(nwp: NumWithPercent) -> Dict:
-    if nwp is None:
-        return {"number": None, "percentage": None}
-    return {
-        "number": _serialize_value(nwp.number),
-        "percentage": _serialize_value(nwp.perc)
-    }
-
-
-def _to_python_number(val):
-    if val is None:
+def serialize_feature_drift(drift_dict: Optional[Dict]) -> Optional[Dict]:
+    if drift_dict is None:
         return None
-    if isinstance(val, (np.integer,)):
-        return int(val)
-    if isinstance(val, (np.floating,)):
-        if math.isnan(val) or math.isinf(val):
-            return None
-        return float(val)
-    if isinstance(val, (np.bool_,)):
-        return bool(val)
-    if isinstance(val, (int, float, bool)):
-        if isinstance(val, float) and (math.isnan(val) or math.isinf(val)):
-            return None
-        return val
-    return None
+    return _serialize_value(drift_dict)
 
 
-def _safe_diff_pct(compare_val, source_val):
-    s = _to_python_number(source_val)
-    c = _to_python_number(compare_val)
-    if s is None or c is None:
+def serialize_report_drift_summary(drift_summary: Optional[Dict]) -> Optional[Dict]:
+    if drift_summary is None:
         return None
-    if s == 0:
-        return None
-    return _serialize_value(((c - s) / abs(s)) * 100.0)
-
-
-def _safe_diff(compare_val, source_val):
-    s = _to_python_number(source_val)
-    c = _to_python_number(compare_val)
-    if s is None or c is None:
-        return None
-    return _serialize_value(c - s)
-
-
-def _compute_nwp_drift(source_nwp: NumWithPercent, compare_nwp: NumWithPercent) -> Dict:
-    s = _numwithpercent_to_primitives(source_nwp)
-    c = _numwithpercent_to_primitives(compare_nwp)
-    return {
-        "source": s,
-        "compare": c,
-        "diff_count": _safe_diff(c["number"], s["number"]),
-        "diff_pct_points": _safe_diff(c["percentage"], s["percentage"])
-    }
-
-
-def _compute_numeric_drift(source_stats: Dict, compare_stats: Dict) -> Dict:
-    drift = {}
-    for stat_key in ALL_NUMERIC_STATS:
-        if stat_key in source_stats and stat_key in compare_stats:
-            s_val = source_stats[stat_key]
-            c_val = compare_stats[stat_key]
-            drift[stat_key] = {
-                "source": _serialize_value(s_val),
-                "compare": _serialize_value(c_val),
-                "diff": _safe_diff(c_val, s_val),
-                "diff_pct": _safe_diff_pct(c_val, s_val)
-            }
-    return drift
-
-
-def compute_drift_summary(source_dict: Dict, compare_dict: Dict) -> Dict:
-    drift_summary = {"base": {}}
-
-    source_base = source_dict.get("base_stats", {})
-    compare_base = compare_dict.get("base_stats", {})
-
-    for stat_name in ["num_values", "num_missing", "num_distinct"]:
-        drift_summary["base"][stat_name] = _compute_nwp_drift(
-            source_base.get(stat_name), compare_base.get(stat_name)
-        )
-
-    feature_type = source_dict.get("type")
-    if feature_type == FeatureType.TYPE_NUM:
-        drift_summary["base"]["num_zeroes"] = _compute_nwp_drift(
-            source_base.get("num_zeroes"), compare_base.get("num_zeroes")
-        )
-        drift_summary["numeric_stats"] = _compute_numeric_drift(
-            source_dict.get("stats", {}), compare_dict.get("stats", {})
-        )
-    elif feature_type in (FeatureType.TYPE_CAT, FeatureType.TYPE_BOOL, FeatureType.TYPE_TEXT):
-        drift_summary["category_shifts"] = []
-        source_detail = source_dict.get("detail", {}).get("full_count", [])
-        for item in source_detail:
-            if item.get("is_total"):
-                continue
-            s_cnt = item.get("count")
-            c_cnt = item.get("count_compare")
-            s_num = s_cnt.number if s_cnt is not None else None
-            c_num = c_cnt.number if c_cnt is not None else None
-            s_perc = s_cnt.perc if s_cnt is not None else None
-            c_perc = c_cnt.perc if c_cnt is not None else None
-            drift_summary["category_shifts"].append({
-                "name": item.get("name"),
-                "source": _numwithpercent_to_primitives(s_cnt),
-                "compare": _numwithpercent_to_primitives(c_cnt),
-                "diff_count": _safe_diff(c_num, s_num),
-                "diff_pct_points": _safe_diff(c_perc, s_perc)
-            })
-
-    return drift_summary
+    return _serialize_value(drift_summary)
 
 
 def serialize_feature(feature_dict: Dict) -> Dict:
@@ -270,7 +164,10 @@ def serialize_feature(feature_dict: Dict) -> Dict:
         compare_type = compare.get("type")
         if compare_type == FeatureType.TYPE_NUM:
             result["compare"]["stats"] = _serialize_numeric_stats(compare)
-        result["drift_summary"] = compute_drift_summary(feature_dict, compare)
+
+        drift = feature_dict.get("drift")
+        if drift is not None:
+            result["drift"] = serialize_feature_drift(drift)
 
     return result
 

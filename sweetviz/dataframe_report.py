@@ -19,6 +19,7 @@ import sweetviz.comet_ml_logger as comet_ml_logger
 import sweetviz.sv_html as sv_html
 from sweetviz.feature_config import FeatureConfig
 from sweetviz import serialize as sv_serialize
+from sweetviz import drift as sv_drift
 import webbrowser
 from sweetviz.config import config
 
@@ -51,6 +52,7 @@ class DataframeReport:
         self._target = None
         self.test_mode = False
         self.corr_warning = list()
+        self.drift_summary = None
         if fc is None:
             fc = FeatureConfig()
 
@@ -315,6 +317,21 @@ class DataframeReport:
             self._associations_compare = None
             self.associations_html_source = None
             self.associations_html_compare = None
+
+        if compare is not None:
+            if self._target is not None and "compare" in self._target:
+                self._target["drift"] = sv_drift.compute_feature_drift(
+                    self._target, self._target["compare"]
+                )
+            for feat_name, feat_dict in self._features.items():
+                if "compare" in feat_dict and feat_dict["compare"] is not None:
+                    feat_dict["drift"] = sv_drift.compute_feature_drift(
+                        feat_dict, feat_dict["compare"]
+                    )
+            self.drift_summary = sv_drift.compute_report_drift(
+                self._features, self._target
+            )
+
         self.progress_bar.close()
         return
 
@@ -691,6 +708,9 @@ class DataframeReport:
         result["associations"] = sv_serialize.serialize_associations(self._associations)
         if self._associations_compare:
             result["associations_compare"] = sv_serialize.serialize_associations(self._associations_compare)
+
+        if self.drift_summary is not None:
+            result["drift_summary"] = sv_serialize.serialize_report_drift_summary(self.drift_summary)
 
         return result
 
