@@ -23,6 +23,43 @@ def escape_for_html(value, max_len=None):
     return Markup(text)
 
 
+def escape_for_attr(value):
+    if value is None:
+        return ""
+    text = str(value)
+    return Markup(html_module.escape(text, quote=True))
+
+
+def escape_for_js_string(value):
+    if value is None:
+        return ""
+    text = str(value)
+    text = text.replace("\\", "\\\\")
+    text = text.replace("'", "\\'")
+    text = text.replace('"', '\\"')
+    text = text.replace("\n", "\\n")
+    text = text.replace("\r", "\\r")
+    text = text.replace("\t", "\\t")
+    text = text.replace("<", "\\x3c")
+    text = text.replace(">", "\\x3e")
+    text = text.replace("&", "\\x26")
+    text = text.replace("\u2028", "\\u2028")
+    text = text.replace("\u2029", "\\u2029")
+    return text
+
+
+def escape_for_css_string(value):
+    if value is None:
+        return ""
+    text = str(value)
+    text = text.replace("\\", "\\\\")
+    text = text.replace("'", "\\'")
+    text = text.replace('"', '\\"')
+    text = text.replace("\n", "\\A ")
+    text = text.replace("\r", "")
+    return text
+
+
 def _wrap_custom_graph_label(source_text, separator_chars, width, keep_separators=True):
     current_length = 0
     latest_separator = -1
@@ -68,6 +105,18 @@ class DisplayValue:
     @property
     def html_text(self):
         return escape_for_html(self.raw)
+
+    @property
+    def attr_text(self):
+        return escape_for_attr(self.raw)
+
+    @property
+    def js_string(self):
+        return escape_for_js_string(self.raw)
+
+    @property
+    def css_string(self):
+        return escape_for_css_string(self.raw)
 
     @property
     def display_key(self):

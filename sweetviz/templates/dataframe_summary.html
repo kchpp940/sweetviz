@@ -1,9 +1,9 @@
 <div class="container-feature-summary" id="summary-df" data-detail-div="detail-df" data-display-key="dataframe_summary">
     <div class="pos-dataframe-summary text-label">
         <span class="top-header"></span>
-        <div class="pos-dataframe-summary-title-source text-dataframe-title color-source">{{ dataframe.summary_source.name|as_display }}</div>
+        <div class="pos-dataframe-summary-title-source text-dataframe-title color-source">{{ (dataframe.summary_source.name|as_display).html_text }}</div>
         {% if dataframe.summary_compare is not none: %}
-            <div class="pos-dataframe-summary-title-compare text-dataframe-title color-compare">{{ dataframe.summary_compare.name|as_display }}</div>
+            <div class="pos-dataframe-summary-title-compare text-dataframe-title color-compare">{{ (dataframe.summary_compare.name|as_display).html_text }}</div>
         {% else %}
             <div class="pos-dataframe-summary-title-compare-none text-dataframe-title-small color-title-disabled">NO COMPARISON TARGET</div>
         {% endif %}

@@ -8,7 +8,7 @@
         <span class="bg-tab-detail-med"></span>
         <div class="pos-detail-tab-icon-text__offset">
             <div class="pos-tab-image ic-numeric"></div>
-            <span class="text-title-tab">{{ feature_dict.name|as_display }}</span>
+            <span class="text-title-tab">{{ (feature_dict.name|as_display).html_text }}</span>
         </div>
         {% include 'include_missing.html' %}
     {% endif %}
@@ -41,7 +41,7 @@
             <hr>
             {% for item in numerical %}
                 <div class="{{ 'assoc-row-target' if item[2] else 'assoc-row' }} {{ loop.cycle('', 'row-colored') }}" {{ 'style="font-weight: bold;"' if (item[1] > general.association_min_to_bold) or (item[1] < -general.association_min_to_bold) }}>
-                    <div class="pos-assoc-row__label text-label">{{ item[0]|as_display }}</div>
+                    <div class="pos-assoc-row__label text-label">{{ (item[0]|as_display).html_text }}</div>
                     <div class="pos-assoc-row__source text-label {{ "color-red" if item[1] < 0.0 else "color-source" }}">{{ item[1]|fmt_assoc }}</div>
                 </div>
             {% endfor %}
@@ -53,7 +53,7 @@
             <hr>
             {% for item in categorical %}
                 <div class="{{ 'assoc-row-target' if item[2] else 'assoc-row' }} {{ loop.cycle('', 'row-colored') }}" {{ 'style="font-weight: bold;"' if item[1] > general.association_min_to_bold }}>
-                    <div class="pos-assoc-row__label text-label">{{ item[0]|as_display }}</div>
+                    <div class="pos-assoc-row__label text-label">{{ (item[0]|as_display).html_text }}</div>
                     <div class="pos-assoc-row__source text-label color-source">{{ item[1]|fmt_assoc }}</div>
                 </div>
             {% endfor %}
@@ -68,7 +68,7 @@
             <hr>
             {% for item in feature_dict.detail.frequent_values[:layout.num_detail_max_listed_values] %}
                 <div class="assoc-row {{ loop.cycle('', 'row-colored') }}">
-                    <div class="pos-num-detail-row__label text-label pos-detail-num-label">{{ item[0]|as_display }}</div>
+                    <div class="pos-num-detail-row__label text-label pos-detail-num-label">{{ (item[0]|as_display).html_text }}</div>
                     <div class="pos-detail-num-source-pair color-source text-value">
                         <div class="pos-detail-num-pair-pos__num dim">{{ item[1].number|fmt_int_limit }}</div>
                         <div class="pos-detail-num-pair-pos__perc">{{ item[1].perc|fmt_percent1d }}</div>
@@ -92,7 +92,7 @@
             <hr>
             {% for item in feature_dict.detail.min_values[:layout.num_detail_max_listed_values] %}
                 <div class="assoc-row {{ loop.cycle('', 'row-colored') }}">
-                    <div class="pos-num-detail-row__label text-label pos-detail-num-label">{{ item[0]|as_display }}</div>
+                    <div class="pos-num-detail-row__label text-label pos-detail-num-label">{{ (item[0]|as_display).html_text }}</div>
                     <div class="pos-detail-num-source-pair color-source text-value">
                         <div class="pos-detail-num-pair-pos__num dim">{{ item[1].number|fmt_int_limit }}</div>
                         <div class="pos-detail-num-pair-pos__perc">{{ item[1].perc|fmt_percent1d }}</div>
@@ -116,7 +116,7 @@
             <hr>
             {% for item in feature_dict.detail.max_values[:layout.num_detail_max_listed_values] %}
                 <div class="assoc-row {{ loop.cycle('', 'row-colored') }}">
-                    <div class="pos-num-detail-row__label text-label pos-detail-num-label">{{ item[0]|as_display }}</div>
+                    <div class="pos-num-detail-row__label text-label pos-detail-num-label">{{ (item[0]|as_display).html_text }}</div>
                     <div class="pos-detail-num-source-pair color-source text-value">
                         <div class="pos-detail-num-pair-pos__num dim">{{ item[1].number|fmt_int_limit }}</div>
                         <div class="pos-detail-num-pair-pos__perc">{{ item[1].perc|fmt_percent1d }}</div>

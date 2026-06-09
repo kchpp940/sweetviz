@@ -8,7 +8,7 @@
         <span class="bg-tab-detail-wide" style="left: 12px"></span>
         <div class="pos-detail-tab-icon-text__offset">
             <div class="pos-tab-image ic-text"></div>
-            <span class="text-title-tab">{{ feature_dict.name|as_display }}</span>
+            <span class="text-title-tab">{{ (feature_dict.name|as_display).html_text }}</span>
         </div>
         {% include 'include_missing.html' %}
     {% endif %}
@@ -32,7 +32,7 @@
                 </div>
             {% endif %}
             <div class="summary-text color-normal" style="left: {{ cols.text }}px; width: {{ cols.text_width }}px;">
-                {{ rowdata.name|as_display }}
+                {{ (rowdata.name|as_display).html_text }}
             </div>
         </div>
         {% endfor %}

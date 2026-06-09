@@ -11,7 +11,7 @@
         {{ feature_dict.order_index + 1}}
     </div>
     <div class="pos-tab-image ic-text"></div>
-    <span class="text-title-tab color-normal">{{ feature_dict.name|as_display }}</span>
+    <span class="text-title-tab color-normal">{{ (feature_dict.name|as_display).html_text }}</span>
     {% include 'feature_summary_base_stats.html' %}
 
     <div class="pos-summary-text">
@@ -33,7 +33,7 @@
                 </div>
             {% endif %}
             <div class="summary-text color-normal" style="left: {{ cols.text }}px; width: {{ cols.text_width }}px;">
-                {{ rowdata.name|as_display }}
+                {{ (rowdata.name|as_display).html_text }}
             </div>
         </div>
         {% endfor %}

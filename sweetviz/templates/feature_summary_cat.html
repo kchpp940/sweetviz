@@ -11,7 +11,7 @@
         {{ feature_dict.order_index + 1}}
     </div>
     <div class="pos-tab-image ic-cat"></div>
-    <span class="text-title-tab color-normal ">{{ feature_dict.name|as_display }}</span>
+    <span class="text-title-tab color-normal ">{{ (feature_dict.name|as_display).html_text }}</span>
     {% include 'feature_summary_base_stats.html' %}
     <span class="minigraph-f{{ feature_dict.order_index }} pos-minigraph-cat"></span>
 </div>
