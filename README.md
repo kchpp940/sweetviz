@@ -1,5 +1,9 @@
 ![version](https://img.shields.io/badge/2.3.2-blue.svg?label=version) ![updated](https://img.shields.io/badge/April%204%2C%202026-green.svg?label=updated)
 
+### !!! June 2026 UPDATE !!! -  Version 2.4.0: Feature aliases & groups
+
+New in 2.4.0: **display aliases** and **feature groups** via `FeatureConfig`. You can now set human-readable display names for each column and organize features into business groups in the summary area. See below for full docs and examples.
+
 ### !!! April 2026 UPDATE !!! -  Version 2.3.2: Long-standing issues fixed
 
 ---
@@ -122,6 +126,82 @@ Support for this is built in through the `compare_intra()` function. This functi
 ```
 my_report = sv.compare_intra(my_dataframe, my_dataframe["Sex"] == "male", ["Male", "Female"], "Survived", feature_config)
 ```
+#### Full example: aliases + groups + target + compare
+Here is a complete real-world example combining aliases, groups, a target feature, and a compare report, then outputting to both HTML and a Jupyter notebook:
+
+```python
+import pandas as pd
+import sweetviz as sv
+
+# Load data
+train_df = pd.read_csv("train.csv")   # e.g. Titanic with cols: PassengerId, Survived, Pclass, Sex, Age, Fare, ...
+test_df  = pd.read_csv("test.csv")
+
+# Build FeatureConfig:
+#   - skip PassengerId from analysis
+#   - force Pclass to be treated as categorical (not numeric)
+#   - set Chinese display aliases for every column
+#   - organize features into logical business groups
+cfg = sv.FeatureConfig(
+    skip=["PassengerId"],
+    force_cat=["Pclass"],
+    alias={
+        "Survived": "是否生还",
+        "Pclass":   "舱位等级",
+        "Sex":      "性别",
+        "Age":      "年龄",
+        "SibSp":    "同乘兄弟姐妹/配偶数",
+        "Parch":    "同乘父母/子女人数",
+        "Fare":     "票价",
+        "Embarked": "登船港口"
+    },
+    groups={
+        "基本信息": ["Sex", "Age"],
+        "出行属性": ["Pclass", "Fare", "Embarked"],
+        "家庭关系": ["SibSp", "Parch"]
+    }
+)
+
+# 1) Compare training vs test data sets, targeting "Survived"
+#    NOTE: target_feat uses the ORIGINAL column name "Survived", not the alias!
+report = sv.compare(
+    [train_df, "训练集"],
+    [test_df,  "测试集"],
+    target_feat="Survived",   # ← original column name, ALWAYS
+    feat_cfg=cfg,
+    pairwise_analysis="on"
+)
+
+# 2a) Output as a standalone widescreen HTML file
+report.show_html(
+    filepath="titanic_report.html",
+    open_browser=False,
+    layout="widescreen",
+    scale=1.0
+)
+
+# 2b) Or embed directly inside a Jupyter/Colab notebook
+report.show_notebook(
+    w="100%",
+    h="Full",
+    layout="vertical",
+    scale=0.9,
+    filepath="titanic_notebook_report.html"   # optional: also save to file
+)
+```
+
+Every alias you set will appear in:
+- Feature titles in the summary panels
+- Detail page headings and association row labels
+- Association heatmap X/Y tick labels
+- Compare report columns and notebook iframe
+
+Meanwhile, **all of the following still use the original column names**:
+- `skip=["PassengerId"]`, `force_cat=["Pclass"]`
+- `target_feat="Survived"`
+- Column matching between `train_df` and `test_df` in `sv.compare()`
+- Internal statistical calculations, correlation matrices and missing-value counts
+
 ## Step 2: Show the report
 Once you have created your report object (e.g. `my_report` in the examples above), simply pass it into one of the two `show' functions:
 
