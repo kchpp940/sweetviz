@@ -131,21 +131,27 @@ show_html(  filepath='SWEETVIZ_REPORT.html',
             open_browser=True, 
             layout='widescreen', 
             scale=None,
-            export_json=None)
+            export_json=None,
+            export_json_path=None)
 ```            
 **show_html(...)** will create and save an HTML report at the given file path. There are options for:
 - **layout**: Either `'widescreen'` or `'vertical'`. The widescreen layout displays details on the right side of the screen, as the mouse goes over each feature. The new (as of 2.0) vertical layout is more compact horizontally and enables expanding each detail area upon clicking.
 - **scale**: Use a floating-point number (e.g. `scale = 0.8` or `None`) to scale the entire report. This is very useful to fit reports to any output.
 - **open_browser**: Enables the automatic opening of a web browser to show the report. Since under some circumstances this is not desired (or causes issues with some IDE's), you can disable it here.
 - **export_json**: When set to `True`, also exports a JSON metadata file alongside the HTML report. When `None` (default), follows the config file setting. When `False`, explicitly disables JSON export even if configured in the INI file.
+- **export_json_path**: An optional explicit file path for the JSON metadata file. If not provided, defaults to the same directory/base name as the HTML file with `.json` extension.
 
 ### JSON Metadata Export
 Sweetviz can also export structured report metadata as JSON, which is useful for programmatic analysis, CI pipelines, and further data processing. The JSON output contains:
 
+- **Top-level metadata**: `schema_version`, `generated_at` (ISO timestamp), `source_name`, `compare_name`
 - **Dataframe summaries**: row counts, column counts, memory usage, duplicates, type distributions
 - **Per-feature information**: field types, missing rates, unique value counts, top categories, numerical statistics (min/max/mean/std/quartiles/etc.)
 - **Associations/correlations**: pairwise association results between features
-- **Compare difference summaries**: when comparing datasets, includes differences in missing rates, distinct rates, and numerical statistics
+- **Drift summaries (compare mode)**: unified drift schema aligned with HTML display, covering:
+  - `base`: num_values, num_missing, num_distinct, num_zeroes (each with `source`, `compare`, `diff_count`, `diff_pct_points`)
+  - `numeric_stats`: all HTML-displayed stats (max, perc95, perc75, mean, perc50, perc25, perc5, min, range, iqr, std, variance, kurtosis, skewness, sum) each with `source`, `compare`, `diff`, `diff_pct`
+  - `category_shifts`: per-category count/percentage differences
 
 There are three ways to get JSON metadata:
 
@@ -154,6 +160,9 @@ There are three ways to get JSON metadata:
 my_report = sv.analyze(my_dataframe)
 my_report.show_html(export_json=True)
 # Generates: SWEETVIZ_REPORT.html + SWEETVIZ_REPORT.json
+
+# Or specify a custom JSON path
+my_report.show_html(export_json=True, export_json_path='/custom/path/metadata.json')
 ```
 
 #### 2. Direct JSON export
@@ -184,13 +193,23 @@ json_metadata_indent = 2
 #### JSON Structure Example
 ```json
 {
+  "metadata": {
+    "schema_version": "1.0",
+    "generated_at": "2026-06-09T12:00:00+00:00",
+    "source_name": "Train",
+    "compare_name": "Test"
+  },
   "source_summary": {
-    "name": "DataFrame",
-    "num_rows": 891,
+    "name": "Train",
+    "num_rows": 712,
     "num_columns": 12,
     "num_cat": 5,
     "num_numerical": 6,
     "memory_total": 77294
+  },
+  "compare_summary": {
+    "name": "Test",
+    "num_rows": 179
   },
   "features": {
     "Age": {
@@ -203,6 +222,28 @@ json_metadata_indent = 2
       "stats": {
         "min": 0.42, "max": 80.0, "mean": 29.70,
         "std": 14.53, "perc50": 28.0
+      },
+      "compare": {
+        "type": "NUMERIC",
+        "base_stats": { "missing_rate": 15.64 },
+        "stats": { "mean": 31.2 }
+      },
+      "drift_summary": {
+        "base": {
+          "num_values": {
+            "source": {"number": 572, "percentage": 80.34},
+            "compare": {"number": 151, "percentage": 84.36},
+            "diff_count": -421,
+            "diff_pct_points": 4.02
+          },
+          "num_missing": { "diff_pct_points": -4.22 }
+        },
+        "numeric_stats": {
+          "mean": {
+            "source": 29.70, "compare": 31.2,
+            "diff": 1.5, "diff_pct": 5.05
+          }
+        }
       }
     },
     "Sex": {
@@ -212,6 +253,21 @@ json_metadata_indent = 2
         "top_categories": [
           {"name": "male", "count": {"number": 577, "percentage": 64.76}},
           {"name": "female", "count": {"number": 314, "percentage": 35.24}}
+        ]
+      },
+      "drift_summary": {
+        "base": {
+          "num_values": { "diff_pct_points": 0.5 },
+          "num_missing": { "diff_pct_points": -1.2 }
+        },
+        "category_shifts": [
+          {
+            "name": "male",
+            "source": {"number": 468, "percentage": 65.73},
+            "compare": {"number": 109, "percentage": 60.89},
+            "diff_count": -359,
+            "diff_pct_points": -4.84
+          }
         ]
       }
     }
@@ -231,7 +287,8 @@ show_notebook(  w=None,
                 filepath=None,
                 file_layout=None,
                 file_scale=None,
-                export_json=None)
+                export_json=None,
+                export_json_path=None)
 ```            
 **show_notebook(...)** is new as of 2.0 and will embed an IFRAME element showing the report right inside a notebook (e.g. Jupyter, Google Colab, etc.). 
 
@@ -244,6 +301,7 @@ Note that since notebooks are generally a more constrained visual environment, i
 - **file_layout**: Layout for the OPTIONAL file output ONLY (same as `layout` for `show_html()`, above)
 - **file_scale**: Scale for the OPTIONAL file output ONLY (same as `scale` for `show_html()`, above)
 - **export_json**: When `filepath` is provided and this is set to `True`, also exports JSON metadata alongside the file. When `None` (default), follows the config file setting. When `False`, explicitly disables JSON export.
+- **export_json_path**: An optional explicit file path for the JSON metadata file (only used when `filepath` is also provided). If not provided, defaults to same name as HTML file with `.json` extension.
 # Customizing defaults: the Config file
 The package contains an INI file for configuration. You can override any setting by providing your own then calling this before creating a report:
 ```

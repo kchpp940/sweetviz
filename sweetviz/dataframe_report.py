@@ -538,7 +538,7 @@ class DataframeReport:
             self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
         self._page_html = sv_html.generate_html_dataframe_page(self)
 
-    def show_html(self, filepath='SWEETVIZ_REPORT.html', open_browser=True, layout='widescreen', scale=None, export_json=None):
+    def show_html(self, filepath='SWEETVIZ_REPORT.html', open_browser=True, layout='widescreen', scale=None, export_json=None, export_json_path=None):
         scale = float(self.use_config_if_none(scale, "html_scale"))
         layout = self.use_config_if_none(layout, "html_layout")
         if layout not in ['widescreen', 'vertical']:
@@ -571,8 +571,11 @@ class DataframeReport:
 
         if export_json is not False:
             if export_json is True or config["Output_Defaults"].getboolean("export_json_metadata"):
-                base, _ = os.path.splitext(filepath)
-                json_filepath = base + '.json'
+                if export_json_path is not None:
+                    json_filepath = export_json_path
+                else:
+                    base, _ = os.path.splitext(filepath)
+                    json_filepath = base + '.json'
                 self.export_json(json_filepath)
 
         # Auto-log to comet_ml if desired & present
@@ -582,7 +585,7 @@ class DataframeReport:
             self._comet_ml_logger.log_html(self._page_html)
             self._comet_ml_logger.end()
 
-    def show_notebook(self, w=None, h=None, scale=None, layout=None, filepath=None, file_layout=None, file_scale=None, export_json=None):
+    def show_notebook(self, w=None, h=None, scale=None, layout=None, filepath=None, file_layout=None, file_scale=None, export_json=None, export_json_path=None):
         w = self.use_config_if_none(w, "notebook_width")
         h = self.use_config_if_none(h, "notebook_height")
         scale = float(self.use_config_if_none(scale, "notebook_scale"))
@@ -643,8 +646,11 @@ class DataframeReport:
 
             if export_json is not False:
                 if export_json is True or config["Output_Defaults"].getboolean("export_json_metadata"):
-                    base, _ = os.path.splitext(filepath)
-                    json_filepath = base + '.json'
+                    if export_json_path is not None:
+                        json_filepath = export_json_path
+                    else:
+                        base, _ = os.path.splitext(filepath)
+                        json_filepath = base + '.json'
                     self.export_json(json_filepath)
 
         if len(self.corr_warning):
@@ -668,6 +674,7 @@ class DataframeReport:
 
     def to_dict(self) -> dict:
         result = {
+            "metadata": sv_serialize.build_report_metadata(self),
             "source_summary": sv_serialize.serialize_dataframe_summary(self.summary_source),
             "features": {},
         }
@@ -698,9 +705,3 @@ class DataframeReport:
             f.write(json_str)
         self.verbose_print(f"JSON metadata {filepath} was generated.")
         return filepath
-
-    def _auto_export_json_if_configured(self, html_filepath: str):
-        if config["Output_Defaults"].getboolean("export_json_metadata"):
-            base, _ = os.path.splitext(html_filepath)
-            json_filepath = base + '.json'
-            self.export_json(json_filepath)
