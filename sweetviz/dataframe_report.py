@@ -9,7 +9,7 @@ from sweetviz.sv_types import NumWithPercent, FeatureToProcess, FeatureType
 import sweetviz.from_dython as associations
 import sweetviz.series_analyzer as sa
 import sweetviz.utils as su
-from sweetviz.graph_associations import GraphAssoc, GraphAssocLegend
+from sweetviz.graph_associations import GraphAssoc
 from sweetviz.graph_associations import CORRELATION_ERROR
 from sweetviz.graph_associations import CORRELATION_IDENTICAL
 from sweetviz.graph_legend import GraphLegend
@@ -110,16 +110,21 @@ class DataframeReport:
         if target_feature_name in fc.skip:
             raise ValueError(f'"{target_feature_name}" was also specified as "skip". Target cannot be skipped.')
 
-        for key in fc.get_all_mentioned_features():
-            if key not in all_source_names:
-                raise ValueError(f'"{key}" was specified in "feature_config" but is not found in source dataframe (watch case-sensitivity?).')
+        for skipped in fc.skip:
+            if skipped not in all_source_names and skipped not in all_compare_names:
+                raise ValueError(f'"{skipped}" was marked as "skip" but is not in any provided dataframe (watch case-sensitivity?).')
+
+        force_mentioned = list()
+        force_mentioned.extend(fc.force_cat)
+        force_mentioned.extend(fc.force_text)
+        force_mentioned.extend(fc.force_num)
+        for key in force_mentioned:
+            if key not in all_source_names and key not in all_compare_names:
+                raise ValueError(f'"{key}" was specified in "feature_config" force_* but is not found in any provided dataframe (watch case-sensitivity?).')
 
         # Find Features and Target (FILTER SKIPPED)
         filtered_series_names_in_source = [cur_name for cur_name, cur_series in source_df.items()
                                            if cur_name not in fc.skip]
-        for skipped in fc.skip:
-            if skipped not in all_source_names and skipped not in all_compare_names:
-                raise ValueError(f'"{skipped}" was marked as "skip" but is not in any provided dataframe (watch case-sensitivity?).')
 
         # Progress bar setup
         ratio_progress_of_df_summary_vs_feature = 1.0
@@ -156,7 +161,14 @@ class DataframeReport:
             self.summarize_dataframe(compare_df, self.compare_name, self.summary_compare, fc.skip)
             cmp_not_in_src = \
                 [name for name in all_compare_names if name not in all_source_names]
+            cmp_not_in_src_skipped = [name for name in cmp_not_in_src if name in fc.skip]
+            cmp_not_in_src_others = [name for name in cmp_not_in_src if name not in fc.skip]
+            self.summary_compare["cmp_not_in_source"] = cmp_not_in_src
+            self.summary_compare["cmp_not_in_source_skipped"] = cmp_not_in_src_skipped
+            self.summary_compare["cmp_not_in_source_others"] = cmp_not_in_src_others
             self.summary_compare["num_cmp_not_in_source"] = len(cmp_not_in_src)
+            self.summary_compare["num_cmp_not_in_source_skipped"] = len(cmp_not_in_src_skipped)
+            self.summary_compare["num_cmp_not_in_source_others"] = len(cmp_not_in_src_others)
             # UPDATE 2021-02-05: Count the target has an actual feature!!! It is!!!
             # if target_feature_name:
             #     if target_feature_name in compare_df.columns:
@@ -304,11 +316,8 @@ class DataframeReport:
             self.progress_bar.set_description_str("[Step 3/3] Generating associations graph")
             self.associations_html_source = True # Generated later in the process
             self.associations_html_compare = True # Generated later in the process
-            self._association_legends = dict()
-            for which in ["all", "cat-cat", "num-num", "cat-num"]:
-                self._association_graphs[which] = GraphAssoc(self, which, self._associations)
-                self._association_graphs_compare[which] = GraphAssoc(self, which, self._associations_compare)
-                self._association_legends[which] = GraphAssocLegend(which)
+            self._association_graphs["all"] = GraphAssoc(self, "all", self._associations)
+            self._association_graphs_compare["all"] = GraphAssoc(self, "all", self._associations_compare)
             self.progress_bar.set_description_str("Done! Use 'show' commands to display/save. ")
             self.progress_bar.update(1)
         else:
@@ -385,7 +394,12 @@ class DataframeReport:
             target_dict["memory_single_row"] = 0
 
         target_dict["duplicates"] = NumWithPercent(sum(source.duplicated()), len(source))
-        target_dict["num_cmp_not_in_source"] = 0 # set later, as needed
+        target_dict["num_cmp_not_in_source"] = 0
+        target_dict["num_cmp_not_in_source_skipped"] = 0
+        target_dict["num_cmp_not_in_source_others"] = 0
+        target_dict["cmp_not_in_source"] = list()
+        target_dict["cmp_not_in_source_skipped"] = list()
+        target_dict["cmp_not_in_source_others"] = list()
 
     def summarize_category_types(self, this_df: pd.DataFrame, dest_dict: dict, skip: List[str], \
             source_target_dict):

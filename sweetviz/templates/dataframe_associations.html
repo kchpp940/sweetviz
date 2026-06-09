@@ -1,4 +1,4 @@
-<div class="isHidden container-feature-detail" id="df-assoc-{{ which }}"
+<div class="isHidden container-feature-detail" id="df-assoc-{{ which }}"Yellow
 {% if dataframe.page_layout == 'vertical': %}
     style="display: contents; "
 {% endif %}
@@ -10,42 +10,13 @@
 >
     <span class="bg-tab-detail-wide"></span>
     <span class="text-title-tab pos-text-title-tab__no-icon">Associations</span>
-
-    <span class="text-med  pos-detail-assoc-desc-text" style="font-size: 11px;">
+    <div class="text-med  pos-detail-assoc-desc-text" style="font-size: 11px;">
         <span class="color-{{ which }}">[Only including dataset "{{ dataframe.source_name if which == 'source' else dataframe.compare_name }}"]</span><br>
-    </span>
-
-    <div id="assoc-tabs-{{ which }}" style="position: absolute; left: 37px; top: 62px; z-index: 20;">
-        <button type="button" class="button-assoc-type button-assoc-type-selected" data-which="{{ which }}" data-graph="all" style="font-family: RobotoBoldCond; font-size: 11px; padding: 2px 8px;">All</button>
-        <button type="button" class="button-assoc-type" data-which="{{ which }}" data-graph="cat-cat" style="font-family: RobotoBoldCond; font-size: 11px; padding: 2px 8px;">Cat-Cat</button>
-        <button type="button" class="button-assoc-type" data-which="{{ which }}" data-graph="num-num" style="font-family: RobotoBoldCond; font-size: 11px; padding: 2px 8px;">Num-Num</button>
-        <button type="button" class="button-assoc-type" data-which="{{ which }}" data-graph="cat-num" style="font-family: RobotoBoldCond; font-size: 11px; padding: 2px 8px;">Cat-Num</button>
+         &#9632; <b>Squares</b> are categorical associations (uncertainty coefficient & correlation ratio) from 0 to 1. The uncertainty coefficient is <b>assymmetrical</b>,
+        (i.e. ROW LABEL values indicate how much they PROVIDE INFORMATION to each LABEL at the TOP).
+       <br><br>&#8226; <b>Circles</b> are the symmetrical numerical correlations (Pearson's) from -1 to 1. The <b>trivial diagonal</b> is intentionally left blank for clarity.
     </div>
-
-    <span id="assoc-legend-span-{{ which }}" class="association-legend-all" style="position: absolute; left: 28px; top: 98px; z-index: 15;"></span>
-
-    <div id="assoc-desc-{{ which }}" class="text-med" style="position: absolute; left: 37px; top: 130px; width: 800px; font-size: 11px; line-height: 11px;">
-        <div class="assoc-desc" data-graph="all" style="display: block;">
-             &#9632; <b>Squares</b> are categorical associations (uncertainty coefficient &amp; correlation ratio) from 0 to 1. The uncertainty coefficient is <b>assymmetrical</b>,
-            (i.e. ROW LABEL values indicate how much they PROVIDE INFORMATION to each LABEL at the TOP).
-           <br><br>&#8226; <b>Circles</b> are the symmetrical numerical correlations (Pearson's) from -1 to 1. The <b>trivial diagonal</b> is intentionally left blank for clarity.
-        </div>
-        <div class="assoc-desc" data-graph="cat-cat" style="display: none;">
-             &#9632; <b>Squares</b> show categorical-categorical associations using the <b>uncertainty coefficient</b> (Theil's U), ranging from 0 to 1.
-            <br>This measure is <b>assymmetrical</b>: ROW LABEL values indicate how much information the row feature PROVIDES about the column (TOP) feature.
-        </div>
-        <div class="assoc-desc" data-graph="num-num" style="display: none;">
-            &#8226; <b>Circles</b> show the <b>Pearson correlation coefficient</b> between numerical features, ranging from -1 (perfect negative) to 1 (perfect positive).
-            <br>This measure is <b>symmetrical</b>. The <b>trivial diagonal</b> (self-correlation = 1) is intentionally left blank for clarity.
-        </div>
-        <div class="assoc-desc" data-graph="cat-num" style="display: none;">
-            &#9632; <b>Squares</b> show categorical-numerical associations using the <b>correlation ratio</b>, ranging from 0 (no relationship) to 1 (perfect relationship).
-            <br><b>Rows</b> are categorical features, <b>Columns</b> are numerical features.
-        </div>
-    </div>
-
-    <span id="assoc-graph-span-{{ which }}" class="association-graph-{{ which }}-all" style="position: absolute; left: 28px; top: 200px;"></span>
+    <span class="association-graph-{{ which }} pos-detail-assoc-graph"></span>
 </div>
 </div>
-
 

@@ -235,29 +235,5 @@ $(".button-bin").click(function() {
     $("#"+which_id).attr('class', $(this).attr('data-new_class') + " pos-detail-num-graph");
 });
 
-// ASSOCIATION GRAPH TYPE SWITCHING
-$(".button-assoc-type").click(function() {
-    let which_dataset = $(this).data("which");
-    let which_graph = $(this).data("graph");
-    let tabs_root = "#assoc-tabs-" + which_dataset;
-    let desc_root = "#assoc-desc-" + which_dataset;
-    let graph_span = "#assoc-graph-span-" + which_dataset;
-    let legend_span = "#assoc-legend-span-" + which_dataset;
-
-    $(tabs_root + " .button-assoc-type").removeClass("button-assoc-type-selected");
-    $(this).addClass("button-assoc-type-selected");
-
-    $(desc_root + " .assoc-desc").hide();
-    $(desc_root + ' .assoc-desc[data-graph="' + which_graph + '"]').show();
-
-    $(graph_span).removeClass();
-    $(graph_span).addClass("association-graph-" + which_dataset + "-" + which_graph);
-    $(graph_span).css({"position": "absolute", "left": "28px", "top": "200px"});
-
-    $(legend_span).removeClass();
-    $(legend_span).addClass("association-legend-" + which_graph);
-    $(legend_span).css({"position": "absolute", "left": "28px", "top": "98px", "z-index": "15"});
-});
-
 
 }); // $(document).ready(...
