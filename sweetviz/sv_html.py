@@ -7,7 +7,6 @@ from sweetviz.config import config
 from sweetviz.sv_types import NumWithPercent, FeatureType, OTHERS_GROUPED
 from sweetviz.graph_associations import CORRELATION_ERROR
 from sweetviz.graph_associations import CORRELATION_IDENTICAL
-from sweetviz.utils import is_valid_finite
 from functools import cmp_to_key
 
 package_loader = PackageLoader("sweetviz", "templates")
@@ -123,7 +122,6 @@ def create_summary_numeric_group_data(feature_dict: dict, compare_dict: dict):
     group_2.append({'name':'IQR', 'value':stats["iqr"], 'compare_value':get_compare('iqr')})
     group_2.append({'name':'STD', 'value':stats["std"], 'compare_value':get_compare('std')})
     group_2.append({'name':'VAR', 'value':stats["variance"], 'compare_value':get_compare('variance')})
-    group_2.append({'name':'CV', 'value':stats.get("cv"), 'compare_value':compare_dict["stats"].get("cv") if (compare_dict is not None and compare_dict.get("stats")) else None})
     group_2.append({'name':'', 'value':"", 'compare_value':""})
     group_2.append({'name':'KURT.', 'value':stats["kurtosis"], 'compare_value':get_compare('kurtosis')})
     group_2.append({'name':'SKEW', 'value':stats["skewness"], 'compare_value':get_compare('skewness')})
@@ -136,8 +134,8 @@ def generate_html_summary_numeric(feature_dict: dict, compare_dict: dict):
 
     # Edge case fix for if there is only data in the compare
     if compare_dict is not None:
-        if not is_valid_finite(feature_dict["stats"]["range"]) and \
-             is_valid_finite(compare_dict["stats"]["range"]):
+        if np.isnan(feature_dict["stats"]["range"]) and \
+             np.isnan(compare_dict["stats"]["range"]) == False:
             feature_dict["stats"]["range"] = compare_dict["stats"]["range"]
 
     # NEW: Move numbers if there is not enough room

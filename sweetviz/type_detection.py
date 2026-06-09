@@ -5,6 +5,10 @@ from sweetviz.from_profiling_pandas import is_boolean, is_numeric, is_categorica
 
 def determine_feature_type(series: pd.Series, counts: dict,
         must_be_this_type: FeatureType, which_dataframe: str) -> object:
+    # Replace infinite values with NaNs to avoid issues with histograms
+    # TODO: INFINITE VALUE HANDLING/WARNING
+    # series.replace(to_replace=[np.inf, np.NINF, np.PINF], value=np.nan,
+    #                inplace=True)
     if counts["value_counts_without_nan"].index.inferred_type.startswith("mixed"):
         raise TypeError(f"\n\nColumn [{series.name}] has a 'mixed' inferred_type (as determined by Pandas).\n"
                         f"This is is not currently supported; column types should not contain mixed data.\n"

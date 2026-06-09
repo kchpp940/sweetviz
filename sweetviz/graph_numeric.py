@@ -42,6 +42,7 @@ class GraphNumeric(sweetviz.graph.Graph):
             self.index_for_css = split[1]
             self.num_bins = int(split[1])
             self.button_name = self.index_for_css
+            # 0 is "auto"
             if self.num_bins == 0:
                 self.num_bins = None
                 self.button_name = "Auto"
@@ -53,28 +54,28 @@ class GraphNumeric(sweetviz.graph.Graph):
         axs.xaxis.set_major_formatter(mtick.FuncFormatter(self.format_smart))
         axs.yaxis.set_major_formatter(mtick.PercentFormatter(xmax=1.0, decimals=0))
 
-        # Numeric series are pre-cleaned at analyze_feature_to_dictionary entry
-        # (inf/-inf replaced with nan); here we extract finite values for histogram plotting
-        source_all = to_process.source
+        # MAIN DATA ("Under" target)
+        # ---------------------------------------------
         saved_err_dict = np.geterr()
         np.seterr(all='raise')
-        finite_source = source_all[np.isfinite(source_all)]
-        if len(finite_source):
-            norm_source = np.full(len(finite_source), 1.0 / len(finite_source))
+        # WORKAROUND histogram warnings
+        cleaned_source = to_process.source[~np.isnan(to_process.source)]
+        if len(cleaned_source):
+            norm_source = np.full(len(cleaned_source), 1.0 / len(cleaned_source))
         else:
             norm_source = []
         if to_process.compare is not None:
-            compare_all = to_process.compare
-            finite_compare = compare_all[np.isfinite(compare_all)]
-            plot_data = (finite_source, finite_compare)
-            if len(finite_compare):
-                norm_compare = np.full(len(finite_compare), 1.0 / len(finite_compare))
+            # COMPARE
+            cleaned_compare = to_process.compare[~np.isnan(to_process.compare)]
+            plot_data = (cleaned_source, cleaned_compare)
+            if len(cleaned_compare):
+                norm_compare = np.full(len(cleaned_compare), 1.0 / len(cleaned_compare))
             else:
                 norm_compare = []
             normalizing_weights = (norm_source, norm_compare)
 
         else:
-            plot_data = finite_source
+            plot_data = cleaned_source
             normalizing_weights = norm_source
 
         gap_percent = config["Graphs"].getfloat("summary_graph_categorical_gap")
@@ -98,6 +99,7 @@ class GraphNumeric(sweetviz.graph.Graph):
 
         # Format x ticks
         x_ticks = plt.xticks()
+        # tick_range = max(x_ticks[0]) - min(x_ticks[0])
         new_labels = [
             sv_html_formatters.fmt_smart_range_tight(val, max(x_ticks[0]))
             for val in x_ticks[0]
@@ -108,16 +110,21 @@ class GraphNumeric(sweetviz.graph.Graph):
         # ---------------------------------------------
         if to_process.source_target is not None:
             if to_process.predetermined_type_target == FeatureType.TYPE_NUM:
+                # TARGET: IS NUMERIC
+                # Create a series where each item indicates its bin
+                # TODO: possible 1-off bug in counts from cut in lower bin
                 source_bins_series = pd.cut(
-                    source_all, bins=bin_limits, labels=False, right=False
+                    to_process.source, bins=bin_limits, labels=False, right=False
                 )
                 source_bins_series = source_bins_series.fillna(num_bins - 1)
+                # Create empty bin_averages, then fill in with values
                 bin_averages = [None] * num_bins
                 for b in range(0, num_bins):
                     bin_averages[b] = to_process.source_target[
                         source_bins_series == b
                     ].mean()
 
+                # TODO: verify number of bins
                 bin_offset_x = (bin_limits[1] - bin_limits[0]) / 2.0
                 ax2 = axs.twinx()
                 ax2.yaxis.set_major_formatter(mtick.FuncFormatter(self.format_smart))
@@ -132,8 +139,9 @@ class GraphNumeric(sweetviz.graph.Graph):
                     to_process.compare is not None
                     and to_process.compare_target is not None
                 ):
+                    # TARGET NUMERIC: with compare TARGET
                     compare_bins_series = pd.cut(
-                        compare_all, bins=bin_limits, labels=False, right=False
+                        to_process.compare, bins=bin_limits, labels=False, right=False
                     )
                     source_bins_series = source_bins_series.fillna(num_bins - 1)
                     bin_averages = [None] * num_bins
@@ -148,7 +156,8 @@ class GraphNumeric(sweetviz.graph.Graph):
                         color=sweetviz.graph.COLOR_TARGET_COMPARE,
                     )
             elif to_process.predetermined_type_target == FeatureType.TYPE_BOOL:
-                source_true = source_all[to_process.source_target == 1]
+                # TARGET: IS BOOL
+                source_true = to_process.source[to_process.source_target == 1]
                 source_bins_series = pd.cut(
                     source_true, bins=bin_limits, labels=False, right=False
                 )
@@ -156,7 +165,7 @@ class GraphNumeric(sweetviz.graph.Graph):
                 total_counts_source = (
                     bin_counts[0] if to_process.compare is not None else bin_counts
                 )
-                total_counts_source = total_counts_source * len(finite_source)
+                total_counts_source = total_counts_source * len(cleaned_source)
                 bin_true_counts_source = [None] * num_bins
                 for b in range(0, num_bins):
                     if total_counts_source[b] > 0:
@@ -166,8 +175,12 @@ class GraphNumeric(sweetviz.graph.Graph):
                         )
                     else:
                         bin_true_counts_source[b] = None
+                # TODO: verify number of bins
                 bin_offset_x = (bin_limits[1] - bin_limits[0]) / 2.0
+                # bin_offset_x = 0
 
+                # Share % axis
+                # ax2 = axs.twinx()
                 ax2 = axs
                 ax2.yaxis.set_major_formatter(
                     mtick.PercentFormatter(xmax=1.0, decimals=0)
@@ -183,13 +196,16 @@ class GraphNumeric(sweetviz.graph.Graph):
                     to_process.compare is not None
                     and to_process.compare_target is not None
                 ):
-                    compare_true = compare_all[to_process.compare_target == 1]
+                    # TARGET BOOL: with compare TARGET
+                    compare_true = to_process.compare[to_process.compare_target == 1]
 
+                    # Create a series where each item indicates its bin
+                    # TODO: possible 1-off bug in counts from cut in lower bin
                     compare_bins_series = pd.cut(
                         compare_true, bins=bin_limits, labels=False, right=False
                     )
                     source_bins_series = source_bins_series.fillna(num_bins - 1)
-                    total_counts_compare = bin_counts[1] * len(finite_compare)
+                    total_counts_compare = bin_counts[1] * len(cleaned_compare)
                     bin_true_counts_compare = [None] * num_bins
                     for b in range(0, num_bins):
                         if total_counts_compare[b] > 0:
@@ -208,6 +224,31 @@ class GraphNumeric(sweetviz.graph.Graph):
                     )
                 ax2.set_ylim([0, None])
 
+                # elif to_process.compare is not None:
+                #     # TARGET BOOL: only on source, but there's a compare
+                #     source_true = to_process.source[to_process.source_target == 1]
+                #     normalizing_weights = np.full(len(source_true),
+                #                                    1.0 / len(to_process.source))
+                #     b, x, patches = axs.hist(to_process.source[to_process.source_target == 1],
+                #              bins = bin_limits, color = ("k"), alpha = 0.8,
+                #              weights = normalizing_weights, rwidth = 0.4)
+                #
+                #     # Make positions of target patches match original patches
+                #     for target_patch, source_patch in zip(patches, self.hist_specs[2][0]):
+                #         target_patch.set_x(source_patch.get_x())
+                #
+                #         # Values
+                #         if is_detail:
+                #             axs.annotate(f'{int(source_patch.get_height())}', xy=(source_patch.get_x() +
+                #                                                                   source_patch.get_width() / 2, source_patch.get_height()),
+                #                     xytext=(0, 5), textcoords='offset points', ha='center', va='bottom')
+                # else:
+                #     # TARGET BOOL: with only a source
+                #     source_true = to_process.source[to_process.source_target == 1]
+                #     normalizing_weights = np.full(len(source_true),
+                #                                    1.0 / len(to_process.source))
+                #     axs.hist(source_true, bins = bin_limits,
+                #              color = 'k', alpha = 0.8, weights = normalizing_weights)
             else:
                 raise ValueError
 
@@ -221,5 +262,7 @@ class GraphNumeric(sweetviz.graph.Graph):
         self.apply_pixel_padding(f, needed_pixels_padding)
         self.graph_base64 = self.get_encoded_base64(f)
         plt.close("all")
+        # plt.close(f)
+        # print(matplotlib.rcParams)
         np.seterr(**saved_err_dict)
         return

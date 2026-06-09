@@ -85,11 +85,43 @@ def wrap_custom(source_text, separator_chars, width=70, keep_separators = True):
             char_index += 1
     return output
 
+def _build_association_matrix(row_features, col_features, association_data,
+                               symmetrical=False, pad_to_square=False):
+    n_rows = len(row_features)
+    n_cols = len(col_features)
+    final_row_labels = list(row_features)
+    final_col_labels = list(col_features)
+
+    if pad_to_square:
+        if n_cols > n_rows:
+            for i in range(n_rows, n_cols):
+                final_row_labels.append(str(i) + "RPAD")
+            n_rows = n_cols
+        elif n_rows > n_cols:
+            for i in range(n_cols, n_rows):
+                final_col_labels.append(str(i) + "PAD")
+            n_cols = n_rows
+
+    data = np.zeros((n_rows, n_cols), dtype=float)
+    graph_data = pd.DataFrame(data, columns=final_col_labels)
+
+    for i, feature in enumerate(row_features):
+        for j, associated_feature_name in enumerate(col_features):
+            associated_feature_val = association_data.get(feature, {}).get(associated_feature_name)
+            if associated_feature_val is not None:
+                graph_data.iat[i, j] = associated_feature_val
+                if symmetrical:
+                    graph_data.iat[j, i] = associated_feature_val
+
+    graph_data[UNIQUE_INDEX_NAME] = final_row_labels
+    graph_data.set_index(UNIQUE_INDEX_NAME, inplace=True)
+    return graph_data
+
+
 class GraphAssoc(sweetviz.graph.Graph):
     def __init__(self, dataframe_report, which_graph: str, association_data):
         self.set_style(["graph_base.mplstyle"])
 
-        # Set categories to use first (some may be unused but no need to optimize this)
         categoricals = [dataframe_report[feature]["name"] for feature in dataframe_report._features \
                         if dataframe_report[feature]["type"] in [FeatureType.TYPE_CAT,
                                                                  FeatureType.TYPE_BOOL]]
@@ -100,7 +132,6 @@ class GraphAssoc(sweetviz.graph.Graph):
                                                              FeatureType.TYPE_BOOL,
                                                              FeatureType.TYPE_NUM] and \
                         feature in association_data]
-        # Add target at beginning
         if dataframe_report._target is not None and dataframe_report._target["name"] in association_data:
             for list_of_features in [categoricals, nums, combined]:
                 list_of_features.insert(0, dataframe_report._target["name"])
@@ -111,97 +142,21 @@ class GraphAssoc(sweetviz.graph.Graph):
             plt.close(f)
             return
 
-        # Build graph_data dataframe with the information we need for the type of graph we want
         if which_graph == "all":
-            # ALL
-            graph_data = make_zero_square_dataframe(combined)
-
-            for feature in combined:
-                for associated_feature_name in combined:
-                    associated_feature_val = association_data[feature].get( \
-                        associated_feature_name)
-                    if associated_feature_val is not None:
-                        graph_data.at[combined.index(feature), associated_feature_name] = \
-                            associated_feature_val
-            # Workaround
-            graph_data[UNIQUE_INDEX_NAME] = combined
-            graph_data.set_index(UNIQUE_INDEX_NAME, inplace=True)
-            # matplotlib.use('tkagg')
-            # corrplot(graph_data)
-            # plt.show()
-
+            graph_data = _build_association_matrix(
+                combined, combined, association_data, symmetrical=False)
 
         elif which_graph == "cat-cat":
-            # CATEGORY-CATEGORY
-            # Associations: _associations[FEATURE][GIVES INFORMATION ABOUT THIS FEATURE]
-            graph_data = make_zero_square_dataframe(categoricals)
-
-            for feature in categoricals:
-                for associated_feature_name in categoricals:
-                    associated_feature_val = association_data[feature].get( \
-                        associated_feature_name)
-                    if associated_feature_val is not None:
-                        graph_data.at[categoricals.index(feature), associated_feature_name] = \
-                            associated_feature_val
-            # Workaround
-            graph_data['index'] = categoricals
-            graph_data.set_index('index', inplace=True)
+            graph_data = _build_association_matrix(
+                categoricals, categoricals, association_data, symmetrical=False)
 
         elif which_graph == "num-num":
-            # NUM-NUM
-            graph_data = make_zero_square_dataframe(nums)
-
-            for feature in nums:
-                for associated_feature_name in nums:
-                    associated_feature_val = association_data[feature].get( \
-                        associated_feature_name)
-                    if associated_feature_val is not None:
-                        # Make symmetrical, values in both
-                        graph_data.at[nums.index(feature), associated_feature_name] = \
-                            associated_feature_val
-                        graph_data.at[nums.index(associated_feature_name), feature] = \
-                            associated_feature_val
-            # Workaround
-            graph_data['index'] = nums
-            graph_data.set_index('index', inplace=True)
+            graph_data = _build_association_matrix(
+                nums, nums, association_data, symmetrical=True)
 
         elif which_graph == "cat-num":
-            # CAT-NUM
-
-            # RECTANGULAR: rows are categories. Still, make a square, with categories first
-            # (we will just not render the Unused rows/cols)
-            graph_data = pd.DataFrame()
-            # Add columns
-            empty_row_dict = dict()
-            for feature in nums:
-                graph_data[feature] = pd.Series()
-                empty_row_dict[feature] = 0.0
-            if len(nums) > len(categoricals):
-                for i in range(len(categoricals), len(nums)):
-                    graph_data[str(i)+"PAD"] = pd.Series()
-                    empty_row_dict[str(i)+"PAD"] = 0.0
-
-            # Add series
-            for categorical in categoricals:
-                graph_data = graph_data.append(pd.Series(empty_row_dict, name=categorical))
-            if len(categoricals) > len(nums):
-                for i in range(len(nums), len(categoricals)):
-                    graph_data = graph_data.append(pd.Series(empty_row_dict, name=str(i)+"RPAD"))
-
-            # MUST DROP INDEX GRRRR
-            orig_index = graph_data.index.values
-            graph_data.reset_index(drop=True, inplace=True)
-
-            for feature in categoricals:
-                for associated_feature_name in nums:
-                    associated_feature_val = association_data[feature].get( \
-                        associated_feature_name)
-                    if associated_feature_val is not None:
-                        graph_data.at[categoricals.index(feature), associated_feature_name] = \
-                            associated_feature_val
-            # Workaround
-            graph_data['index'] = orig_index
-            graph_data.set_index('index', inplace=True)
+            graph_data = _build_association_matrix(
+                categoricals, nums, association_data, symmetrical=False, pad_to_square=True)
 
         # Finalize Graph
         #plt.subplots_adjust(bottom=0.15, right=0.85, top=0.97, left=0.15)
@@ -209,23 +164,6 @@ class GraphAssoc(sweetviz.graph.Graph):
         self.graph_base64 = self.get_encoded_base64(f)
         plt.close(f)
         return
-
-
-def make_zero_square_dataframe(features):
-    new_dataframe = pd.DataFrame()
-    # Add columns
-    # empty_row_dict = dict()
-    for feature in features:
-        new_dataframe[feature] = pd.Series(dtype=float)
-        # empty_row_dict[feature] = 0.0
-    new_dataframe = new_dataframe.reindex(list(range(0, len(features)))).reset_index(drop=True).fillna(0.0)
-    # Add series
-    # for categorical in features:
-    #     # UPDATE: series.append is deprecated!
-    #     new_dataframe = new_dataframe.append(pd.Series(empty_row_dict, name=feature))
-    #     # new_dataframe = pd.concat([new_dataframe, pd.Series(empty_row_dict, name=feature)], axis=1, join='outer', ignore_index=False)
-    # MUST DROP INDEX GRRRR
-    return new_dataframe.reset_index(drop=True)
 
 def heatmap(y, x, figure_size, **kwargs):
     if 'color' in kwargs:

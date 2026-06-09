@@ -1,54 +1,6 @@
-import numpy as np
 import pandas as pd
 
 from sweetviz.sv_types import OTHERS_GROUPED
-
-
-def clean_numeric_series(series: pd.Series) -> pd.Series:
-    if not pd.api.types.is_numeric_dtype(series):
-        return series
-    return series.replace([np.inf, -np.inf], np.nan)
-
-
-def clean_numeric_with_diagnostics(series: pd.Series):
-    num_total = len(series)
-    diagnostics = {
-        "num_total": num_total,
-        "num_inf": 0,
-        "num_neg_inf": 0,
-        "num_nan": 0,
-        "num_nan_pure": 0,
-        "num_finite": 0,
-    }
-    if not pd.api.types.is_numeric_dtype(series):
-        num_nan = int(series.isna().sum())
-        diagnostics["num_nan"] = num_nan
-        diagnostics["num_nan_pure"] = num_nan
-        diagnostics["num_finite"] = num_total - num_nan
-        return series, diagnostics
-
-    num_inf = int((series == np.inf).sum())
-    num_neg_inf = int((series == -np.inf).sum())
-    cleaned = series.replace([np.inf, -np.inf], np.nan)
-    num_nan_total = int(cleaned.isna().sum())
-    num_nan_pure = num_nan_total - num_inf - num_neg_inf
-    diagnostics["num_inf"] = num_inf
-    diagnostics["num_neg_inf"] = num_neg_inf
-    diagnostics["num_nan"] = num_nan_total
-    diagnostics["num_nan_pure"] = num_nan_pure
-    diagnostics["num_finite"] = num_total - num_nan_total
-    return cleaned, diagnostics
-
-
-def is_valid_finite(value) -> bool:
-    if value is None:
-        return False
-    try:
-        if np.isnan(value) or np.isinf(value):
-            return False
-    except (TypeError, ValueError):
-        return False
-    return True
 
 
 def get_clamped_value_counts(value_counts: pd.Series, max_categories_incl_other: int) -> pd.Series:
