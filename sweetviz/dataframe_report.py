@@ -188,6 +188,17 @@ class DataframeReport:
             self.summary_compare["num_cmp_not_in_source_skipped"] = len(cmp_not_in_src_skipped)
             self.summary_compare["num_cmp_not_in_source_force_ignored"] = len(cmp_not_in_src_force_ignored)
             self.summary_compare["num_cmp_not_in_source_others"] = len(cmp_not_in_src_others)
+
+            src_not_in_cmp = \
+                [name for name in all_source_names if name not in all_compare_names]
+            src_not_in_cmp_skipped = [name for name in src_not_in_cmp if name in fc.skip]
+            src_not_in_cmp_analyzed = [name for name in src_not_in_cmp if name not in fc.skip]
+            self.summary_source["src_not_in_compare"] = src_not_in_cmp
+            self.summary_source["src_not_in_compare_skipped"] = src_not_in_cmp_skipped
+            self.summary_source["src_not_in_compare_analyzed"] = src_not_in_cmp_analyzed
+            self.summary_source["num_src_not_in_compare"] = len(src_not_in_cmp)
+            self.summary_source["num_src_not_in_compare_skipped"] = len(src_not_in_cmp_skipped)
+            self.summary_source["num_src_not_in_compare_analyzed"] = len(src_not_in_cmp_analyzed)
             # UPDATE 2021-02-05: Count the target has an actual feature!!! It is!!!
             # if target_feature_name:
             #     if target_feature_name in compare_df.columns:
@@ -421,6 +432,12 @@ class DataframeReport:
         target_dict["cmp_not_in_source_skipped"] = list()
         target_dict["cmp_not_in_source_force_ignored"] = list()
         target_dict["cmp_not_in_source_others"] = list()
+        target_dict["num_src_not_in_compare"] = 0
+        target_dict["num_src_not_in_compare_skipped"] = 0
+        target_dict["num_src_not_in_compare_analyzed"] = 0
+        target_dict["src_not_in_compare"] = list()
+        target_dict["src_not_in_compare_skipped"] = list()
+        target_dict["src_not_in_compare_analyzed"] = list()
 
     def summarize_category_types(self, this_df: pd.DataFrame, dest_dict: dict, skip: List[str], \
             source_target_dict):
