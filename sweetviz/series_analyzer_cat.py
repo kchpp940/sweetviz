@@ -19,8 +19,8 @@ def do_detail_categorical(to_process: FeatureToProcess, updated_dict: dict):
     if to_process.compare_counts is not None:
         num_values_compare = updated_dict["compare"]["base_stats"]["num_values"].number
 
-    # Use FULL value counts (no clamping) - we will do top-N + Other folding at render time
-    category_counts = to_process.source_counts["value_counts_without_nan"]
+    category_counts = utils.get_clamped_value_counts(to_process.source_counts["value_counts_without_nan"], \
+                                   config["Graphs"].getint("detail_graph_max_categories"))
 
     # Iterate through ALL VALUES and get stats
     total_num_compare = 0
@@ -38,7 +38,11 @@ def do_detail_categorical(to_process: FeatureToProcess, updated_dict: dict):
         if to_process.source_target is not None:
             # HAS TARGET
             # TODO: OPTIMIZE: CACHE FROM GRAPH?
-            this_value_target_only = to_process.source_target[to_process.source == row["name"]]
+            if row["name"] == OTHERS_GROUPED:
+                this_value_target_only = to_process.source_target[
+                    ~to_process.source.isin(category_counts.keys())]
+            else:
+                this_value_target_only = to_process.source_target[to_process.source == row["name"]]
 
             if to_process.predetermined_type_target == FeatureType.TYPE_BOOL:
                 # If value is only present in compared
@@ -67,7 +71,11 @@ def do_detail_categorical(to_process: FeatureToProcess, updated_dict: dict):
 
                 if to_process.compare_target is not None:
                     # TODO: OPTIMIZE: CACHE FROM GRAPH?
-                    this_value_target_only = to_process.compare_target[to_process.compare == row["name"]]
+                    if row["name"] == OTHERS_GROUPED:
+                        this_value_target_only = to_process.compare_target[
+                            ~to_process.compare.isin(category_counts.keys())]
+                    else:
+                        this_value_target_only = to_process.compare_target[to_process.compare == row["name"]]
                     # HAS COMPARE-TARGET
                     if to_process.predetermined_type_target == FeatureType.TYPE_BOOL:
                         if len(this_value_target_only) > 0:

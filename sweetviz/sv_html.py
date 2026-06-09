@@ -1,6 +1,5 @@
 import numpy as np
 import html
-import json
 from operator import itemgetter
 from jinja2 import Environment, PackageLoader
 import sweetviz.sv_html_formatters
@@ -25,6 +24,10 @@ jinja2_env.filters["fmt_RAM"] = sweetviz.sv_html_formatters.fmt_RAM
 jinja2_env.filters["fmt_smart_range"] = sweetviz.sv_html_formatters.fmt_smart_range
 jinja2_env.filters["fmt_div_icon_missing"] = sweetviz.sv_html_formatters.fmt_div_icon_missing
 jinja2_env.filters["fmt_div_color_override_missing"] = sweetviz.sv_html_formatters.fmt_div_color_override_missing
+jinja2_env.filters["fmt_drift_diff"] = sweetviz.sv_html_formatters.fmt_drift_diff
+jinja2_env.filters["fmt_drift_value"] = sweetviz.sv_html_formatters.fmt_drift_value
+jinja2_env.filters["fmt_severity_class"] = sweetviz.sv_html_formatters.fmt_severity_class
+jinja2_env.filters["fmt_drift_icon"] = sweetviz.sv_html_formatters.fmt_drift_icon
 jinja2_env.globals["hello"] = "Superduper"
 
 def load_layout_globals_from_config():
@@ -365,96 +368,7 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
             cur_x = cur_x + spacing
 
     max_rows = config["Detail_Stats"].getint("max_num_breakdown_categories")
-
-    full_count = feature_dict["detail"]["full_count"]
-    all_row = None
-    data_rows = []
-    for row in full_count:
-        if row.get("is_total"):
-            all_row = row
-        else:
-            data_rows.append(row)
-
-    needs_fold = len(data_rows) > max_rows
-
-    if not needs_fold:
-        folded_count = list(data_rows)
-        if all_row:
-            folded_count.append(all_row)
-    else:
-        top_rows = data_rows[:max_rows]
-        other_rows = data_rows[max_rows:]
-
-        num_values_total = feature_dict["base_stats"]["num_values"].number
-        other_count_total = sum(row["count"].number for row in other_rows)
-
-        other_row = dict()
-        other_row["name"] = OTHERS_GROUPED.strip()
-        other_row["count"] = NumWithPercent(other_count_total, num_values_total)
-        other_row["count_compare"] = None
-        other_row["target_stats"] = None
-        other_row["target_stats_compare"] = None
-        other_row["is_total"] = None
-
-        if compare_dict is not None:
-            num_values_compare_total = compare_dict["base_stats"]["num_values"].number
-            other_count_compare_total = sum(
-                (row["count_compare"].number if row.get("count_compare") else 0)
-                for row in other_rows
-            )
-            other_row["count_compare"] = NumWithPercent(other_count_compare_total, num_values_compare_total)
-
-        target_type = dataframe_report.get_target_type()
-        if target_type is not None:
-            if target_type == FeatureType.TYPE_BOOL:
-                total_true = 0
-                total_in_cat = 0
-                for row in other_rows:
-                    if row.get("target_stats") and row["target_stats"].number is not None:
-                        total_true += row["target_stats"].number
-                        total_in_cat += row["count"].number
-                if total_in_cat > 0:
-                    other_row["target_stats"] = NumWithPercent(total_true, total_in_cat)
-
-                if compare_dict is not None and dataframe_report._target is not None and "compare" in dataframe_report._target:
-                    total_true_compare = 0
-                    total_in_cat_compare = 0
-                    for row in other_rows:
-                        if row.get("target_stats_compare") and row["target_stats_compare"].number is not None:
-                            total_true_compare += row["target_stats_compare"].number
-                            if row.get("count_compare") and row["count_compare"].number is not None:
-                                total_in_cat_compare += row["count_compare"].number
-                    if total_in_cat_compare > 0:
-                        other_row["target_stats_compare"] = NumWithPercent(total_true_compare, total_in_cat_compare)
-
-            elif target_type == FeatureType.TYPE_NUM:
-                weighted_sum = 0.0
-                total_in_cat = 0
-                for row in other_rows:
-                    if row.get("target_stats") and row["target_stats"].number is not None:
-                        weighted_sum += row["target_stats"].number * row["count"].number
-                        total_in_cat += row["count"].number
-                if total_in_cat > 0:
-                    other_row["target_stats"] = NumWithPercent(weighted_sum / total_in_cat, 1.0)
-
-                if compare_dict is not None and dataframe_report._target is not None and "compare" in dataframe_report._target:
-                    weighted_sum_compare = 0.0
-                    total_in_cat_compare = 0
-                    for row in other_rows:
-                        if row.get("target_stats_compare") and row["target_stats_compare"].number is not None:
-                            if row.get("count_compare") and row["count_compare"].number is not None:
-                                weighted_sum_compare += row["target_stats_compare"].number * row["count_compare"].number
-                                total_in_cat_compare += row["count_compare"].number
-                    if total_in_cat_compare > 0:
-                        other_row["target_stats_compare"] = NumWithPercent(weighted_sum_compare / total_in_cat_compare, 1.0)
-
-        folded_count = list(top_rows)
-        folded_count.append(other_row)
-        if all_row:
-            folded_count.append(all_row)
-
-    feature_dict["detail"]["folded_count"] = folded_count
-    feature_dict["detail"]["needs_fold"] = needs_fold
+    feature_dict["detail"]["detail_count"] = feature_dict["detail"]["full_count"][:max_rows]
 
     # Set up ASSOCIATION data
     # ------------------------------------
@@ -495,58 +409,9 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
         influencing = None
         influenced = None
         corr_ratio = None
-
-    def _to_py(v):
-        if isinstance(v, (np.integer,)):
-            return int(v)
-        if isinstance(v, (np.floating,)):
-            return float(v)
-        if isinstance(v, np.ndarray):
-            return v.tolist()
-        return v
-
-    # Serialize full_count data for lazy expand
-    full_count_serializable = []
-    for row in feature_dict["detail"]["full_count"]:
-        r = dict()
-        r["name"] = row["name"]
-        r["is_total"] = row.get("is_total")
-        if row.get("count") is not None:
-            r["count"] = {"number": _to_py(row["count"].number), "perc": _to_py(row["count"].perc)}
-        else:
-            r["count"] = None
-        if row.get("count_compare") is not None:
-            r["count_compare"] = {"number": _to_py(row["count_compare"].number), "perc": _to_py(row["count_compare"].perc)}
-        else:
-            r["count_compare"] = None
-        if row.get("target_stats") is not None:
-            r["target_stats"] = {"number": _to_py(row["target_stats"].number), "perc": _to_py(row["target_stats"].perc)}
-        else:
-            r["target_stats"] = None
-        if row.get("target_stats_compare") is not None:
-            r["target_stats_compare"] = {"number": _to_py(row["target_stats_compare"].number), "perc": _to_py(row["target_stats_compare"].perc)}
-        else:
-            r["target_stats_compare"] = None
-        full_count_serializable.append(r)
-
-    full_count_json = json.dumps(full_count_serializable)
-
-    cols_serializable = {k: _to_py(v) for k, v in cols.items()}
-
-    layout_json = json.dumps({
-        "cols": cols_serializable,
-        "target_type": dataframe_report.get_target_type().value if dataframe_report.get_target_type() else None,
-        "has_compare": compare_dict is not None,
-        "has_compare_target": dataframe_report._target is not None and "compare" in dataframe_report._target,
-        "is_target_feature": feature_dict.get("is_target", False),
-        "max_range": _to_py(feature_dict["detail"].get("max_range", 0.0)),
-        "page_layout": dataframe_report.page_layout
-    })
-
     output = template.render(feature_dict = feature_dict, compare_dict = compare_dict, \
                              dataframe = dataframe_report, cols=cols, detail_layout=detail_layout,
-                             influencing=influencing, influenced=influenced, corr_ratio=corr_ratio,
-                             full_count_json=full_count_json, layout_json=layout_json)
+                             influencing=influencing, influenced=influenced, corr_ratio=corr_ratio)
     return output
 
 

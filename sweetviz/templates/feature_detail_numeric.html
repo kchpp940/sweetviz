@@ -13,6 +13,38 @@
         {% include 'include_missing.html' %}
     {% endif %}
 
+    {% if feature_dict.drift is defined and feature_dict.drift.has_drift %}
+        <div class="drift-detail-container">
+            <div class="drift-detail-title">
+                📊 分布漂移检测结果
+                <span class="drift-badge {{ 'drift-badge-high' if feature_dict.drift.max_severity == 'high' else 'drift-badge-medium' }}">
+                    {{ feature_dict.drift.max_severity|fmt_drift_icon }} {{ feature_dict.drift.drifts|length }} 项差异
+                </span>
+            </div>
+            <ul class="drift-detail-list">
+                {% for drift in feature_dict.drift.drifts %}
+                    <li class="drift-detail-item {{ drift.severity|fmt_severity_class }}">
+                        <span class="drift-detail-label">
+                            {{ drift.severity|fmt_drift_icon }} {{ drift.label }}
+                        </span>
+                        {% if drift.type == 'top_category_membership' %}
+                            <span class="drift-detail-values">
+                                仅Source: {{ drift.source_only|join(', ') if drift.source_only else '无' }} |
+                                仅Compare: {{ drift.compare_only|join(', ') if drift.compare_only else '无' }}
+                            </span>
+                        {% else %}
+                            <span class="drift-detail-values">
+                                Source: {{ drift.source|fmt_drift_value }}
+                                → Compare: {{ drift.compare|fmt_drift_value }}
+                                (差异: {{ drift.diff|fmt_drift_diff }})
+                            </span>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+
     <!-- BUTTONS -->
     <div class="pos-detail-num-buttons">
         {% for detail_graph in feature_dict.detail_graphs %}

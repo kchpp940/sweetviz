@@ -278,7 +278,106 @@ button
 	border:2px solid #ff0000;
 }
 .button-assoc-selected:focus {
-	border:2px solid #ff0000;
+    border:2px solid #ff0000;
     outline: none;
+}
+
+/* DRIFT STYLES */
+.drift-high {
+    color: #e74c3c;
+    font-weight: bold;
+}
+.drift-medium {
+    color: #f39c12;
+    font-weight: bold;
+}
+.drift-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 8px;
+    font-family: RobotoBoldCond;
+    font-size: 10px;
+    line-height: 14px;
+    vertical-align: middle;
+    margin-left: 4px;
+}
+.drift-badge-high {
+    background-color: #e74c3c;
+    color: #ffffff;
+}
+.drift-badge-medium {
+    background-color: #f39c12;
+    color: #ffffff;
+}
+.drift-summary-container {
+    position: absolute;
+    top: 110px;
+    left: 380px;
+    width: 563px;
+    max-height: 80px;
+    overflow-y: auto;
+}
+.drift-summary-title {
+    font-family: RobotoBoldCond;
+    font-size: 12px;
+    color: #58544f;
+    margin-bottom: 4px;
+}
+.drift-summary-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.drift-summary-item {
+    font-family: RobotoMed;
+    font-size: 10px;
+    line-height: 14px;
+    padding: 1px 4px;
+    cursor: pointer;
+}
+.drift-summary-item:hover {
+    background-color: #00000010;
+}
+.drift-feature-badge {
+    position: absolute;
+    left: 74px;
+    top: 44px;
+}
+.drift-detail-container {
+    position: absolute;
+    left: 45px;
+    top: 20px;
+    width: 550px;
+}
+.drift-detail-title {
+    font-family: RobotoBoldCond;
+    font-size: 14px;
+    color: #58544f;
+    margin-bottom: 6px;
+}
+.drift-detail-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.drift-detail-item {
+    font-family: RobotoMed;
+    font-size: 11px;
+    line-height: 16px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-bottom: 2px;
+}
+.drift-detail-item:hover {
+    background-color: #00000008;
+}
+.drift-detail-label {
+    display: inline-block;
+    width: 140px;
+}
+.drift-detail-values {
+    display: inline-block;
+    font-size: 10px;
+    color: #837d76;
 }
 

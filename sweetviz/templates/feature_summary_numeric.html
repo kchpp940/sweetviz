@@ -11,6 +11,13 @@
     </div>
     <div class="pos-tab-image ic-numeric"></div>
     <span class="text-title-tab color-normal">{{ feature_dict.name }}</span>
+    {% if feature_dict.drift is defined and feature_dict.drift.has_drift %}
+        <span class="drift-feature-badge">
+            <span class="drift-badge {{ 'drift-badge-high' if feature_dict.drift.max_severity == 'high' else 'drift-badge-medium' }}">
+                {{ feature_dict.drift.max_severity|fmt_drift_icon }} DRIFT ({{ feature_dict.drift.drifts|length }})
+            </span>
+        </span>
+    {% endif %}
 
     {% include 'feature_summary_base_stats.html' %}
 

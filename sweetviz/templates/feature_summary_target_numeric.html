@@ -7,6 +7,13 @@
     <span id="summary-target-bg" class="bg-tab-summary-target" style="z-index: {{ -20000 + (2*feature_dict.order_index) }}"></span>
     <span class="bg-tab-summary-rollover" id="rollover-f{{ feature_dict.order_index }}" style="z-index: {{ -19999 + (2*feature_dict.order_index) }}"></span>
     <span class="text-title-tab color-normal {{ "color-target-summary" if feature_dict.is_target }}">{{ feature_dict.name }}</span>
+    {% if feature_dict.drift is defined and feature_dict.drift.has_drift %}
+        <span class="drift-feature-badge">
+            <span class="drift-badge {{ 'drift-badge-high' if feature_dict.drift.max_severity == 'high' else 'drift-badge-medium' }}">
+                {{ feature_dict.drift.max_severity|fmt_drift_icon }} DRIFT ({{ feature_dict.drift.drifts|length }})
+            </span>
+        </span>
+    {% endif %}
     <div class="pos-tab-image ic-numeric-light"></div>
     <span class="minigraph-target pos-minigraph-numeric"></span>
 

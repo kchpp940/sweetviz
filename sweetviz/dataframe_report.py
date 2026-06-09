@@ -285,6 +285,9 @@ class DataframeReport:
         self.summarize_category_types(source_df, self.summary_source, fc.skip, self._target)
         if compare is not None:
             self.summarize_category_types(compare_df, self.summary_compare, fc.skip, self._target)
+            self.summarize_drift_features()
+        else:
+            self.drift_summary = None
         self.dataframe_summary_html = sv_html.generate_html_dataframe_summary(self)
 
         self.graph_legend = GraphLegend(self)
@@ -400,6 +403,46 @@ class DataframeReport:
                 dest_dict["num_numerical"] = dest_dict["num_numerical"] + 1
             elif source_target_dict["type"] == FeatureType.TYPE_CAT or source_target_dict["type"] == FeatureType.TYPE_BOOL:
                 dest_dict["num_cat"] = dest_dict["num_cat"] + 1
+        return
+
+    def summarize_drift_features(self):
+        drift_summary = dict()
+        drift_summary["features_with_drift"] = list()
+        drift_summary["high_severity"] = list()
+        drift_summary["medium_severity"] = list()
+        drift_summary["total_features"] = 0
+
+        all_features = list(self._features.values())
+        if self._target is not None:
+            all_features.append(self._target)
+
+        for feature in all_features:
+            drift_info = feature.get("drift")
+            if drift_info is None or not drift_info.get("has_drift"):
+                continue
+            drift_summary["total_features"] += 1
+            feature_drift = {
+                "name": feature["name"],
+                "type": feature["type"],
+                "drifts": drift_info["drifts"],
+                "max_severity": drift_info["max_severity"],
+                "order_index": feature.get("order_index", 0)
+            }
+            drift_summary["features_with_drift"].append(feature_drift)
+            has_high = any(d["severity"] == "high" for d in drift_info["drifts"])
+            feature_drift["max_severity"] = "high" if has_high else "medium"
+            if has_high:
+                drift_summary["high_severity"].append(feature_drift)
+            else:
+                drift_summary["medium_severity"].append(feature_drift)
+
+        drift_summary["features_with_drift"].sort(key=lambda x: (
+            0 if x["max_severity"] == "high" else 1,
+            -len(x["drifts"])
+        ))
+        drift_summary["high_severity_count"] = len(drift_summary["high_severity"])
+        drift_summary["medium_severity_count"] = len(drift_summary["medium_severity"])
+        self.drift_summary = drift_summary
         return
 
     def get_what_influences_me(self, feature_name: str) -> dict:
