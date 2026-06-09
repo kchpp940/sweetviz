@@ -4,6 +4,8 @@ import re
 import json
 import tempfile
 import unittest
+import subprocess
+import shutil
 
 import pandas as pd
 import numpy as np
@@ -239,11 +241,159 @@ class TestCatFoldStaticHtml(unittest.TestCase):
                          f"[{name}] Sum of compare category counts != ALL row")
 
 
+def _node_available():
+    """检查 Node.js 和 jsdom 是否可用"""
+    if not shutil.which('node'):
+        return False, 'node not in PATH'
+    try:
+        probe = subprocess.run(
+            ['node', '-e', "require('jsdom'); console.log('ok')"],
+            capture_output=True, text=True, timeout=10
+        )
+        if probe.returncode != 0 or probe.stdout.strip() != 'ok':
+            return False, f'jsdom not available: {probe.stderr.strip()}'
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
+
+def _run_jsdom_interactive(html_path, layout):
+    """调用 Node.js/jsdom 交互测试脚本，返回解析后的 JSON 结果"""
+    tests_dir = os.path.dirname(os.path.abspath(__file__))
+    script = os.path.join(tests_dir, 'test_cat_fold_interactive.js')
+    result = subprocess.run(
+        ['node', script, html_path, layout],
+        capture_output=True, text=True, timeout=30
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"jsdom test script failed (exit {result.returncode}):\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError as e:
+        raise RuntimeError(
+            f"Failed to parse jsdom output as JSON: {e}\n"
+            f"Raw output: {result.stdout[:2000]}"
+        )
+
+
+@unittest.skipUnless(*(lambda ok, msg: (ok, msg))(*_node_available()))
+class TestCatFoldInteractiveJsdom(unittest.TestCase):
+    """基于 jsdom 的交互回归测试：按钮展开/收起、状态重置、vertical 高度重算"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmpdir = tempfile.mkdtemp(prefix='sv_catfold_interactive_')
+
+        np.random.seed(42)
+        n = 2000
+        categories = [f"Category_{i:03d}" for i in range(50)]
+        probabilities = np.random.dirichlet(np.ones(50) * 0.5)
+
+        df = pd.DataFrame({
+            "high_card_cat": np.random.choice(categories, size=n, p=probabilities),
+            "numeric_col": np.random.randn(n),
+            "bool_target": np.random.choice([0, 1], size=n, p=[0.7, 0.3]),
+        })
+        df_compare = pd.DataFrame({
+            "high_card_cat": np.random.choice(categories, size=n, p=probabilities * 1.2 / (probabilities * 1.2).sum()),
+            "numeric_col": np.random.randn(n) + 0.5,
+            "bool_target": np.random.choice([0, 1], size=n, p=[0.6, 0.4]),
+        })
+
+        cls.wide_html = os.path.join(cls.tmpdir, 'wide_interactive.html')
+        report = sv.compare([df, "Source"], [df_compare, "Compare"], target_feat="bool_target")
+        report.show_html(cls.wide_html, open_browser=False, layout="widescreen")
+
+        cls.vert_html = os.path.join(cls.tmpdir, 'vertical_interactive.html')
+        report = sv.compare([df, "Source"], [df_compare, "Compare"], target_feat="bool_target")
+        report.show_html(cls.vert_html, open_browser=False, layout="vertical")
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmpdir, ignore_errors=True)
+
+    def _assert_all_steps(self, result_json):
+        failed = [s for s in result_json['steps'] if not s.get('ok')]
+        self.assertEqual(
+            failed, [],
+            f"Interactive steps failed for layout={result_json['layout']}:\n" +
+            "\n".join(f"  - {s['name']}: {json.dumps({k: v for k, v in s.items() if k != 'ok'}, ensure_ascii=False)}"
+                      for s in failed)
+        )
+
+    def test_widescreen_interactive(self):
+        """Widescreen：初始状态、点击展开、点击收起、切换字段后重置"""
+        result = _run_jsdom_interactive(self.wide_html, 'widescreen')
+        self.assertEqual(result['layout'], 'widescreen')
+
+        step_names = [s['name'] for s in result['steps']]
+        for required in ['initial_state', 'click_expand', 'click_collapse', 'reset_after_switch']:
+            self.assertIn(required, step_names, f"Missing step: {required}")
+
+        expand = next(s for s in result['steps'] if s['name'] == 'click_expand')
+        self.assertEqual(expand['btn_text'], '收起')
+        self.assertEqual(expand['full_built'], True)
+        self.assertGreaterEqual(expand['full_rows'], 40)
+        self.assertEqual(expand['full_has_other'], False)
+
+        collapse = next(s for s in result['steps'] if s['name'] == 'click_collapse')
+        self.assertEqual(collapse['btn_text'], '显示全部类别')
+        self.assertEqual(collapse['full_display'], 'none')
+
+        reset = next(s for s in result['steps'] if s['name'] == 'reset_after_switch')
+        self.assertEqual(reset['btn_text'], '显示全部类别')
+        self.assertEqual(reset['full_empty'], True)
+        self.assertEqual(reset['full_built'], False)
+
+        self._assert_all_steps(result)
+
+    def test_vertical_interactive(self):
+        """Vertical：详情展开、初始状态、展开类别、高度增加、收起类别、高度减少、字段重置"""
+        result = _run_jsdom_interactive(self.vert_html, 'vertical')
+        self.assertEqual(result['layout'], 'vertical')
+
+        step_names = [s['name'] for s in result['steps']]
+        for required in [
+            'vertical_expand_detail', 'initial_state',
+            'click_expand', 'vertical_height_after_expand',
+            'click_collapse', 'vertical_height_after_collapse',
+            'reset_after_switch',
+        ]:
+            self.assertIn(required, step_names, f"Missing step: {required}")
+
+        expand = next(s for s in result['steps'] if s['name'] == 'click_expand')
+        self.assertEqual(expand['btn_text'], '收起')
+        self.assertEqual(expand['full_built'], True)
+        self.assertGreaterEqual(expand['full_rows'], 40)
+
+        height_expand = next(s for s in result['steps'] if s['name'] == 'vertical_height_after_expand')
+        self.assertGreater(height_expand['height_diff'], 0,
+                           f"Expected height increase after expand, diff={height_expand['height_diff']}")
+
+        height_collapse = next(s for s in result['steps'] if s['name'] == 'vertical_height_after_collapse')
+        self.assertLess(height_collapse['height_diff'], 0,
+                        f"Expected height decrease after collapse, diff={height_collapse['height_diff']}")
+
+        reset = next(s for s in result['steps'] if s['name'] == 'reset_after_switch')
+        self.assertEqual(reset['btn_text'], '显示全部类别')
+        self.assertEqual(reset['full_empty'], True)
+        self.assertEqual(reset['full_built'], False)
+
+        self._assert_all_steps(result)
+
+
 if __name__ == '__main__':
     print("=" * 70)
-    print("SweetViz 高基数类别折叠 - 静态 HTML 断言测试")
+    print("SweetViz 高基数类别折叠 - 静态 HTML + 交互回归测试")
     print("=" * 70)
+
+    node_ok, node_msg = _node_available()
+    if node_ok:
+        print("✓ Node.js + jsdom 可用，将运行交互回归测试")
+    else:
+        print(f"⊘ Node.js/jsdom 不可用（{node_msg}），跳过交互回归测试")
+
     unittest.main(verbosity=2, exit=False)
-    print()
-    print("提示：浏览器交互断言（展开/收起/切换字段/高度重算）需要通过")
-    print("       integrated_browser 手动或自动化测试。")

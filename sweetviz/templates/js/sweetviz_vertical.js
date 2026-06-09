@@ -418,16 +418,18 @@ $(".cat-fold-toggle").click(function() {
         }
     }
 
-    if ($(folded_id).is(":visible")) {
+    let foldedEl = $(folded_id);
+    let isFoldedVisible = foldedEl.css("display") !== "none" && !foldedEl.hasClass("isHidden");
+    if (isFoldedVisible) {
         if (!fullContainer[0] || !fullContainer[0].dataset.built) {
             buildCatDetailRows(feature_index);
         }
-        $(folded_id).hide();
+        foldedEl.hide();
         fullContainer.show();
         btn.text("收起");
     } else {
         fullContainer.hide();
-        $(folded_id).show();
+        foldedEl.show();
         btn.text("显示全部类别");
     }
 
