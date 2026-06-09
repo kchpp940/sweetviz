@@ -44,10 +44,14 @@
             {% endif %}
         {% endfor %}
         {% if dataframe._associations is not none: %}
-            span.association-graph-source::before { content: url(data:image/png;base64,{{ dataframe._association_graphs.all.graph_base64.decode('ascii') }});}
+            {% for which_graph in ['all', 'cat-cat', 'num-num', 'cat-num']: %}
+                span.association-graph-source-{{ which_graph }}::before { content: url(data:image/png;base64,{{ dataframe._association_graphs[which_graph].graph_base64.decode('ascii') }});}
+            {% endfor %}
         {% endif %}
         {% if dataframe._associations_compare is not none: %}
-            span.association-graph-compare::before { content: url(data:image/png;base64,{{ dataframe._association_graphs_compare.all.graph_base64.decode('ascii') }});}
+            {% for which_graph in ['all', 'cat-cat', 'num-num', 'cat-num']: %}
+                span.association-graph-compare-{{ which_graph }}::before { content: url(data:image/png;base64,{{ dataframe._association_graphs_compare[which_graph].graph_base64.decode('ascii') }});}
+            {% endfor %}
         {% endif %}
         span.graph-legend { content: url(data:image/png;base64,{{ dataframe.graph_legend.graph_base64.decode('ascii') }});}
     </style>
