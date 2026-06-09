@@ -9,23 +9,51 @@ TYPE_MISMATCH_WEIGHT = 50.0
 MAX_RELATIVE_DIFF_THRESHOLD = 500.0
 
 
+def _is_bool_dtype(dtype):
+    if dtype is None:
+        return False
+    try:
+        if pd.api.types.is_bool_dtype(dtype):
+            return True
+        if isinstance(dtype, pd.BooleanDtype):
+            return True
+        if hasattr(dtype, 'name') and dtype.name in ('bool', 'boolean', 'Bool'):
+            return True
+        return False
+    except (TypeError, ValueError):
+        return False
+
+
 def _is_numeric_dtype(dtype):
     if dtype is None:
         return False
     try:
-        return pd.api.types.is_numeric_dtype(dtype) and not pd.api.types.is_bool_dtype(dtype)
+        if _is_bool_dtype(dtype):
+            return False
+        return pd.api.types.is_numeric_dtype(dtype)
     except (TypeError, ValueError):
         return False
+
+
+def _classify_dtype(dtype):
+    if _is_numeric_dtype(dtype):
+        return "numeric"
+    if _is_bool_dtype(dtype):
+        return "boolean"
+    if dtype is None:
+        return "unknown"
+    return "category_text"
 
 
 def _dtype_kind_name(dtype):
     if dtype is None:
         return "未知"
+    kind = _classify_dtype(dtype)
     try:
-        if pd.api.types.is_bool_dtype(dtype):
-            return "布尔 (Boolean)"
-        if pd.api.types.is_numeric_dtype(dtype):
+        if kind == "numeric":
             return f"数值 ({dtype})"
+        if kind == "boolean":
+            return f"布尔 ({dtype})"
         if isinstance(dtype, pd.CategoricalDtype) or dtype.kind in ('O',):
             return f"分类/文本 ({dtype})"
         return str(dtype)
@@ -381,10 +409,10 @@ def detect_category_top_drift(source_counts, compare_counts, source_total, compa
 
 def detect_type_mismatch(source_type, compare_type, source_dtype=None, compare_dtype=None):
     cfg = get_config()
-    src_numeric = _is_numeric_dtype(source_dtype)
-    cmp_numeric = _is_numeric_dtype(compare_dtype)
     if source_dtype is not None and compare_dtype is not None:
-        if src_numeric != cmp_numeric:
+        src_kind = _classify_dtype(source_dtype)
+        cmp_kind = _classify_dtype(compare_dtype)
+        if src_kind != cmp_kind:
             src_name = _dtype_kind_name(source_dtype)
             cmp_name = _dtype_kind_name(compare_dtype)
             diff_percent = 100.0
@@ -516,12 +544,15 @@ def compute_feature_drift(feature_type, source_type, compare_type,
         all_items.extend(detect_distinct_count_drift(source_base, compare_base))
     source_is_numeric = _is_numeric_dtype(source_dtype)
     compare_is_numeric = _is_numeric_dtype(compare_dtype)
+    source_is_bool = _is_bool_dtype(source_dtype)
+    compare_is_bool = _is_bool_dtype(compare_dtype)
     both_numeric = source_is_numeric and compare_is_numeric
-    either_numeric = source_is_numeric or compare_is_numeric
+    both_bool = source_is_bool and compare_is_bool
+    both_cat_text = (not (source_is_numeric or compare_is_numeric or source_is_bool or compare_is_bool))
     if type_mismatch_info is None:
         if both_numeric and not (source_all_missing or compare_all_missing):
             all_items.extend(detect_numeric_quantile_drift(source_stats, compare_stats))
-        if (not either_numeric) and not (source_all_missing or compare_all_missing):
+        if (both_bool or both_cat_text) and not (source_all_missing or compare_all_missing):
             all_items.extend(detect_category_top_drift(source_counts, compare_counts,
                                                        source_total, compare_total))
     return aggregate_feature_drift(all_items, feature_type, type_mismatch_info,

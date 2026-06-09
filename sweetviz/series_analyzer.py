@@ -177,11 +177,17 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
     source_is_numeric = False
     compare_is_numeric = False
     try:
-        source_is_numeric = pd.api.types.is_numeric_dtype(to_process.source.dtype) \
-                            and not pd.api.types.is_bool_dtype(to_process.source.dtype)
+        def _safe_is_numeric(dtype):
+            try:
+                is_bool = pd.api.types.is_bool_dtype(dtype) or isinstance(dtype, pd.BooleanDtype)
+                if is_bool:
+                    return False
+                return pd.api.types.is_numeric_dtype(dtype)
+            except (TypeError, ValueError):
+                return False
+        source_is_numeric = _safe_is_numeric(to_process.source.dtype)
         if to_process.compare is not None:
-            compare_is_numeric = pd.api.types.is_numeric_dtype(to_process.compare.dtype) \
-                                 and not pd.api.types.is_bool_dtype(to_process.compare.dtype)
+            compare_is_numeric = _safe_is_numeric(to_process.compare.dtype)
     except (TypeError, ValueError):
         pass
     if source_is_numeric and "mean" not in returned_feature_dict.get("stats", {}):
