@@ -28,18 +28,21 @@ function hideAllDetails()
 
 function buildFeatureLookupVertical() {
     var lookup = {};
+    var orderedList = [];
     $(".text-title-tab").each(function() {
         var name = $(this).text();
         var parentSummary = $(this).closest(".container-feature-summary, .container-feature-summary-target");
         if (parentSummary.length > 0) {
             var summaryId = parentSummary.attr("id");
-            lookup[name] = {
+            var featInfo = {
                 summaryId: summaryId,
                 selector: $("#" + summaryId + " .selector").first()
             };
+            lookup[name] = featInfo;
+            orderedList.push(featInfo);
         }
     });
-    return lookup;
+    return { byName: lookup, ordered: orderedList };
 }
 
 function expandFeatureVertical(featInfo) {
@@ -110,29 +113,31 @@ $("#col1").height(g_height);
 $("#col2").height(g_height);
 //alert($("#col1").height());
 
-// Apply open_features and collapse_details for vertical layout (direct DOM, no click simulation)
+// Apply collapse_details and open_features (shared semantics with widescreen layout)
+// Step 1: collapse_details sets the default state
+//   true  -> everything folded
+//   false -> default expand (first visible for widescreen, all for vertical)
+// Step 2: open_features always overrides the default, regardless of collapse_details
 if (typeof sv_config !== 'undefined') {
-    var shouldExpandSpecific = sv_config.open_features && sv_config.open_features.length > 0
-        && (!sv_config.collapse_details);
-    var shouldExpandAll = !sv_config.collapse_details
-        && (!sv_config.open_features || sv_config.open_features.length === 0);
+    var featLookup = buildFeatureLookupVertical();
 
-    if (shouldExpandSpecific) {
-        var featLookup = buildFeatureLookupVertical();
+    var hasOpenFeatures = sv_config.open_features && sv_config.open_features.length > 0;
+
+    if (hasOpenFeatures) {
+        // open_features always wins; expand only specified fields
         for (var i = 0; i < sv_config.open_features.length; i++) {
             var featName = sv_config.open_features[i];
-            if (featLookup[featName]) {
-                expandFeatureVertical(featLookup[featName]);
+            if (featLookup.byName[featName]) {
+                expandFeatureVertical(featLookup.byName[featName]);
             }
         }
-    } else if (shouldExpandAll) {
-        var allLookup = buildFeatureLookupVertical();
-        for (var k in allLookup) {
-            if (allLookup.hasOwnProperty(k)) {
-                expandFeatureVertical(allLookup[k]);
-            }
+    } else if (!sv_config.collapse_details) {
+        // No explicit fields, and collapse_details=false: expand ALL features for vertical
+        for (var j = 0; j < featLookup.ordered.length; j++) {
+            expandFeatureVertical(featLookup.ordered[j]);
         }
     }
+    // else: collapse_details=true and no open_features -> keep everything folded (already done by hideAllDetails)
 }
 
 // SUMMARY AREA

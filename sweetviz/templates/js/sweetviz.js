@@ -33,18 +33,21 @@ hideAllDetails();
 
 function buildFeatureLookup() {
     var lookup = {};
+    var orderedList = [];
     $(".text-title-tab").each(function() {
         var name = $(this).text();
         var parentSummary = $(this).closest(".container-feature-summary, .container-feature-summary-target");
         if (parentSummary.length > 0) {
             var summaryId = parentSummary.attr("id");
-            lookup[name] = {
+            var featInfo = {
                 summaryId: summaryId,
                 selector: $("#" + summaryId + " .selector").first()
             };
+            lookup[name] = featInfo;
+            orderedList.push(featInfo);
         }
     });
-    return lookup;
+    return { byName: lookup, ordered: orderedList };
 }
 
 function openFeatureWidescreen(featInfo) {
@@ -93,27 +96,35 @@ $("#col2").height(g_height);
 //alert($("#col1").height());
 
 // Apply collapse_details and open_features (shared semantics with vertical layout)
+// Step 1: collapse_details sets the default state
+//   true  -> everything folded
+//   false -> default expand (first visible for widescreen, all for vertical)
+// Step 2: open_features always overrides the default, regardless of collapse_details
 if (typeof sv_config !== 'undefined') {
-    var shouldOpenSpecific = sv_config.open_features && sv_config.open_features.length > 0
-        && (!sv_config.collapse_details);
+    var featLookup = buildFeatureLookup();
+    // Reset state fully first
+    $(".container-feature-detail").hide();
+    $("span.bg-tab-summary-rollover").hide();
+    g_snapped = "";
 
-    if (shouldOpenSpecific) {
-        var featLookup = buildFeatureLookup();
-        // Clear any currently shown state first
-        $(".container-feature-detail").hide();
-        $("span.bg-tab-summary-rollover").hide();
-        g_snapped = "";
+    var hasOpenFeatures = sv_config.open_features && sv_config.open_features.length > 0;
 
+    if (hasOpenFeatures) {
+        // open_features always wins; open specified fields (last one for widescreen)
         for (var i = 0; i < sv_config.open_features.length; i++) {
             var featName = sv_config.open_features[i];
-            if (featLookup[featName]) {
-                openFeatureWidescreen(featLookup[featName]);
+            if (featLookup.byName[featName]) {
+                openFeatureWidescreen(featLookup.byName[featName]);
                 // In widescreen only one can be snapped at a time; the last one wins
             }
         }
+    } else if (!sv_config.collapse_details) {
+        // No explicit fields, and collapse_details=false: open the first visible feature
+        if (featLookup.ordered && featLookup.ordered.length > 0) {
+            openFeatureWidescreen(featLookup.ordered[0]);
+        }
     }
-    // When collapse_details is true, or no open_features specified: keep everything hidden
-    // (hideAllDetails was already called at the top of $(document).ready)
+    // else: collapse_details=true and no open_features -> keep everything folded (already done by hideAllDetails)
 }
 
 // SUMMARY AREA
