@@ -25,6 +25,7 @@ jinja2_env.filters["fmt_smart_range"] = sweetviz.sv_html_formatters.fmt_smart_ra
 jinja2_env.filters["fmt_div_icon_missing"] = sweetviz.sv_html_formatters.fmt_div_icon_missing
 jinja2_env.filters["fmt_div_color_override_missing"] = sweetviz.sv_html_formatters.fmt_div_color_override_missing
 jinja2_env.globals["hello"] = "Superduper"
+jinja2_env.filters["get_display_name"] = lambda name, dataframe: dataframe.get_display_name(name)
 
 def load_layout_globals_from_config():
     jinja2_env.globals["FeatureType"] = FeatureType
@@ -66,42 +67,32 @@ def generate_html_detail(dataframe_report):
             feature["html_detail"] = generate_html_detail_text(feature, compare_dict, dataframe_report)
 
 
-def generate_html_dataframe_page(dataframe_report, render_options=None):
-    if render_options is None:
-        render_options = {
-            'layout': dataframe_report.page_layout if hasattr(dataframe_report, 'page_layout') else 'widescreen',
-            'scale': dataframe_report.scale if hasattr(dataframe_report, 'scale') else 1.0,
-            'iframe_width': None,
-            'iframe_height': None,
-            'open_features': [],
-            'collapse_details': False,
-            'hide_associations': False,
-        }
+def generate_html_dataframe_page(dataframe_report):
     template = jinja2_env.get_template('dataframe_page.html')
-    dataframe_report.page_height = 160 + (dataframe_report.num_summaries * (config["Layout"].getint("summary_height_per_element")))
+    # Add in total page size (160 is hardcoded from the top of page-all-summaries in CSS)
+    # This could be programmatically set
+    total_features_height = dataframe_report.num_summaries * (config["Layout"].getint("summary_height_per_element"))
+    # Add group header heights
+    grouped = dataframe_report.get_grouped_features()
+    num_group_headers = sum(1 for g in grouped if g["group_name"] is not None)
+    total_features_height += num_group_headers * 40
+    dataframe_report.page_height = 160 + total_features_height
     if dataframe_report.page_layout == "widescreen":
         padding_type = "full_page_padding_widescreen"
     else:
         padding_type = "full_page_padding_vertical"
     padding = config["Layout"].getint(padding_type)
     dataframe_report.page_height += padding
-    output = template.render(dataframe=dataframe_report, render_options=render_options, version=sweetviz.__version__)
+    # scaling = dict()
+    # scaling["main_column"] = scale
+    # scaling= scale
+    output = template.render(dataframe=dataframe_report, version=sweetviz.__version__)
     return output
 
 
-def generate_html_dataframe_summary(dataframe_report, render_options=None):
-    if render_options is None:
-        render_options = {
-            'layout': 'widescreen',
-            'scale': 1.0,
-            'iframe_width': None,
-            'iframe_height': None,
-            'open_features': [],
-            'collapse_details': False,
-            'hide_associations': False,
-        }
+def generate_html_dataframe_summary(dataframe_report):
     template = jinja2_env.get_template('dataframe_summary.html')
-    output = template.render(dataframe=dataframe_report, render_options=render_options)
+    output = template.render(dataframe=dataframe_report)
     return output
 
 def generate_html_associations(dataframe_report, which):
@@ -268,13 +259,16 @@ def cmp_assoc_values(item1, item2):
         return 1
     return abs(item1[1]) - abs(item2[1])
 
-def add_is_target_or_not(association_list, target_name):
+def add_is_target_or_not(association_list, target_name, dataframe_report=None):
     returned = list()
     for it in association_list:
+        display_name = it[0]
+        if dataframe_report is not None:
+            display_name = dataframe_report.get_display_name(it[0])
         if it[0] == target_name:
-            returned.append([it[0], it[1], True])
+            returned.append([it[0], it[1], True, display_name])
         else:
-            returned.append([it[0], it[1], False])
+            returned.append([it[0], it[1], False, display_name])
     return returned
 
 def generate_html_detail_numeric(feature_dict: dict, compare_dict: dict, dataframe_report):
@@ -312,10 +306,13 @@ def generate_html_detail_numeric(feature_dict: dict, compare_dict: dict, datafra
         numerical = sorted(numerical.items(), key=cmp_to_key(cmp_assoc_values), reverse=True)[:max_num]
         categorical = sorted(categorical.items(), key=itemgetter(1), reverse=True)[:max_num]
 
-        # Set who's the target, for highlighting
+        # Set who's the target, for highlighting, AND add display names
         if dataframe_report._target is not None:
-            numerical = add_is_target_or_not(numerical, dataframe_report._target["name"])
-            categorical = add_is_target_or_not(categorical, dataframe_report._target["name"])
+            numerical = add_is_target_or_not(numerical, dataframe_report._target["name"], dataframe_report)
+            categorical = add_is_target_or_not(categorical, dataframe_report._target["name"], dataframe_report)
+        else:
+            numerical = add_is_target_or_not(numerical, None, dataframe_report)
+            categorical = add_is_target_or_not(categorical, None, dataframe_report)
     else:
         max_num = None
         numerical = None
@@ -411,11 +408,15 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
         influenced = sorted(influenced.items(), key=itemgetter(1), reverse=True)[:max_num]
         corr_ratio = sorted(corr_ratio.items(), key=itemgetter(1), reverse=True)[:max_num]
 
-        # Set who's the target, for highlighting
+        # Set who's the target, for highlighting, AND add display names
         if dataframe_report._target is not None:
-            influencing = add_is_target_or_not(influencing, dataframe_report._target["name"])
-            influenced = add_is_target_or_not(influenced, dataframe_report._target["name"])
-            corr_ratio = add_is_target_or_not(corr_ratio, dataframe_report._target["name"])
+            influencing = add_is_target_or_not(influencing, dataframe_report._target["name"], dataframe_report)
+            influenced = add_is_target_or_not(influenced, dataframe_report._target["name"], dataframe_report)
+            corr_ratio = add_is_target_or_not(corr_ratio, dataframe_report._target["name"], dataframe_report)
+        else:
+            influencing = add_is_target_or_not(influencing, None, dataframe_report)
+            influenced = add_is_target_or_not(influenced, None, dataframe_report)
+            corr_ratio = add_is_target_or_not(corr_ratio, None, dataframe_report)
     else:
         influencing = None
         influenced = None

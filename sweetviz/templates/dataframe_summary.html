@@ -67,13 +67,11 @@
                     </div>
                 {% endif %}
             {% endif %}
-            {% if not render_options.hide_associations %}
             <button class="button-assoc color-source button-border-source size-df-summary-button pos-df-summary-button-assoc-source" id="button-summary-associations-source"
                 data-detail-div="df-assoc-source">ASSOCIATIONS</button >
             {% if dataframe.summary_compare is not none %}
                 <button class="button-assoc color-compare button-border-compare size-df-summary-button pos-df-summary-button-assoc-compare" id="button-summary-associations-compare"
                     data-detail-div="df-assoc-compare">ASSOCIATIONS</button >
-            {% endif %}
             {% endif %}
         </div>
     </div>

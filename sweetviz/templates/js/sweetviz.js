@@ -31,101 +31,17 @@ function hideAllDetails()
 $("span.bg-tab-summary-rollover").hide();
 hideAllDetails();
 
-function buildFeatureLookup() {
-    var lookup = {};
-    var orderedList = [];
-    $(".container-feature-summary, .container-feature-summary-target").each(function() {
-        var $summary = $(this);
-        var name = $summary.data("feature-name");
-        if (typeof name === "undefined" || name === null || name === "") return;
-        var summaryId = $summary.attr("id");
-        var featInfo = {
-            summaryId: summaryId,
-            selector: $summary.find(".selector").first(),
-            name: name
-        };
-        lookup[name] = featInfo;
-        orderedList.push(featInfo);
-    });
-    return { byName: lookup, ordered: orderedList };
-}
-
-function openFeatureWidescreen(featInfo) {
-    if (!featInfo) return;
-    var summaryId = featInfo.summaryId;
-    var sel = featInfo.selector;
-    if (sel.length === 0) return;
-
-    var detailDiv = sel.data("detail-div");
-    var rolloverSpan = sel.data("rollover-span");
-
-    // Show the detail panel
-    $("#" + detailDiv).show();
-
-    // Update rollover visual state
-    $("#" + rolloverSpan).removeClass("bg-tab-summary-rollover");
-    $("#" + rolloverSpan).addClass("bg-tab-summary-rollover-locked");
-    $("#" + rolloverSpan).css("display", "inline");
-
-    // Mark as snapped
-    g_snapped = summaryId;
-
-    // Deselect association buttons
-    $("#button-summary-associations-source, #button-summary-associations-compare").removeClass("button-assoc-selected");
-    $("#button-summary-associations-source, #button-summary-associations-compare").addClass("button-assoc");
-}
-
 $(document).ready(function() {
 // INITIALIZATION
 // --------------------------------------------------------
 hideAllDetails();
 $("span.bg-tab-summary-rollover").hide();
 
-// Apply config from sv_config
-if (typeof sv_config !== 'undefined') {
-    if (sv_config.hide_associations) {
-        $(".container-df-associations").hide();
-        $("#button-summary-associations-source, #button-summary-associations-compare").hide();
-    }
-}
-
 // Make the detail column the same height, so the floating element has room
 //$("#col2").height($("#col1").height());
 $("#col1").height(g_height);
 $("#col2").height(g_height);
 //alert($("#col1").height());
-
-// Apply collapse_details and open_features (shared semantics with vertical layout)
-// Step 1: collapse_details sets the default state
-//   true  -> everything folded
-//   false -> default expand (first visible for widescreen, all for vertical)
-// Step 2: open_features always overrides the default, regardless of collapse_details
-if (typeof sv_config !== 'undefined') {
-    var featLookup = buildFeatureLookup();
-    // Reset state fully first
-    $(".container-feature-detail").hide();
-    $("span.bg-tab-summary-rollover").hide();
-    g_snapped = "";
-
-    var hasOpenFeatures = sv_config.open_features && sv_config.open_features.length > 0;
-
-    if (hasOpenFeatures) {
-        // open_features always wins; open specified fields (last one for widescreen)
-        for (var i = 0; i < sv_config.open_features.length; i++) {
-            var featName = sv_config.open_features[i];
-            if (featLookup.byName[featName]) {
-                openFeatureWidescreen(featLookup.byName[featName]);
-                // In widescreen only one can be snapped at a time; the last one wins
-            }
-        }
-    } else if (!sv_config.collapse_details) {
-        // No explicit fields, and collapse_details=false: open the first visible feature
-        if (featLookup.ordered && featLookup.ordered.length > 0) {
-            openFeatureWidescreen(featLookup.ordered[0]);
-        }
-    }
-    // else: collapse_details=true and no open_features -> keep everything folded (already done by hideAllDetails)
-}
 
 // SUMMARY AREA
 // --------------------------------------------------------

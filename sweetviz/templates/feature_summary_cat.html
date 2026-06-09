@@ -1,5 +1,4 @@
 <div class="container-feature-summary" id="summary-f{{ feature_dict.order_index }}"
-     data-feature-name="{{ feature_dict.name }}"
      style="top: {{ layout.summary_spacing * (feature_dict.order_index + 0) }}px">
     <div class="selector selector__body" data-detail-div="detail-f{{ feature_dict.order_index }}" data-rollover-span="rollover-f{{ feature_dict.order_index }}"></div>
     <div class="selector selector__bottom" data-detail-div="detail-f{{ feature_dict.order_index }}" data-rollover-span="rollover-f{{ feature_dict.order_index }}"></div>
@@ -11,7 +10,7 @@
         {{ feature_dict.order_index + 1}}
     </div>
     <div class="pos-tab-image ic-cat"></div>
-    <span class="text-title-tab color-normal ">{{ feature_dict.name }}</span>
+    <span class="text-title-tab color-normal ">{{ feature_dict.display_name }}</span>
     {% include 'feature_summary_base_stats.html' %}
     <span class="minigraph-f{{ feature_dict.order_index }} pos-minigraph-cat"></span>
 </div>

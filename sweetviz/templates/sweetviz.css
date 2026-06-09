@@ -47,6 +47,25 @@ body
 .page-column-detail { position: absolute; left: {{ dataframe.scale * 1005 }}px; }
 .page-all-summaries { position: absolute; top:160px; left: -12px; width: 960px; }
 
+.feature-group-header
+{
+    width: 930px;
+    height: 32px;
+    position: relative;
+    margin-top: 8px;
+    margin-bottom: 4px;
+    border-bottom: 2px solid #b0a89f;
+}
+.feature-group-header-title
+{
+    font-family: RobotoBoldCond;
+    font-size: 18px;
+    color: #3c3833;
+    position: absolute;
+    left: 12px;
+    top: 6px;
+}
+
 .pos-feature-summary
 {
 	width: 1056px;

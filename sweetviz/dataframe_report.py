@@ -51,6 +51,7 @@ class DataframeReport:
         self.corr_warning = list()
         if fc is None:
             fc = FeatureConfig()
+        self._fc = fc
 
         # Associations: _associations[FEATURE][GIVES INFORMATION ABOUT THIS FEATURE]
         self._associations = dict()
@@ -216,7 +217,9 @@ class DataframeReport:
 
             # TARGET processed HERE with COMPARE if present
             target_to_process = FeatureToProcess(-1, source_df[targets_found[0]], compare_target_series,
-                                                 None, None, fc.get_predetermined_type(targets_found[0]))
+                                                 None, None, fc.get_predetermined_type(targets_found[0]),
+                                                 alias=fc.get_alias(targets_found[0]),
+                                                 group=fc.get_group(targets_found[0]))
             self._target = sa.analyze_feature_to_dictionary(target_to_process)
             filtered_series_names_in_source.remove(targets_found[0])
             target_type = self._target["type"]
@@ -246,6 +249,8 @@ class DataframeReport:
         for cur_series_name, cur_order_index in zip(filtered_series_names_in_source,
                                                  range(0, len(filtered_series_names_in_source))):
             # TODO: BETTER HANDLING OF DIFFERENT COLUMNS IN SOURCE/COMPARE
+            cur_alias = fc.get_alias(cur_series_name)
+            cur_group = fc.get_group(cur_series_name)
             if compare_df is not None and cur_series_name in \
                     compare_df.columns:
                 this_feat = FeatureToProcess(cur_order_index,
@@ -254,7 +259,9 @@ class DataframeReport:
                                              source_target_series,
                                              compare_target_series,
                                              fc.get_predetermined_type(cur_series_name),
-                                             target_type)
+                                             target_type,
+                                             alias=cur_alias,
+                                             group=cur_group)
             else:
                 this_feat = FeatureToProcess(cur_order_index,
                                              source_df[cur_series_name],
@@ -262,7 +269,9 @@ class DataframeReport:
                                              source_target_series,
                                              None,
                                              fc.get_predetermined_type(cur_series_name),
-                                             target_type)
+                                             target_type,
+                                             alias=cur_alias,
+                                             group=cur_group)
             features_to_process.append(this_feat)
 
 
@@ -331,6 +340,41 @@ class DataframeReport:
 
     def __setitem__(self, key, value):
         self._features[key] = value
+
+    def get_display_name(self, feature_name: str) -> str:
+        if feature_name in self._features:
+            return self._features[feature_name].get("display_name", feature_name)
+        if self._target is not None and feature_name == self._target["name"]:
+            return self._target.get("display_name", feature_name)
+        return self._fc.get_alias(feature_name)
+
+    def get_grouped_features(self) -> list:
+        grouped = []
+        ungrouped = []
+        ordered_groups = self._fc.get_ordered_groups()
+        group_to_features = {g: [] for g in ordered_groups}
+
+        for fname, fdata in self._features.items():
+            grp = fdata.get("group")
+            if grp and grp in group_to_features:
+                group_to_features[grp].append(fdata)
+            else:
+                ungrouped.append(fdata)
+
+        for gname in ordered_groups:
+            if group_to_features[gname]:
+                grouped.append({
+                    "group_name": gname,
+                    "features": sorted(group_to_features[gname], key=lambda x: x["order_index"])
+                })
+
+        if ungrouped:
+            grouped.append({
+                "group_name": None,
+                "features": sorted(ungrouped, key=lambda x: x["order_index"])
+            })
+
+        return grouped
 
     @staticmethod
     def get_predetermined_type(name: str,
@@ -526,53 +570,31 @@ class DataframeReport:
 
     def generate_comet_friendly_html(self):
         # Enforce comet_ml-friendly layout and re-output report based on INI settings (comet_ml_Defaults)
-        layout = config["comet_ml_defaults"]["html_layout"]
-        scale = float(config["comet_ml_defaults"]["html_scale"])
-        render_options = {
-            'layout': layout,
-            'scale': scale,
-            'iframe_width': None,
-            'iframe_height': None,
-            'open_features': [],
-            'collapse_details': False,
-            'hide_associations': False,
-        }
-        self.page_layout = layout
-        self.scale = scale
+        self.page_layout = config["comet_ml_defaults"]["html_layout"]
+        self.scale = float(config["comet_ml_defaults"]["html_scale"])
         sv_html.set_summary_positions(self)
-        self.dataframe_summary_html = sv_html.generate_html_dataframe_summary(self, render_options=render_options)
         sv_html.generate_html_detail(self)
         if self.associations_html_source:
             self.associations_html_source = sv_html.generate_html_associations(self, "source")
         if self.associations_html_compare:
             self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
-        self._page_html = sv_html.generate_html_dataframe_page(self, render_options=render_options)
+        self._page_html = sv_html.generate_html_dataframe_page(self)
 
     def show_html(self, filepath='SWEETVIZ_REPORT.html', open_browser=True, layout='widescreen', scale=None):
         scale = float(self.use_config_if_none(scale, "html_scale"))
         layout = self.use_config_if_none(layout, "html_layout")
         if layout not in ['widescreen', 'vertical']:
             raise ValueError(f"'layout' parameter must be either 'widescreen' or 'vertical'")
-        render_options = {
-            'layout': layout,
-            'scale': scale,
-            'iframe_width': None,
-            'iframe_height': None,
-            'open_features': [],
-            'collapse_details': False,
-            'hide_associations': False,
-        }
         sv_html.load_layout_globals_from_config()
         self.page_layout = layout
         self.scale = scale
         sv_html.set_summary_positions(self)
-        self.dataframe_summary_html = sv_html.generate_html_dataframe_summary(self, render_options=render_options)
         sv_html.generate_html_detail(self)
         if self.associations_html_source:
             self.associations_html_source = sv_html.generate_html_associations(self, "source")
         if self.associations_html_compare:
             self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
-        self._page_html = sv_html.generate_html_dataframe_page(self, render_options=render_options)
+        self._page_html = sv_html.generate_html_dataframe_page(self)
 
         f = open(filepath, 'w', encoding="utf-8")
         f.write(self._page_html)
@@ -596,8 +618,7 @@ class DataframeReport:
             self._comet_ml_logger.log_html(self._page_html)
             self._comet_ml_logger.end()
 
-    def show_notebook(self, w=None, h=None, scale=None, layout=None, filepath=None, file_layout=None, file_scale=None,
-                      open_features=None, collapse_details=None, hide_associations=None):
+    def show_notebook(self, w=None, h=None, scale=None, layout=None, filepath=None, file_layout=None, file_scale=None):
         w = self.use_config_if_none(w, "notebook_width")
         h = self.use_config_if_none(h, "notebook_height")
         scale = float(self.use_config_if_none(scale, "notebook_scale"))
@@ -605,43 +626,19 @@ class DataframeReport:
         if layout not in ['widescreen', 'vertical']:
             raise ValueError(f"'layout' parameter must be either 'widescreen' or 'vertical'")
 
-        if open_features is None:
-            open_features = []
-        elif isinstance(open_features, str):
-            open_features = [open_features]
-        if collapse_details is None:
-            collapse_details = False
-        if hide_associations is None:
-            hide_associations = False
-
-        render_options = {
-            'layout': layout,
-            'scale': scale,
-            'iframe_width': w,
-            'iframe_height': h,
-            'open_features': open_features,
-            'collapse_details': collapse_details,
-            'hide_associations': hide_associations,
-        }
-
         sv_html.load_layout_globals_from_config()
         self.page_layout = layout
         self.scale = scale
         sv_html.set_summary_positions(self)
-        self.dataframe_summary_html = sv_html.generate_html_dataframe_summary(self, render_options=render_options)
         sv_html.generate_html_detail(self)
-        if self.associations_html_source and not hide_associations:
+        if self.associations_html_source:
             self.associations_html_source = sv_html.generate_html_associations(self, "source")
-        elif hide_associations:
-            self.associations_html_source = None
-        if self.associations_html_compare and not hide_associations:
+        if self.associations_html_compare:
             self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
-        elif hide_associations:
-            self.associations_html_compare = None
-        self._page_html = sv_html.generate_html_dataframe_page(self, render_options=render_options)
+        self._page_html = sv_html.generate_html_dataframe_page(self)
 
-        width = render_options['iframe_width']
-        height = render_options['iframe_height']
+        width=w
+        height=h
         if str(height).lower() == "full":
             height = self.page_height
 
@@ -654,30 +651,26 @@ class DataframeReport:
         display(HTML(iframe))
 
         if filepath is not None:
+            # We cannot just write out the same HTML as the notebook, as that one has been processed so as to
+            # remove extraneous headings so it is nicely inserted into the notebook.
+            # Instead, just do something similar to the "show_html()" code, but without its less-relevant printouts etc.
+            # f = open(filepath, 'w', encoding="utf-8")
+            # f.write(self._page_html)
+            # f.close()
             scale = float(self.use_config_if_none(file_scale, "html_scale"))
             layout = self.use_config_if_none(file_layout, "html_layout")
             if layout not in ['widescreen', 'vertical']:
                 raise ValueError(f"'layout' parameter for file output must be either 'widescreen' or 'vertical'")
-            file_render_options = {
-                'layout': layout,
-                'scale': scale,
-                'iframe_width': None,
-                'iframe_height': None,
-                'open_features': [],
-                'collapse_details': False,
-                'hide_associations': False,
-            }
             sv_html.load_layout_globals_from_config()
             self.page_layout = layout
             self.scale = scale
             sv_html.set_summary_positions(self)
-            self.dataframe_summary_html = sv_html.generate_html_dataframe_summary(self, render_options=file_render_options)
             sv_html.generate_html_detail(self)
             if self.associations_html_source:
                 self.associations_html_source = sv_html.generate_html_associations(self, "source")
             if self.associations_html_compare:
                 self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
-            self._page_html = sv_html.generate_html_dataframe_page(self, render_options=file_render_options)
+            self._page_html = sv_html.generate_html_dataframe_page(self)
 
             f = open(filepath, 'w', encoding="utf-8")
             f.write(self._page_html)

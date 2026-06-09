@@ -44,7 +44,8 @@ class NumWithPercent:
 class FeatureToProcess:
     def __init__(self, order: int, source: pd.Series, compare=None, source_target=None,
                  compare_target=None, predetermined_type: FeatureType = None,
-                 predetermined_type_target: FeatureType = None):
+                 predetermined_type_target: FeatureType = None,
+                 alias: str = None, group: str = None):
         self.order = order
 
         # Cleanup names
@@ -63,6 +64,10 @@ class FeatureToProcess:
         self.compare = compare
         self.compare_counts = None
         self.compare_target = compare_target
+
+        # Display alias and group (for display only, never used for data operations)
+        self.alias = alias if alias is not None else str(source.name)
+        self.group = group
 
         if predetermined_type:
             self.predetermined_type = predetermined_type
@@ -90,6 +95,10 @@ class FeatureToProcess:
         out = str()
         if self.source is not None:
             out = out + f"Src: {self.source.name} "
+            if self.alias != self.source.name:
+                out = out + f"[{self.alias}] "
+            if self.group:
+                out = out + f"(Group: {self.group}) "
             if self.source_target is not None:
                 out = out + f"(Target: {self.source_target.name}) "
         if self.compare is not None:

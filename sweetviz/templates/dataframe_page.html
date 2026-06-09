@@ -52,16 +52,8 @@
         span.graph-legend { content: url(data:image/png;base64,{{ dataframe.graph_legend.graph_base64.decode('ascii') }});}
     </style>
 <script>
-    var sv_config = {{ {
-        'page_height': dataframe.page_height,
-        'scale': dataframe.scale,
-        'layout': render_options.layout,
-        'open_features': render_options.open_features,
-        'collapse_details': render_options.collapse_details,
-        'hide_associations': render_options.hide_associations,
-    }|tojson }};
-    g_height = sv_config.page_height;
-    g_scale = sv_config.scale;
+    g_height = {{ dataframe.page_height }};
+    g_scale = {{ dataframe.scale }};
 </script>
 </head>
 
@@ -107,15 +99,28 @@
                     {% endif %}
                 </div>
             {% endif %}
-            <!-- FEATURE Summaries -->
-            {% for item in dataframe._features.values() %}
-                <div class="pos-feature-summary" style="top: {{ item.summary_pos }}px">
-                    {{ item.html_summary }}
-                    <!-- This DETAIL WINDOW (VERTICAL ONLY) -->
-                    {% if dataframe.page_layout == 'vertical': %}
-                        {{ item.html_detail }}
-                    {% endif %}
-                </div>
+            <!-- FEATURE Summaries (grouped) -->
+            {% set ns = namespace(current_top=0) %}
+            {% if dataframe._target is not none: %}
+                {% set ns.current_top = 175 %}
+            {% endif %}
+            {% for group in dataframe.get_grouped_features() %}
+                {% if group.group_name is not none: %}
+                    <div class="feature-group-header" style="top: {{ ns.current_top }}px;">
+                        <div class="feature-group-header-title">{{ group.group_name }}</div>
+                    </div>
+                    {% set ns.current_top = ns.current_top + 40 %}
+                {% endif %}
+                {% for item in group.features %}
+                    <div class="pos-feature-summary" style="top: {{ ns.current_top }}px">
+                        {{ item.html_summary }}
+                        <!-- This DETAIL WINDOW (VERTICAL ONLY) -->
+                        {% if dataframe.page_layout == 'vertical': %}
+                            {{ item.html_detail }}
+                        {% endif %}
+                    </div>
+                    {% set ns.current_top = ns.current_top + 175 %}
+                {% endfor %}
            {% endfor %}
         </div>
     </div>

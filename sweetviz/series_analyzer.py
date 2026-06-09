@@ -90,6 +90,8 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
     # Initialize some dictionary values
     returned_feature_dict = dict()
     returned_feature_dict["name"] = to_process.source.name
+    returned_feature_dict["display_name"] = to_process.alias
+    returned_feature_dict["group"] = to_process.group
     returned_feature_dict["order_index"] = to_process.order
     returned_feature_dict["is_target"] = True if to_process.order == -1 else False
 

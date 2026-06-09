@@ -26,70 +26,6 @@ function hideAllDetails()
 //     return false;
 // });
 
-function buildFeatureLookupVertical() {
-    var lookup = {};
-    var orderedList = [];
-    $(".container-feature-summary, .container-feature-summary-target").each(function() {
-        var $summary = $(this);
-        var name = $summary.data("feature-name");
-        if (typeof name === "undefined" || name === null || name === "") return;
-        var summaryId = $summary.attr("id");
-        var featInfo = {
-            summaryId: summaryId,
-            selector: $summary.find(".selector").first(),
-            name: name
-        };
-        lookup[name] = featInfo;
-        orderedList.push(featInfo);
-    });
-    return { byName: lookup, ordered: orderedList };
-}
-
-function expandFeatureVertical(featInfo) {
-    if (!featInfo) return;
-    var sel = featInfo.selector;
-    if (sel.length === 0) return;
-    if (sel.parent().parent().data('expanded') === 'true') return;
-
-    var detailDiv = sel.data("detail-div");
-    var parent = sel.parent();
-    var grandParent = parent.parent();
-    var summaryId = parent.attr("id");
-
-    $("#" + detailDiv).show();
-    grandParent.data('expanded', 'true');
-
-    var feature_index_str;
-    if (summaryId === "summary-target") {
-        feature_index_str = "f-1";
-    } else {
-        feature_index_str = summaryId.substring(8);
-    }
-
-    if ($('#cat-assoc-window-' + feature_index_str).length) {
-        var $el = $('#detail_breakdown-' + feature_index_str);
-        var bottom = ($el.position().top / g_scale) + $el.outerHeight(true);
-        var desiredBottomBreakdown = bottom + 157;
-
-        $el = $('#cat-assoc-window-' + feature_index_str);
-        var bottomAssoc = $el.position().top + $el.outerHeight(true);
-        var desiredBottomAssoc = bottomAssoc + 166;
-
-        var finalHeight = Math.max(desiredBottomBreakdown, desiredBottomAssoc);
-        if (summaryId === "summary-target") {
-            parent.css('height', String((finalHeight + 50)) + 'px');
-            $("#summary-target").css("overflow", "hidden");
-        }
-        grandParent.css('height', String(finalHeight) + 'px');
-    } else {
-        grandParent.css('height', '1030px');
-    }
-    if (summaryId === "summary-target") {
-        $("#summary-target-bg").addClass("bg-tab-summary-target-full");
-        $("#summary-target-bg").removeClass("bg-tab-summary-target");
-    }
-}
-
 $("span.bg-tab-summary-rollover").hide();
 // hideAllDetails();
 
@@ -99,46 +35,11 @@ $(document).ready(function() {
 hideAllDetails();
 $("span.bg-tab-summary-rollover").hide();
 
-// Apply config from sv_config
-if (typeof sv_config !== 'undefined') {
-    if (sv_config.hide_associations) {
-        $(".container-df-associations").hide();
-        $("#button-summary-associations-source, #button-summary-associations-compare").hide();
-    }
-}
-
 // Make the detail column the same height, so the floating element has room
 //$("#col2").height($("#col1").height());
 $("#col1").height(g_height);
 $("#col2").height(g_height);
 //alert($("#col1").height());
-
-// Apply collapse_details and open_features (shared semantics with widescreen layout)
-// Step 1: collapse_details sets the default state
-//   true  -> everything folded
-//   false -> default expand (first visible for widescreen, all for vertical)
-// Step 2: open_features always overrides the default, regardless of collapse_details
-if (typeof sv_config !== 'undefined') {
-    var featLookup = buildFeatureLookupVertical();
-
-    var hasOpenFeatures = sv_config.open_features && sv_config.open_features.length > 0;
-
-    if (hasOpenFeatures) {
-        // open_features always wins; expand only specified fields
-        for (var i = 0; i < sv_config.open_features.length; i++) {
-            var featName = sv_config.open_features[i];
-            if (featLookup.byName[featName]) {
-                expandFeatureVertical(featLookup.byName[featName]);
-            }
-        }
-    } else if (!sv_config.collapse_details) {
-        // No explicit fields, and collapse_details=false: expand ALL features for vertical
-        for (var j = 0; j < featLookup.ordered.length; j++) {
-            expandFeatureVertical(featLookup.ordered[j]);
-        }
-    }
-    // else: collapse_details=true and no open_features -> keep everything folded (already done by hideAllDetails)
-}
 
 // SUMMARY AREA
 // --------------------------------------------------------
