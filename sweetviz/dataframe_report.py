@@ -304,8 +304,9 @@ class DataframeReport:
             self.progress_bar.set_description_str("[Step 3/3] Generating associations graph")
             self.associations_html_source = True # Generated later in the process
             self.associations_html_compare = True # Generated later in the process
-            self._association_graphs["all"] = GraphAssoc(self, "all", self._associations)
-            self._association_graphs_compare["all"] = GraphAssoc(self, "all", self._associations_compare)
+            for which in ["all", "cat-cat", "num-num", "cat-num"]:
+                self._association_graphs[which] = GraphAssoc(self, which, self._associations)
+                self._association_graphs_compare[which] = GraphAssoc(self, which, self._associations_compare)
             self.progress_bar.set_description_str("Done! Use 'show' commands to display/save. ")
             self.progress_bar.update(1)
         else:

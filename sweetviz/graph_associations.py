@@ -86,24 +86,12 @@ def wrap_custom(source_text, separator_chars, width=70, keep_separators = True):
     return output
 
 def _build_association_matrix(row_features, col_features, association_data,
-                               symmetrical=False, pad_to_square=False):
+                               symmetrical=False):
     n_rows = len(row_features)
     n_cols = len(col_features)
-    final_row_labels = list(row_features)
-    final_col_labels = list(col_features)
-
-    if pad_to_square:
-        if n_cols > n_rows:
-            for i in range(n_rows, n_cols):
-                final_row_labels.append(str(i) + "RPAD")
-            n_rows = n_cols
-        elif n_rows > n_cols:
-            for i in range(n_cols, n_rows):
-                final_col_labels.append(str(i) + "PAD")
-            n_cols = n_rows
 
     data = np.zeros((n_rows, n_cols), dtype=float)
-    graph_data = pd.DataFrame(data, columns=final_col_labels)
+    graph_data = pd.DataFrame(data, columns=col_features)
 
     for i, feature in enumerate(row_features):
         for j, associated_feature_name in enumerate(col_features):
@@ -113,7 +101,7 @@ def _build_association_matrix(row_features, col_features, association_data,
                 if symmetrical:
                     graph_data.iat[j, i] = associated_feature_val
 
-    graph_data[UNIQUE_INDEX_NAME] = final_row_labels
+    graph_data[UNIQUE_INDEX_NAME] = row_features
     graph_data.set_index(UNIQUE_INDEX_NAME, inplace=True)
     return graph_data
 
@@ -156,7 +144,7 @@ class GraphAssoc(sweetviz.graph.Graph):
 
         elif which_graph == "cat-num":
             graph_data = _build_association_matrix(
-                categoricals, nums, association_data, symmetrical=False, pad_to_square=True)
+                categoricals, nums, association_data, symmetrical=False)
 
         # Finalize Graph
         #plt.subplots_adjust(bottom=0.15, right=0.85, top=0.97, left=0.15)
@@ -412,7 +400,7 @@ def corrplot(correlation_dataframe, dataframe_report, size_scale=100, marker='s'
         size=corr['value'].abs(), size_range=[0,1],
         marker=marker,
         x_order=correlation_dataframe.columns,
-        y_order=correlation_dataframe.columns[::-1],
+        y_order=correlation_dataframe.index[::-1],
         size_scale=config["Associations"].getfloat("association_graph_size_scale"),
         dataframe_report = dataframe_report
     )
