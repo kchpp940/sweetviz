@@ -43,7 +43,25 @@ def fmt_drift_icon(severity):
         return "⚠️"
     elif severity == "medium":
         return "⚡"
+    elif severity == "low":
+        return "🔹"
     return ""
+
+
+def fmt_drift_score(score):
+    if score is None:
+        return "0"
+    return f"{score:.1f}"
+
+
+def fmt_severity_label(severity):
+    if severity == "high":
+        return "高"
+    elif severity == "medium":
+        return "中"
+    elif severity == "low":
+        return "低"
+    return "无"
 
 
 def fmt_int_commas(value: float) -> str:

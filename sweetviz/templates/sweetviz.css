@@ -291,6 +291,10 @@ button
     color: #f39c12;
     font-weight: bold;
 }
+.drift-low {
+    color: #3498db;
+    font-weight: bold;
+}
 .drift-badge {
     display: inline-block;
     padding: 1px 6px;
@@ -307,6 +311,38 @@ button
 }
 .drift-badge-medium {
     background-color: #f39c12;
+    color: #ffffff;
+}
+.drift-badge-low {
+    background-color: #3498db;
+    color: #ffffff;
+}
+.drift-score-badge {
+    display: inline-block;
+    min-width: 34px;
+    text-align: center;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-family: RobotoBoldCond;
+    font-size: 10px;
+    line-height: 14px;
+    vertical-align: middle;
+    margin-right: 4px;
+    background-color: #58544f;
+    color: #ffffff;
+}
+.drift-score-badge-large {
+    display: inline-block;
+    min-width: 44px;
+    text-align: center;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-family: RobotoBoldCond;
+    font-size: 14px;
+    line-height: 18px;
+    vertical-align: middle;
+    margin-right: 6px;
+    background-color: #2c3e50;
     color: #ffffff;
 }
 .drift-summary-container {

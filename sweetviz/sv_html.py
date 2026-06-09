@@ -28,6 +28,8 @@ jinja2_env.filters["fmt_drift_diff"] = sweetviz.sv_html_formatters.fmt_drift_dif
 jinja2_env.filters["fmt_drift_value"] = sweetviz.sv_html_formatters.fmt_drift_value
 jinja2_env.filters["fmt_severity_class"] = sweetviz.sv_html_formatters.fmt_severity_class
 jinja2_env.filters["fmt_drift_icon"] = sweetviz.sv_html_formatters.fmt_drift_icon
+jinja2_env.filters["fmt_drift_score"] = sweetviz.sv_html_formatters.fmt_drift_score
+jinja2_env.filters["fmt_severity_label"] = sweetviz.sv_html_formatters.fmt_severity_label
 jinja2_env.globals["hello"] = "Superduper"
 
 def load_layout_globals_from_config():

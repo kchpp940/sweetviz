@@ -17,26 +17,41 @@
         <div class="drift-detail-container">
             <div class="drift-detail-title">
                 📊 分布漂移检测结果
-                <span class="drift-badge {{ 'drift-badge-high' if feature_dict.drift.max_severity == 'high' else 'drift-badge-medium' }}">
-                    {{ feature_dict.drift.max_severity|fmt_drift_icon }} {{ feature_dict.drift.drifts|length }} 项差异
+                <span class="drift-score-badge-large">{{ feature_dict.drift.drift_score|fmt_drift_score }}</span>
+                <span class="drift-badge drift-badge-{{ feature_dict.drift.severity }}">
+                    {{ feature_dict.drift.severity|fmt_drift_icon }} {{ feature_dict.drift.severity|fmt_severity_label }}严重度
                 </span>
+                {% if feature_dict.drift.category_scores.basic > 0 or feature_dict.drift.category_scores.numeric > 0 or feature_dict.drift.category_scores.category > 0 %}
+                    <span style="font-size:10px; color:#837d76; margin-left:8px;">
+                        基础: {{ feature_dict.drift.category_scores.basic|fmt_drift_score }}
+                        {% if feature_dict.drift.category_scores.numeric > 0 %}
+                            | 数值: {{ feature_dict.drift.category_scores.numeric|fmt_drift_score }}
+                        {% endif %}
+                        {% if feature_dict.drift.category_scores.category > 0 %}
+                            | 类别: {{ feature_dict.drift.category_scores.category|fmt_drift_score }}
+                        {% endif %}
+                    </span>
+                {% endif %}
             </div>
             <ul class="drift-detail-list">
-                {% for drift in feature_dict.drift.drifts %}
+                {% for drift in feature_dict.drift.all_drifts %}
                     <li class="drift-detail-item {{ drift.severity|fmt_severity_class }}">
                         <span class="drift-detail-label">
+                            <span style="display:inline-block; width:40px; font-size:10px; color:#837d76;">
+                                +{{ drift.weighted_score|fmt_drift_score }}
+                            </span>
                             {{ drift.severity|fmt_drift_icon }} {{ drift.label }}
                         </span>
-                        {% if drift.type == 'top_category_membership' %}
+                        {% if drift.type == 'category_membership' %}
                             <span class="drift-detail-values">
                                 仅Source: {{ drift.source_only|join(', ') if drift.source_only else '无' }} |
                                 仅Compare: {{ drift.compare_only|join(', ') if drift.compare_only else '无' }}
                             </span>
                         {% else %}
                             <span class="drift-detail-values">
-                                Source: {{ drift.source|fmt_drift_value }}
-                                → Compare: {{ drift.compare|fmt_drift_value }}
-                                (差异: {{ drift.diff|fmt_drift_diff }})
+                                Source: {{ drift.source_value|fmt_drift_value }}
+                                → Compare: {{ drift.compare_value|fmt_drift_value }}
+                                (差异: {{ drift.diff_percent|fmt_drift_diff }})
                             </span>
                         {% endif %}
                     </li>

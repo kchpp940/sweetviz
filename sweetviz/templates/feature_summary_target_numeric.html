@@ -9,8 +9,8 @@
     <span class="text-title-tab color-normal {{ "color-target-summary" if feature_dict.is_target }}">{{ feature_dict.name }}</span>
     {% if feature_dict.drift is defined and feature_dict.drift.has_drift %}
         <span class="drift-feature-badge">
-            <span class="drift-badge {{ 'drift-badge-high' if feature_dict.drift.max_severity == 'high' else 'drift-badge-medium' }}">
-                {{ feature_dict.drift.max_severity|fmt_drift_icon }} DRIFT ({{ feature_dict.drift.drifts|length }})
+            <span class="drift-badge drift-badge-{{ feature_dict.drift.severity }}">
+                {{ feature_dict.drift.severity|fmt_drift_icon }} {{ feature_dict.drift.drift_score|fmt_drift_score }}
             </span>
         </span>
     {% endif %}

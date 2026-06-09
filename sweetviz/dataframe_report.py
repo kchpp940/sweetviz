@@ -410,12 +410,16 @@ class DataframeReport:
         drift_summary["features_with_drift"] = list()
         drift_summary["high_severity"] = list()
         drift_summary["medium_severity"] = list()
+        drift_summary["low_severity"] = list()
         drift_summary["total_features"] = 0
+        drift_summary["avg_drift_score"] = 0.0
+        drift_summary["max_drift_score"] = 0.0
 
         all_features = list(self._features.values())
         if self._target is not None:
             all_features.append(self._target)
 
+        total_score = 0.0
         for feature in all_features:
             drift_info = feature.get("drift")
             if drift_info is None or not drift_info.get("has_drift"):
@@ -424,24 +428,30 @@ class DataframeReport:
             feature_drift = {
                 "name": feature["name"],
                 "type": feature["type"],
-                "drifts": drift_info["drifts"],
-                "max_severity": drift_info["max_severity"],
+                "drift_score": drift_info.get("drift_score", 0.0),
+                "severity": drift_info.get("severity", "low"),
+                "top_reasons": drift_info.get("top_reasons", []),
+                "all_drifts": drift_info.get("all_drifts", []),
+                "category_scores": drift_info.get("category_scores", {}),
                 "order_index": feature.get("order_index", 0)
             }
             drift_summary["features_with_drift"].append(feature_drift)
-            has_high = any(d["severity"] == "high" for d in drift_info["drifts"])
-            feature_drift["max_severity"] = "high" if has_high else "medium"
-            if has_high:
+            total_score += feature_drift["drift_score"]
+            if feature_drift["drift_score"] > drift_summary["max_drift_score"]:
+                drift_summary["max_drift_score"] = feature_drift["drift_score"]
+            if feature_drift["severity"] == "high":
                 drift_summary["high_severity"].append(feature_drift)
-            else:
+            elif feature_drift["severity"] == "medium":
                 drift_summary["medium_severity"].append(feature_drift)
+            else:
+                drift_summary["low_severity"].append(feature_drift)
 
-        drift_summary["features_with_drift"].sort(key=lambda x: (
-            0 if x["max_severity"] == "high" else 1,
-            -len(x["drifts"])
-        ))
+        drift_summary["features_with_drift"].sort(key=lambda x: -x["drift_score"])
         drift_summary["high_severity_count"] = len(drift_summary["high_severity"])
         drift_summary["medium_severity_count"] = len(drift_summary["medium_severity"])
+        drift_summary["low_severity_count"] = len(drift_summary["low_severity"])
+        if drift_summary["total_features"] > 0:
+            drift_summary["avg_drift_score"] = total_score / drift_summary["total_features"]
         self.drift_summary = drift_summary
         return
 

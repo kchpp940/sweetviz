@@ -2,176 +2,10 @@ import pandas as pd
 import numpy as np
 from sweetviz.sv_types import NumWithPercent, FeatureType, FeatureToProcess
 from sweetviz.type_detection import determine_feature_type
+from sweetviz import drift_detection
 import sweetviz.series_analyzer_numeric
 import sweetviz.series_analyzer_cat
 import sweetviz.series_analyzer_text
-
-
-MISSING_RATE_DRIFT_THRESHOLD = 5.0
-DISTINCT_COUNT_DRIFT_THRESHOLD = 20.0
-NUMERIC_QUANTILE_DRIFT_THRESHOLD = 15.0
-CATEGORY_TOP_DRIFT_THRESHOLD = 10.0
-
-
-def compute_relative_diff(source_val, compare_val):
-    if source_val is None or compare_val is None:
-        return None
-    if source_val == 0 and compare_val == 0:
-        return 0.0
-    if source_val == 0:
-        return float('inf') if compare_val > 0 else 0.0
-    return abs(compare_val - source_val) / abs(source_val) * 100.0
-
-
-def compute_absolute_diff_percent(source_val, compare_val):
-    if source_val is None or compare_val is None:
-        return None
-    return abs(compare_val - source_val)
-
-
-def detect_base_stats_drift(source_stats, compare_stats):
-    drift_info = dict()
-    drift_info["has_drift"] = False
-    drift_info["drifts"] = list()
-
-    source_missing_perc = source_stats["num_missing"].perc if source_stats["num_missing"].perc is not None else 0.0
-    compare_missing_perc = compare_stats["num_missing"].perc if compare_stats["num_missing"].perc is not None else 0.0
-    missing_diff = compute_absolute_diff_percent(source_missing_perc, compare_missing_perc)
-    if missing_diff is not None and missing_diff >= MISSING_RATE_DRIFT_THRESHOLD:
-        drift_info["drifts"].append({
-            "type": "missing_rate",
-            "label": "缺失率差异",
-            "source": source_missing_perc,
-            "compare": compare_missing_perc,
-            "diff": missing_diff,
-            "severity": "high" if missing_diff >= 20.0 else "medium"
-        })
-
-    source_distinct_perc = source_stats["num_distinct"].perc if source_stats["num_distinct"].perc is not None else 0.0
-    compare_distinct_perc = compare_stats["num_distinct"].perc if compare_stats["num_distinct"].perc is not None else 0.0
-    distinct_diff = compute_relative_diff(source_distinct_perc, compare_distinct_perc)
-    if distinct_diff is not None and distinct_diff != float('inf') and distinct_diff >= DISTINCT_COUNT_DRIFT_THRESHOLD:
-        drift_info["drifts"].append({
-            "type": "distinct_count",
-            "label": "唯一值数量差异",
-            "source": source_distinct_perc,
-            "compare": compare_distinct_perc,
-            "diff": distinct_diff,
-            "severity": "high" if distinct_diff >= 50.0 else "medium"
-        })
-
-    if len(drift_info["drifts"]) > 0:
-        drift_info["has_drift"] = True
-        drift_info["max_severity"] = "high" if any(d["severity"] == "high" for d in drift_info["drifts"]) else "medium"
-    else:
-        drift_info["max_severity"] = None
-
-    return drift_info
-
-
-def detect_numeric_stats_drift(source_stats, compare_stats):
-    drift_info = dict()
-    drift_info["has_drift"] = False
-    drift_info["drifts"] = list()
-
-    if source_stats is None or compare_stats is None:
-        return drift_info
-
-    quantiles_to_check = ["perc95", "perc75", "perc50", "perc25", "perc5", "mean", "std"]
-    quantile_labels = {
-        "perc95": "95%分位数",
-        "perc75": "Q3",
-        "perc50": "中位数",
-        "perc25": "Q1",
-        "perc5": "5%分位数",
-        "mean": "均值",
-        "std": "标准差"
-    }
-
-    for q in quantiles_to_check:
-        source_val = source_stats.get(q)
-        compare_val = compare_stats.get(q)
-        if source_val is None or compare_val is None or np.isnan(source_val) or np.isnan(compare_val):
-            continue
-        if source_val == 0 and compare_val == 0:
-            continue
-        diff = compute_relative_diff(source_val, compare_val)
-        if diff is not None and diff != float('inf') and diff >= NUMERIC_QUANTILE_DRIFT_THRESHOLD:
-            drift_info["drifts"].append({
-                "type": f"quantile_{q}",
-                "label": quantile_labels.get(q, q),
-                "source": source_val,
-                "compare": compare_val,
-                "diff": diff,
-                "severity": "high" if diff >= 30.0 else "medium"
-            })
-
-    if len(drift_info["drifts"]) > 0:
-        drift_info["has_drift"] = True
-        drift_info["max_severity"] = "high" if any(d["severity"] == "high" for d in drift_info["drifts"]) else "medium"
-    else:
-        drift_info["max_severity"] = None
-
-    return drift_info
-
-
-def detect_category_top_drift(source_counts, compare_counts, source_total, compare_total, top_n=5):
-    drift_info = dict()
-    drift_info["has_drift"] = False
-    drift_info["drifts"] = list()
-
-    if source_counts is None or compare_counts is None:
-        return drift_info
-
-    source_value_counts = source_counts["value_counts_without_nan"]
-    compare_value_counts = compare_counts["value_counts_without_nan"]
-
-    if len(source_value_counts) == 0 or len(compare_value_counts) == 0:
-        return drift_info
-
-    source_top = source_value_counts.head(top_n)
-    compare_top = compare_value_counts.head(top_n)
-
-    source_top_set = set(source_top.index)
-    compare_top_set = set(compare_top.index)
-    new_in_source_only = source_top_set - compare_top_set
-    new_in_compare_only = compare_top_set - source_top_set
-
-    if len(new_in_source_only) > 0 or len(new_in_compare_only) > 0:
-        drift_info["drifts"].append({
-            "type": "top_category_membership",
-            "label": f"Top类别成员变化",
-            "source_only": list(new_in_source_only),
-            "compare_only": list(new_in_compare_only),
-            "diff": len(new_in_source_only) + len(new_in_compare_only),
-            "severity": "high" if (len(new_in_source_only) + len(new_in_compare_only) >= 3) else "medium"
-        })
-
-    common_top = source_top_set & compare_top_set
-    for cat in common_top:
-        try:
-            source_perc = source_value_counts.get(cat, 0) / source_total * 100.0 if source_total > 0 else 0
-            compare_perc = compare_value_counts.get(cat, 0) / compare_total * 100.0 if compare_total > 0 else 0
-            diff = compute_absolute_diff_percent(source_perc, compare_perc)
-            if diff is not None and diff >= CATEGORY_TOP_DRIFT_THRESHOLD:
-                drift_info["drifts"].append({
-                    "type": f"category_{cat}",
-                    "label": f"类别 '{cat}' 占比差异",
-                    "source": source_perc,
-                    "compare": compare_perc,
-                    "diff": diff,
-                    "severity": "high" if diff >= 20.0 else "medium"
-                })
-        except (TypeError, KeyError):
-            continue
-
-    if len(drift_info["drifts"]) > 0:
-        drift_info["has_drift"] = True
-        drift_info["max_severity"] = "high" if any(d["severity"] == "high" for d in drift_info["drifts"]) else "medium"
-    else:
-        drift_info["max_severity"] = None
-
-    return drift_info
 
 
 def get_counts(series: pd.Series) -> dict:
@@ -318,34 +152,28 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
 
     # Perform drift detection if compare is present
     if compare_dict is not None:
-        returned_feature_dict["drift"] = dict()
-        all_drifts = list()
-
-        base_drift = detect_base_stats_drift(returned_feature_dict["base_stats"], compare_dict["base_stats"])
-        if base_drift["has_drift"]:
-            all_drifts.extend(base_drift["drifts"])
-
-        if returned_feature_dict["type"] == FeatureType.TYPE_NUM:
-            num_drift = detect_numeric_stats_drift(returned_feature_dict.get("stats"), compare_dict.get("stats"))
-            if num_drift["has_drift"]:
-                all_drifts.extend(num_drift["drifts"])
-
-        if returned_feature_dict["type"] in (FeatureType.TYPE_CAT, FeatureType.TYPE_BOOL, FeatureType.TYPE_TEXT):
-            source_total = returned_feature_dict["base_stats"]["num_values"].number
-            compare_total = compare_dict["base_stats"]["num_values"].number
-            cat_drift = detect_category_top_drift(to_process.source_counts, to_process.compare_counts,
-                                                  source_total, compare_total)
-            if cat_drift["has_drift"]:
-                all_drifts.extend(cat_drift["drifts"])
-
-        returned_feature_dict["drift"]["has_drift"] = len(all_drifts) > 0
-        returned_feature_dict["drift"]["drifts"] = all_drifts
-        if len(all_drifts) > 0:
-            returned_feature_dict["drift"]["max_severity"] = "high" if any(d["severity"] == "high" for d in all_drifts) else "medium"
-        else:
-            returned_feature_dict["drift"]["max_severity"] = None
+        source_total = returned_feature_dict["base_stats"]["num_values"].number
+        compare_total = compare_dict["base_stats"]["num_values"].number
+        returned_feature_dict["drift"] = drift_detection.compute_feature_drift(
+            feature_type=returned_feature_dict["type"],
+            source_base=returned_feature_dict["base_stats"],
+            compare_base=compare_dict["base_stats"],
+            source_stats=returned_feature_dict.get("stats"),
+            compare_stats=compare_dict.get("stats"),
+            source_counts=to_process.source_counts,
+            compare_counts=to_process.compare_counts,
+            source_total=source_total,
+            compare_total=compare_total
+        )
     else:
-        returned_feature_dict["drift"] = {"has_drift": False, "drifts": [], "max_severity": None}
+        returned_feature_dict["drift"] = {
+            "has_drift": False,
+            "drift_score": 0.0,
+            "severity": "none",
+            "top_reasons": [],
+            "all_drifts": [],
+            "category_scores": {"basic": 0.0, "numeric": 0.0, "category": 0.0}
+        }
 
     # print(f"{to_process.source.name} PROCESSED ------> "
     #       f" {time.perf_counter() - start}")

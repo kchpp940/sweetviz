@@ -77,27 +77,30 @@
         {% if dataframe.drift_summary is not none and dataframe.drift_summary.total_features > 0 %}
             <div class="drift-summary-container">
                 <div class="drift-summary-title">
-                    📊 分布漂移检测 ({{ dataframe.drift_summary.total_features }} 个字段有差异)
+                    📊 分布漂移检测 ({{ dataframe.drift_summary.total_features }} 个字段)
+                    <span style="color:#837d76; font-weight:normal; font-size:10px;">
+                        平均分: {{ dataframe.drift_summary.avg_drift_score|fmt_drift_score }} / 最高分: {{ dataframe.drift_summary.max_drift_score|fmt_drift_score }}
+                    </span>
                     {% if dataframe.drift_summary.high_severity_count > 0 %}
                         <span class="drift-badge drift-badge-high">⚠️ 高: {{ dataframe.drift_summary.high_severity_count }}</span>
                     {% endif %}
                     {% if dataframe.drift_summary.medium_severity_count > 0 %}
                         <span class="drift-badge drift-badge-medium">⚡ 中: {{ dataframe.drift_summary.medium_severity_count }}</span>
                     {% endif %}
+                    {% if dataframe.drift_summary.low_severity_count > 0 %}
+                        <span class="drift-badge drift-badge-low">🔹 低: {{ dataframe.drift_summary.low_severity_count }}</span>
+                    {% endif %}
                 </div>
                 <ul class="drift-summary-list">
                     {% for feat in dataframe.drift_summary.features_with_drift[:10] %}
-                        <li class="drift-summary-item {{ feat.max_severity|fmt_severity_class }}"
+                        <li class="drift-summary-item {{ feat.severity|fmt_severity_class }}"
                             data-detail-div="detail-f{{ feat.order_index }}"
                             onclick="document.querySelector('[data-detail-div=&quot;detail-f{{ feat.order_index }}&quot;]').click();">
-                            {{ feat.max_severity|fmt_drift_icon }}
+                            <span class="drift-score-badge">{{ feat.drift_score|fmt_drift_score }}</span>
                             <strong>{{ feat.name }}</strong>
-                            ({{ feat.drifts|length }}项差异)
                             <span style="color:#837d76; font-size:9px;">
-                                {% for d in feat.drifts[:2] %}
-                                    {{ d.label }}{% if not loop.last %}, {% endif %}
-                                {% endfor %}
-                                {% if feat.drifts|length > 2 %}...{% endif %}
+                                → {% for r in feat.top_reasons[:2] %}{{ r.label }}{% if not loop.last %}, {% endif %}{% endfor %}
+                                {% if feat.top_reasons|length > 2 %}...{% endif %}
                             </span>
                         </li>
                     {% endfor %}
