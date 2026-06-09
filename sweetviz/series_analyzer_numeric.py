@@ -23,8 +23,11 @@ def do_stats_numeric(series: pd.Series, updated_dict: dict):
     stats["kurtosis"] = series.kurt()
     stats["skewness"] = series.skew()
     stats["sum"] = series.sum()
-    if is_valid_finite(stats["mean"]) and stats["mean"] != 0 and is_valid_finite(stats["std"]):
-        stats["cv"] = stats["std"] / stats["mean"]
+    if is_valid_finite(stats["mean"]) and is_valid_finite(stats["std"]):
+        if not np.isclose(stats["mean"], 0, rtol=0, atol=1e-9):
+            stats["cv"] = stats["std"] / stats["mean"]
+        else:
+            stats["cv"] = None
     else:
         stats["cv"] = None
     return updated_dict

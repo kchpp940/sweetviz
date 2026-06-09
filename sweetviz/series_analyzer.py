@@ -59,11 +59,17 @@ def add_series_base_stats_to_dict(series: pd.Series, counts: dict, updated_dict:
     except TypeError:
         num_zeros = 0
     non_nan = counts["num_rows_with_data"]
-    num_infinite = diagnostics.get("num_inf", 0) + diagnostics.get("num_neg_inf", 0)
+    num_inf = diagnostics.get("num_inf", 0)
+    num_neg_inf = diagnostics.get("num_neg_inf", 0)
+    num_nan_pure = diagnostics.get("num_nan_pure", 0)
+    num_infinite = num_inf + num_neg_inf
     base_stats["total_rows"] = num_total
     base_stats["num_values"] = NumWithPercent(non_nan, num_total)
     base_stats["num_missing"] = NumWithPercent(num_total - non_nan, num_total)
     base_stats["num_infinite"] = NumWithPercent(num_infinite, num_total)
+    base_stats["num_nan_pure"] = NumWithPercent(num_nan_pure, num_total)
+    base_stats["num_inf"] = NumWithPercent(num_inf, num_total)
+    base_stats["num_neg_inf"] = NumWithPercent(num_neg_inf, num_total)
     base_stats["num_zeroes"] = NumWithPercent(num_zeros, num_total)
     base_stats["num_distinct"] = NumWithPercent(counts["distinct_count_without_nan"], num_total)
 

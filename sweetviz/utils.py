@@ -17,21 +17,26 @@ def clean_numeric_with_diagnostics(series: pd.Series):
         "num_inf": 0,
         "num_neg_inf": 0,
         "num_nan": 0,
+        "num_nan_pure": 0,
         "num_finite": 0,
     }
     if not pd.api.types.is_numeric_dtype(series):
-        diagnostics["num_nan"] = int(series.isna().sum())
-        diagnostics["num_finite"] = num_total - diagnostics["num_nan"]
+        num_nan = int(series.isna().sum())
+        diagnostics["num_nan"] = num_nan
+        diagnostics["num_nan_pure"] = num_nan
+        diagnostics["num_finite"] = num_total - num_nan
         return series, diagnostics
 
     num_inf = int((series == np.inf).sum())
     num_neg_inf = int((series == -np.inf).sum())
     cleaned = series.replace([np.inf, -np.inf], np.nan)
-    num_nan = int(cleaned.isna().sum())
+    num_nan_total = int(cleaned.isna().sum())
+    num_nan_pure = num_nan_total - num_inf - num_neg_inf
     diagnostics["num_inf"] = num_inf
     diagnostics["num_neg_inf"] = num_neg_inf
-    diagnostics["num_nan"] = num_nan
-    diagnostics["num_finite"] = num_total - num_nan
+    diagnostics["num_nan"] = num_nan_total
+    diagnostics["num_nan_pure"] = num_nan_pure
+    diagnostics["num_finite"] = num_total - num_nan_total
     return cleaned, diagnostics
 
 
