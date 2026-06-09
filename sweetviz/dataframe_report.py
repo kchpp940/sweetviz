@@ -690,14 +690,10 @@ class DataframeReport:
             print("log_comet(): error logging HTML report.")
 
     def to_dict(self) -> dict:
-        result = {
-            "metadata": sv_serialize.build_report_metadata(self),
-            "source_summary": sv_serialize.serialize_dataframe_summary(self.summary_source),
-            "features": {},
-        }
-
-        if self.summary_compare is not None:
-            result["compare_summary"] = sv_serialize.serialize_dataframe_summary(self.summary_compare)
+        result = sv_serialize.build_top_level_dict()
+        result["metadata"] = sv_serialize.build_report_metadata(self)
+        result["source_summary"] = sv_serialize.serialize_dataframe_summary(self.summary_source)
+        result["compare_summary"] = sv_serialize.serialize_dataframe_summary(self.summary_compare)
 
         if self._target is not None:
             result["target"] = sv_serialize.serialize_feature(self._target)
@@ -706,11 +702,8 @@ class DataframeReport:
             result["features"][feat_name] = sv_serialize.serialize_feature(feat_dict)
 
         result["associations"] = sv_serialize.serialize_associations(self._associations)
-        if self._associations_compare:
-            result["associations_compare"] = sv_serialize.serialize_associations(self._associations_compare)
-
-        if self.drift_summary is not None:
-            result["drift_summary"] = sv_serialize.serialize_report_drift_summary(self.drift_summary)
+        result["associations_compare"] = sv_serialize.serialize_associations(self._associations_compare)
+        result["drift_summary"] = sv_serialize.serialize_report_drift_summary(self.drift_summary)
 
         return result
 

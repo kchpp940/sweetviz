@@ -11,6 +11,24 @@ from sweetviz.sv_types import NumWithPercent, FeatureType
 
 SCHEMA_VERSION = "1.0"
 
+NUMERIC_STAT_KEYS = [
+    "max", "perc95", "perc75", "mean", "perc50",
+    "perc25", "perc5", "min", "range", "iqr",
+    "std", "variance", "kurtosis", "skewness", "sum",
+]
+
+BASE_STAT_KEYS = [
+    "total_rows", "num_values", "num_missing",
+    "missing_rate", "num_zeroes", "num_distinct",
+]
+
+DATAFRAME_SUMMARY_KEYS = [
+    "name", "num_rows", "num_columns", "num_skipped_columns",
+    "memory_total", "memory_single_row", "duplicates",
+    "num_cat", "num_numerical", "num_text",
+    "num_cmp_not_in_source",
+]
+
 
 def _serialize_value(value: Any) -> Any:
     if isinstance(value, NumWithPercent):
@@ -68,133 +86,172 @@ def _serialize_value(value: Any) -> Any:
 
 
 def _serialize_base_stats(feature_dict: Dict) -> Dict:
-    result = {}
     base_stats = feature_dict.get("base_stats", {})
-    result["total_rows"] = _serialize_value(base_stats.get("total_rows"))
-    result["num_values"] = _serialize_value(base_stats.get("num_values"))
-    result["num_missing"] = _serialize_value(base_stats.get("num_missing"))
-    result["num_zeroes"] = _serialize_value(base_stats.get("num_zeroes"))
-    result["num_distinct"] = _serialize_value(base_stats.get("num_distinct"))
+    result = {key: None for key in BASE_STAT_KEYS}
+
+    for key in ["total_rows", "num_values", "num_missing", "num_zeroes", "num_distinct"]:
+        result[key] = _serialize_value(base_stats.get(key))
+
     num_missing = base_stats.get("num_missing")
     if num_missing is not None and hasattr(num_missing, "perc"):
         result["missing_rate"] = _serialize_value(num_missing.perc)
-    else:
-        result["missing_rate"] = None
+
     return result
 
 
 def _serialize_numeric_stats(feature_dict: Dict) -> Dict:
     stats = feature_dict.get("stats", {})
-    result = {}
-    for key in stats.keys():
-        result[key] = _serialize_value(stats[key])
+    result = {key: None for key in NUMERIC_STAT_KEYS}
+    for key in NUMERIC_STAT_KEYS:
+        result[key] = _serialize_value(stats.get(key))
     return result
 
 
-def _serialize_categorical_details(feature_dict: Dict, max_top: int = 10) -> Dict:
-    result = {"top_categories": []}
+def _serialize_categorical_item(item: Dict) -> Dict:
+    return {
+        "name": _serialize_value(item.get("name")),
+        "count": _serialize_value(item.get("count")),
+        "count_compare": _serialize_value(item.get("count_compare")),
+    }
+
+
+def _serialize_value_item(item: tuple) -> Dict:
+    value = item[0] if len(item) >= 1 else None
+    count = item[1] if len(item) >= 2 else None
+    count_compare = item[2] if len(item) >= 3 else None
+    return {
+        "value": _serialize_value(value),
+        "count": _serialize_value(count),
+        "count_compare": _serialize_value(count_compare),
+    }
+
+
+def _serialize_details(feature_dict: Dict, max_top: int = 10) -> Dict:
+    result = {
+        "top_categories": [],
+        "frequent_values": [],
+        "min_values": [],
+        "max_values": [],
+    }
     detail = feature_dict.get("detail", {})
     full_count = detail.get("full_count", [])
+
     for item in full_count:
         if item.get("is_total"):
             continue
         if len(result["top_categories"]) >= max_top:
             break
-        cat_item = {
-            "name": item.get("name"),
-            "count": _serialize_value(item.get("count")),
-        }
-        if item.get("count_compare") is not None:
-            cat_item["count_compare"] = _serialize_value(item.get("count_compare"))
-        result["top_categories"].append(cat_item)
-    return result
+        result["top_categories"].append(_serialize_categorical_item(item))
 
-
-def _serialize_numeric_details(feature_dict: Dict) -> Dict:
-    result = {"frequent_values": [], "min_values": [], "max_values": []}
-    detail = feature_dict.get("detail", {})
     for key in ["frequent_values", "min_values", "max_values"]:
         for item in detail.get(key, []):
-            if len(item) >= 2:
-                val_item = {
-                    "value": _serialize_value(item[0]),
-                    "count": _serialize_value(item[1])
-                }
-                if len(item) >= 3 and item[2] is not None:
-                    val_item["count_compare"] = _serialize_value(item[2])
-                result[key].append(val_item)
+            if isinstance(item, (list, tuple)) and len(item) >= 2:
+                result[key].append(_serialize_value_item(item))
+
     return result
 
 
 def serialize_feature_drift(drift_dict: Optional[Dict]) -> Optional[Dict]:
     if drift_dict is None:
-        return None
-    return _serialize_value(drift_dict)
+        return {
+            "score": None,
+            "severity": None,
+            "top_reasons": [],
+            "details": None,
+        }
+    serialized = _serialize_value(drift_dict)
+    result = {
+        "score": None,
+        "severity": None,
+        "top_reasons": [],
+        "details": None,
+    }
+    if isinstance(serialized, dict):
+        result["score"] = serialized.get("score")
+        result["severity"] = serialized.get("severity")
+        result["top_reasons"] = serialized.get("top_reasons", []) or []
+        result["details"] = serialized.get("details")
+    return result
 
 
-def serialize_report_drift_summary(drift_summary: Optional[Dict]) -> Optional[Dict]:
+def serialize_report_drift_summary(drift_summary: Optional[Dict]) -> Dict:
     if drift_summary is None:
+        return {
+            "num_features": 0,
+            "average_score": None,
+            "max_score": None,
+            "severity_counts": {"high": 0, "medium": 0, "low": 0, "none": 0},
+            "top_features": [],
+        }
+    serialized = _serialize_value(drift_summary)
+    result = {
+        "num_features": 0,
+        "average_score": None,
+        "max_score": None,
+        "severity_counts": {"high": 0, "medium": 0, "low": 0, "none": 0},
+        "top_features": [],
+    }
+    if isinstance(serialized, dict):
+        result["num_features"] = serialized.get("num_features", 0) or 0
+        result["average_score"] = serialized.get("average_score")
+        result["max_score"] = serialized.get("max_score")
+        sc = serialized.get("severity_counts")
+        if isinstance(sc, dict):
+            for level in ["high", "medium", "low", "none"]:
+                result["severity_counts"][level] = sc.get(level, 0) or 0
+        top = serialized.get("top_features")
+        if isinstance(top, list):
+            result["top_features"] = top
+    return result
+
+
+def _serialize_compare_feature(compare_dict: Optional[Dict]) -> Optional[Dict]:
+    if compare_dict is None:
         return None
-    return _serialize_value(drift_summary)
+    result = {
+        "type": _serialize_value(compare_dict.get("type")),
+        "base_stats": _serialize_base_stats(compare_dict),
+        "stats": {key: None for key in NUMERIC_STAT_KEYS},
+    }
+    compare_type = compare_dict.get("type")
+    if compare_type == FeatureType.TYPE_NUM:
+        result["stats"] = _serialize_numeric_stats(compare_dict)
+    return result
 
 
 def serialize_feature(feature_dict: Dict) -> Dict:
+    feature_type = feature_dict.get("type")
+    is_numeric = feature_type == FeatureType.TYPE_NUM
+
     result = {
         "name": feature_dict.get("name"),
-        "type": _serialize_value(feature_dict.get("type")),
+        "type": _serialize_value(feature_type),
         "is_target": feature_dict.get("is_target", False),
         "base_stats": _serialize_base_stats(feature_dict),
+        "stats": {key: None for key in NUMERIC_STAT_KEYS},
+        "details": _serialize_details(feature_dict),
+        "compare": _serialize_compare_feature(feature_dict.get("compare")),
+        "drift": serialize_feature_drift(feature_dict.get("drift")),
     }
 
-    feature_type = feature_dict.get("type")
-    if feature_type == FeatureType.TYPE_NUM:
+    if is_numeric:
         result["stats"] = _serialize_numeric_stats(feature_dict)
-        result["details"] = _serialize_numeric_details(feature_dict)
-    elif feature_type in (FeatureType.TYPE_CAT, FeatureType.TYPE_BOOL):
-        result["details"] = _serialize_categorical_details(feature_dict)
-    elif feature_type == FeatureType.TYPE_TEXT:
-        result["details"] = _serialize_categorical_details(feature_dict)
-
-    compare = feature_dict.get("compare")
-    if compare is not None:
-        result["compare"] = {
-            "type": _serialize_value(compare.get("type")),
-            "base_stats": _serialize_base_stats(compare),
-        }
-        compare_type = compare.get("type")
-        if compare_type == FeatureType.TYPE_NUM:
-            result["compare"]["stats"] = _serialize_numeric_stats(compare)
-
-        drift = feature_dict.get("drift")
-        if drift is not None:
-            result["drift"] = serialize_feature_drift(drift)
 
     return result
 
 
-def serialize_dataframe_summary(summary_dict: Optional[Dict]) -> Optional[Dict]:
+def serialize_dataframe_summary(summary_dict: Optional[Dict]) -> Dict:
+    result = {key: None for key in DATAFRAME_SUMMARY_KEYS}
     if summary_dict is None:
-        return None
-    result = {
-        "name": _serialize_value(summary_dict.get("name")),
-        "num_rows": _serialize_value(summary_dict.get("num_rows")),
-        "num_columns": _serialize_value(summary_dict.get("num_columns")),
-        "num_skipped_columns": _serialize_value(summary_dict.get("num_skipped_columns")),
-        "memory_total": _serialize_value(summary_dict.get("memory_total")),
-        "memory_single_row": _serialize_value(summary_dict.get("memory_single_row")),
-        "duplicates": _serialize_value(summary_dict.get("duplicates")),
-        "num_cat": _serialize_value(summary_dict.get("num_cat")),
-        "num_numerical": _serialize_value(summary_dict.get("num_numerical")),
-        "num_text": _serialize_value(summary_dict.get("num_text")),
-    }
-    if "num_cmp_not_in_source" in summary_dict:
-        result["num_cmp_not_in_source"] = _serialize_value(summary_dict["num_cmp_not_in_source"])
+        return result
+    for key in DATAFRAME_SUMMARY_KEYS:
+        result[key] = _serialize_value(summary_dict.get(key))
     return result
 
 
-def serialize_associations(associations: Optional[Dict]) -> Optional[Dict]:
+def serialize_associations(associations: Optional[Dict]) -> Dict:
     if associations is None:
-        return None
+        return {}
     result = {}
     for feat_name, feat_assoc in associations.items():
         result[feat_name] = _serialize_value(feat_assoc)
@@ -207,4 +264,17 @@ def build_report_metadata(report) -> Dict:
         "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "source_name": report.source_name,
         "compare_name": report.compare_name,
+    }
+
+
+def build_top_level_dict() -> Dict:
+    return {
+        "metadata": None,
+        "source_summary": serialize_dataframe_summary(None),
+        "compare_summary": serialize_dataframe_summary(None),
+        "target": None,
+        "features": {},
+        "associations": {},
+        "associations_compare": {},
+        "drift_summary": serialize_report_drift_summary(None),
     }
