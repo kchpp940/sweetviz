@@ -8,10 +8,9 @@ from sweetviz.feature_config import FeatureConfig
 def analyze(source: Union[pd.DataFrame, Tuple[pd.DataFrame, str]],
             target_feat: str = None,
             feat_cfg: FeatureConfig = None,
-            pairwise_analysis: str = 'auto',
-            verbosity: str = 'default'):
+            pairwise_analysis: str = 'auto'):
     report = sweetviz.DataframeReport(source, target_feat, None,
-                                      pairwise_analysis, feat_cfg, verbosity)
+                                      pairwise_analysis, feat_cfg)
     return report
 
 
@@ -19,10 +18,9 @@ def compare(source: Union[pd.DataFrame, Tuple[pd.DataFrame, str]],
             compare: Union[pd.DataFrame, Tuple[pd.DataFrame, str]],
             target_feat: str = None,
             feat_cfg: FeatureConfig = None,
-            pairwise_analysis: str = 'auto',
-            verbosity: str = 'default'):
+            pairwise_analysis: str = 'auto'):
     report = sweetviz.DataframeReport(source, target_feat, compare,
-                                      pairwise_analysis, feat_cfg, verbosity)
+                                      pairwise_analysis, feat_cfg)
     return report
 
 
@@ -31,8 +29,7 @@ def compare_intra(source_df: pd.DataFrame,
                   names: Tuple[str, str],
                   target_feat: str = None,
                   feat_cfg: FeatureConfig = None,
-                  pairwise_analysis: str = 'auto',
-                  verbosity: str = 'default'):
+                  pairwise_analysis: str = 'auto'):
     if len(source_df) != len(condition_series):
         raise ValueError('compare_intra() expects source_df and '
                          'condition_series to be the same length')
@@ -48,6 +45,6 @@ def compare_intra(source_df: pd.DataFrame,
         raise ValueError('compare_intra(): TRUE dataset is empty, nothing to compare!')
     report = sweetviz.DataframeReport([data_true, names[0]], target_feat,
                                       [data_false, names[1]],
-                                      pairwise_analysis, feat_cfg, verbosity)
+                                      pairwise_analysis, feat_cfg)
     return report
 

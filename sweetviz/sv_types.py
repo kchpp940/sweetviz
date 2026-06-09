@@ -41,12 +41,6 @@ class NumWithPercent:
         else:
             return "[INVALID]"
 
-    def to_dict(self):
-        return {
-            "number": self.number,
-            "percentage": self.perc
-        }
-
 class FeatureToProcess:
     def __init__(self, order: int, source: pd.Series, compare=None, source_target=None,
                  compare_target=None, predetermined_type: FeatureType = None,

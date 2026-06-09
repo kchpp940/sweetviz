@@ -37,11 +37,40 @@ $(document).ready(function() {
 hideAllDetails();
 $("span.bg-tab-summary-rollover").hide();
 
+if (typeof g_hide_associations !== 'undefined' && g_hide_associations) {
+    $(".container-df-associations").hide();
+    $("#button-summary-associations-source, #button-summary-associations-compare").hide();
+}
+
 // Make the detail column the same height, so the floating element has room
 //$("#col2").height($("#col1").height());
 $("#col1").height(g_height);
 $("#col2").height(g_height);
 //alert($("#col1").height());
+
+// Apply open_features: open specified feature details by default
+if (typeof g_open_features !== 'undefined' && g_open_features && g_open_features.length > 0) {
+    var featureNameToIndex = {};
+    $(".text-title-tab").each(function() {
+        var name = $(this).text();
+        var parentSummary = $(this).closest(".container-feature-summary, .container-feature-summary-target");
+        if (parentSummary.length > 0) {
+            var summaryId = parentSummary.attr("id");
+            featureNameToIndex[name] = summaryId;
+        }
+    });
+
+    for (var i = 0; i < g_open_features.length; i++) {
+        var featName = g_open_features[i];
+        if (featureNameToIndex[featName]) {
+            var summaryId = featureNameToIndex[featName];
+            var selectorElem = $("#" + summaryId + " .selector").first();
+            if (selectorElem.length > 0) {
+                selectorElem.click();
+            }
+        }
+    }
+}
 
 // SUMMARY AREA
 // --------------------------------------------------------

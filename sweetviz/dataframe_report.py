@@ -1,8 +1,6 @@
 from typing import Union, List, Tuple
 import os
 import time
-import json
-import datetime
 import pandas as pd
 from numpy import isnan
 from tqdm.auto import tqdm
@@ -19,8 +17,6 @@ from sweetviz.config import config
 import sweetviz.comet_ml_logger as comet_ml_logger
 import sweetviz.sv_html as sv_html
 from sweetviz.feature_config import FeatureConfig
-from sweetviz import serialize as sv_serialize
-from sweetviz import drift as sv_drift
 import webbrowser
 from sweetviz.config import config
 
@@ -53,8 +49,9 @@ class DataframeReport:
         self._target = None
         self.test_mode = False
         self.corr_warning = list()
-        self.drift_summary = None
-        self.generated_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        self.notebook_open_features = []
+        self.notebook_collapse_details = False
+        self.notebook_hide_associations = False
         if fc is None:
             fc = FeatureConfig()
 
@@ -319,21 +316,6 @@ class DataframeReport:
             self._associations_compare = None
             self.associations_html_source = None
             self.associations_html_compare = None
-
-        if compare is not None:
-            if self._target is not None and "compare" in self._target:
-                self._target["drift"] = sv_drift.compute_feature_drift(
-                    self._target, self._target["compare"]
-                )
-            for feat_name, feat_dict in self._features.items():
-                if "compare" in feat_dict and feat_dict["compare"] is not None:
-                    feat_dict["drift"] = sv_drift.compute_feature_drift(
-                        feat_dict, feat_dict["compare"]
-                    )
-            self.drift_summary = sv_drift.compute_report_drift(
-                self._features, self._target
-            )
-
         self.progress_bar.close()
         return
 
@@ -557,7 +539,7 @@ class DataframeReport:
             self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
         self._page_html = sv_html.generate_html_dataframe_page(self)
 
-    def show_html(self, filepath='SWEETVIZ_REPORT.html', open_browser=True, layout='widescreen', scale=None, export_json=None, export_json_path=None):
+    def show_html(self, filepath='SWEETVIZ_REPORT.html', open_browser=True, layout='widescreen', scale=None):
         scale = float(self.use_config_if_none(scale, "html_scale"))
         layout = self.use_config_if_none(layout, "html_layout")
         if layout not in ['widescreen', 'vertical']:
@@ -588,15 +570,6 @@ class DataframeReport:
                   "(likely due to only having a single row, containing non-NaN values for both correlated features)\n"
                   "Affected correlations:" + str(self.corr_warning))
 
-        if export_json is not False:
-            if export_json is True or config["Output_Defaults"].getboolean("export_json_metadata"):
-                if export_json_path is not None:
-                    json_filepath = export_json_path
-                else:
-                    base, _ = os.path.splitext(filepath)
-                    json_filepath = base + '.json'
-                self.export_json(json_filepath)
-
         # Auto-log to comet_ml if desired & present
         self._comet_ml_logger = comet_ml_logger.CometLogger()
         if self._comet_ml_logger._logging:
@@ -604,7 +577,8 @@ class DataframeReport:
             self._comet_ml_logger.log_html(self._page_html)
             self._comet_ml_logger.end()
 
-    def show_notebook(self, w=None, h=None, scale=None, layout=None, filepath=None, file_layout=None, file_scale=None, export_json=None, export_json_path=None):
+    def show_notebook(self, w=None, h=None, scale=None, layout=None, filepath=None, file_layout=None, file_scale=None,
+                      open_features=None, collapse_details=None, hide_associations=None):
         w = self.use_config_if_none(w, "notebook_width")
         h = self.use_config_if_none(h, "notebook_height")
         scale = float(self.use_config_if_none(scale, "notebook_scale"))
@@ -612,15 +586,31 @@ class DataframeReport:
         if layout not in ['widescreen', 'vertical']:
             raise ValueError(f"'layout' parameter must be either 'widescreen' or 'vertical'")
 
+        if open_features is None:
+            open_features = []
+        elif isinstance(open_features, str):
+            open_features = [open_features]
+        if collapse_details is None:
+            collapse_details = False
+        if hide_associations is None:
+            hide_associations = False
+        self.notebook_open_features = open_features
+        self.notebook_collapse_details = collapse_details
+        self.notebook_hide_associations = hide_associations
+
         sv_html.load_layout_globals_from_config()
         self.page_layout = layout
         self.scale = scale
         sv_html.set_summary_positions(self)
         sv_html.generate_html_detail(self)
-        if self.associations_html_source:
+        if self.associations_html_source and not hide_associations:
             self.associations_html_source = sv_html.generate_html_associations(self, "source")
-        if self.associations_html_compare:
+        elif hide_associations:
+            self.associations_html_source = None
+        if self.associations_html_compare and not hide_associations:
             self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
+        elif hide_associations:
+            self.associations_html_compare = None
         self._page_html = sv_html.generate_html_dataframe_page(self)
 
         width=w
@@ -663,15 +653,6 @@ class DataframeReport:
             f.close()
             self.verbose_print(f"Report '{filepath}' was saved to storage.")
 
-            if export_json is not False:
-                if export_json is True or config["Output_Defaults"].getboolean("export_json_metadata"):
-                    if export_json_path is not None:
-                        json_filepath = export_json_path
-                    else:
-                        base, _ = os.path.splitext(filepath)
-                        json_filepath = base + '.json'
-                    self.export_json(json_filepath)
-
         if len(self.corr_warning):
             print("WARNING: one or more correlations had an edge-case/error and a 1.0 correlation was assigned\n"
                   "(likely due to only a single row containing non-NaN values for both correlated features)\n"
@@ -690,33 +671,3 @@ class DataframeReport:
             experiment.log_html(self._page_html)
         except:
             print("log_comet(): error logging HTML report.")
-
-    def to_dict(self) -> dict:
-        result = sv_serialize.build_top_level_dict()
-        result["metadata"] = sv_serialize.build_report_metadata(self)
-        result["source_summary"] = sv_serialize.serialize_dataframe_summary(self.summary_source)
-        result["compare_summary"] = sv_serialize.serialize_dataframe_summary(self.summary_compare)
-
-        if self._target is not None:
-            result["target"] = sv_serialize.serialize_feature(self._target)
-
-        for feat_name, feat_dict in self._features.items():
-            result["features"][feat_name] = sv_serialize.serialize_feature(feat_dict)
-
-        result["associations"] = sv_serialize.serialize_associations(self._associations)
-        result["associations_compare"] = sv_serialize.serialize_associations(self._associations_compare)
-        result["drift_summary"] = sv_serialize.serialize_report_drift_summary(self.drift_summary)
-
-        return result
-
-    def to_json(self, indent: int = None) -> str:
-        if indent is None:
-            indent = config["Output_Defaults"].getint("json_metadata_indent")
-        return json.dumps(self.to_dict(), indent=indent, ensure_ascii=False)
-
-    def export_json(self, filepath: str = 'SWEETVIZ_REPORT.json', indent: int = None):
-        json_str = self.to_json(indent=indent)
-        with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(json_str)
-        self.verbose_print(f"JSON metadata {filepath} was generated.")
-        return filepath
