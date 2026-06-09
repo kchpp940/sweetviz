@@ -6,7 +6,6 @@ import matplotlib.font_manager as fm
 from io import BytesIO
 import base64
 import importlib_resources
-from textwrap import wrap as _textwrap_wrap
 from pandas.plotting import register_matplotlib_converters
 
 from sweetviz import sv_html_formatters
@@ -32,53 +31,9 @@ class Graph:
     @staticmethod
     def safe_label_for_graph(val, max_len=None, wrap_len=None,
                              break_chars=None, keep_break_chars=True):
-        if val is None:
-            return ""
-        text = str(val)
-        text = text.replace("\r", " ").replace("\n", " ")
-        text = text.replace("\t", " ")
-        text = text.replace("$", r"\$")
-        if max_len is not None and len(text) > max_len:
-            text = text[:max_len - 3] + "..."
-        if wrap_len is not None and len(text) > wrap_len:
-            if break_chars:
-                text = Graph._wrap_custom(text, break_chars, wrap_len, keep_break_chars)
-            else:
-                text = "\n".join(_textwrap_wrap(text, wrap_len, break_long_words=True,
-                                                break_on_hyphens=False))
-        return text
-
-    @staticmethod
-    def _wrap_custom(source_text, separator_chars, width, keep_separators=True):
-        current_length = 0
-        latest_separator = -1
-        current_chunk_start = 0
-        output = ""
-        char_index = 0
-        while char_index < len(source_text):
-            if source_text[char_index] in separator_chars:
-                latest_separator = char_index
-            output += source_text[char_index]
-            current_length += 1
-            if current_length == width:
-                if latest_separator >= current_chunk_start:
-                    cutting_length = char_index - latest_separator
-                    if not keep_separators:
-                        cutting_length += 1
-                    if cutting_length:
-                        output = output[:-cutting_length]
-                    output += "\n"
-                    current_chunk_start = latest_separator + 1
-                    char_index = current_chunk_start
-                else:
-                    output += "\n"
-                    current_chunk_start = char_index + 1
-                    latest_separator = current_chunk_start - 1
-                    char_index += 1
-                current_length = 0
-            else:
-                char_index += 1
-        return output
+        return sv_html_formatters.make_display_value(val).graph_label(
+            max_len=max_len, wrap_len=wrap_len,
+            break_chars=break_chars, keep_break_chars=keep_break_chars)
 
     @staticmethod
     def _iter_padding_artists(axis):

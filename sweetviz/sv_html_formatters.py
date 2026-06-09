@@ -1,5 +1,8 @@
 from decimal import Decimal
 import html as html_module
+import re
+import hashlib
+from textwrap import wrap as _textwrap_wrap
 import numpy as np
 try:
     from jinja2 import Markup
@@ -18,6 +21,86 @@ def escape_for_html(value, max_len=None):
     if max_len is not None and len(text) > max_len:
         text = text[:max_len] + "…"
     return Markup(text)
+
+
+def _wrap_custom_graph_label(source_text, separator_chars, width, keep_separators=True):
+    current_length = 0
+    latest_separator = -1
+    current_chunk_start = 0
+    output = ""
+    char_index = 0
+    while char_index < len(source_text):
+        if source_text[char_index] in separator_chars:
+            latest_separator = char_index
+        output += source_text[char_index]
+        current_length += 1
+        if current_length == width:
+            if latest_separator >= current_chunk_start:
+                cutting_length = char_index - latest_separator
+                if not keep_separators:
+                    cutting_length += 1
+                if cutting_length:
+                    output = output[:-cutting_length]
+                output += "\n"
+                current_chunk_start = latest_separator + 1
+                char_index = current_chunk_start
+            else:
+                output += "\n"
+                current_chunk_start = char_index + 1
+                latest_separator = current_chunk_start - 1
+                char_index += 1
+            current_length = 0
+        else:
+            char_index += 1
+    return output
+
+
+class DisplayValue:
+    def __init__(self, raw_value):
+        self.raw = raw_value
+        self._text = str(raw_value) if raw_value is not None else ""
+
+    @property
+    def plain_text(self):
+        text = self._text.replace("\r", " ").replace("\n", " ").replace("\t", " ")
+        return text
+
+    @property
+    def html_text(self):
+        return escape_for_html(self.raw)
+
+    @property
+    def display_key(self):
+        text = self._text
+        safe = re.sub(r'[^\w\-]', '_', text, flags=re.UNICODE)
+        if len(safe) == 0:
+            safe = "_empty_"
+        if len(safe) > 40:
+            h = hashlib.md5(text.encode('utf-8')).hexdigest()[:8]
+            safe = safe[:31] + "_" + h
+        return safe
+
+    def graph_label(self, max_len=None, wrap_len=None, break_chars=None, keep_break_chars=True):
+        text = self.plain_text.replace("$", r"\$")
+        if max_len is not None and len(text) > max_len:
+            text = text[:max_len - 3] + "..."
+        if wrap_len is not None and len(text) > wrap_len:
+            if break_chars:
+                text = _wrap_custom_graph_label(text, break_chars, wrap_len, keep_break_chars)
+            else:
+                text = "\n".join(_textwrap_wrap(text, wrap_len, break_long_words=True,
+                                                break_on_hyphens=False))
+        return text
+
+    def __str__(self):
+        return str(self.html_text)
+
+    def __html__(self):
+        return str(self.html_text)
+
+
+def make_display_value(raw_value):
+    return DisplayValue(raw_value)
 
 
 def fmt_int_commas(value: float) -> str:

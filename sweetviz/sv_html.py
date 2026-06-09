@@ -29,7 +29,9 @@ jinja2_env.filters["fmt_smart_range"] = sweetviz.sv_html_formatters.fmt_smart_ra
 jinja2_env.filters["fmt_div_icon_missing"] = sweetviz.sv_html_formatters.fmt_div_icon_missing
 jinja2_env.filters["fmt_div_color_override_missing"] = sweetviz.sv_html_formatters.fmt_div_color_override_missing
 jinja2_env.filters["escape_for_html"] = sweetviz.sv_html_formatters.escape_for_html
+jinja2_env.filters["as_display"] = sweetviz.sv_html_formatters.make_display_value
 jinja2_env.globals["hello"] = "Superduper"
+jinja2_env.globals["make_display_value"] = sweetviz.sv_html_formatters.make_display_value
 
 def load_layout_globals_from_config():
     jinja2_env.globals["FeatureType"] = FeatureType
@@ -339,7 +341,9 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
     # ------------------------
     # Find name width
     count_row_data = feature_dict["detail"]["full_count"]
-    longest_cat = max(map(lambda row : len(str(row['name'])), count_row_data))
+    longest_cat = max(map(
+        lambda row: len(sweetviz.sv_html_formatters.make_display_value(row['name']).plain_text),
+        count_row_data))
     longest_width = longest_cat * config["Layout"].getint("character_width_estimate")
     # Set columns
     #cur_x = config["Layout"].getint("cat_detail_col_1_x")

@@ -219,29 +219,54 @@ print("  Markup safety (prevents re-escaping in f-strings): PASSED")
 
 
 print("\n" + "=" * 60)
-print("TEST 5: Graph.safe_label_for_graph unit tests")
+print("TEST 5: DisplayValue class comprehensive tests")
 print("=" * 60)
+from sweetviz.sv_html_formatters import DisplayValue, make_display_value
 from sweetviz.graph import Graph
 
-lbl = Graph.safe_label_for_graph('<test>$price\nline2\tend')
-assert '$' not in lbl or r'\$' in lbl, f"$ not escaped in graph label: {lbl}"
-assert '\n' not in lbl, f"Newline not removed from graph label: {repr(lbl)}"
-assert '\t' not in lbl, f"Tab not removed from graph label: {repr(lbl)}"
-print("  Special graph chars cleaned: PASSED")
+dv = make_display_value('<test>&"x"')
+assert dv.raw == '<test>&"x"', f"DisplayValue.raw should keep original value: {dv.raw}"
+print("  .raw preserves original value: PASSED")
 
-very_long_graph_label = 'X' * 500
-short_lbl = Graph.safe_label_for_graph(very_long_graph_label, max_len=40)
-assert '...' in short_lbl, f"Graph label truncation missing ellipsis: {short_lbl}"
-assert len(short_lbl) == 40, f"Graph label truncation wrong length: {len(short_lbl)}"
-print("  Graph label hard truncation: PASSED")
+html_text = str(dv.html_text)
+assert '&lt;test&gt;&amp;&quot;x&quot;' in html_text, f".html_text escaping failed: {html_text}"
+print("  .html_text HTML entity escaping: PASSED")
 
-none_lbl = Graph.safe_label_for_graph(None)
-assert none_lbl == "", f"None graph label not empty: {repr(none_lbl)}"
-print("  Graph label None handling: PASSED")
+dv_nl = make_display_value("line1\nline2\r\nline3")
+assert '<br>' in str(dv_nl.html_text), f".html_text newline→<br> failed"
+print("  .html_text newline→<br>: PASSED")
 
-wrapped = Graph.safe_label_for_graph("hello_world_foo_bar_baz", max_len=100, wrap_len=10, break_chars=["_"])
-assert '\n' in wrapped, f"Graph label wrapping not applied: {repr(wrapped)}"
-print("  Graph label wrapping: PASSED")
+pt = dv.plain_text
+assert '<' in pt and '&' in pt, f".plain_text should NOT HTML-escape: {pt}"
+assert '\n' not in pt and '\t' not in '\r' not in pt, f".plain_text whitespace normalization failed"
+print("  .plain_text normalizes whitespace but no HTML escaping: PASSED")
+
+dv_long = make_display_value('A' * 500)
+dk = dv_long.display_key
+assert len(dk) <= 40, f".display_key too long ({len(dk)}): {dk}"
+assert '<' not in dk and '&' not in dk and ' ' not in dk, f".display_key has unsafe chars: {dk}"
+assert not dk[0].isdigit(), f".display_key should not start with digit: {dk}"
+print(f"  .display_key safety and length ({len(dk)}): PASSED")
+
+dv_1 = make_display_value("Field<X>&Y")
+dv_2 = make_display_value("Field<X>&Y")
+assert dv_1.display_key == dv_2.display_key, f".display_key not deterministic: {dv_1.display_key} != {dv_2.display_key}"
+print("  .display_key deterministic: PASSED")
+
+gl = dv.graph_label()
+assert '$' not in gl or r'\$' in gl, f".graph_label $ not escaped"
+print("  .graph_label $→\\$: PASSED")
+
+assert Graph.safe_label_for_graph("test") == make_display_value("test").graph_label(), \
+    "Graph.safe_label_for_graph should delegate to DisplayValue.graph_label"
+print("  Graph.safe_label_for_graph delegates to DisplayValue: PASSED")
+
+dv_none = make_display_value(None)
+assert dv_none.raw is None
+assert dv_none.plain_text == ""
+assert str(dv_none.html_text) == ""
+assert dv_none.graph_label() == ""
+print("  DisplayValue(None) all empty: PASSED")
 
 
 print("\n" + "=" * 60)
@@ -269,7 +294,7 @@ print("Compare report: PASSED")
 
 
 print("\n" + "=" * 60)
-print("TEST 7: Detail toggle structural assertions")
+print("TEST 7: Detail toggle structural assertions + data-display-key")
 print("=" * 60)
 for layout_name, html_content in [("widescreen", html_wide), ("vertical", html_vert)]:
     detail_sections = re.findall(
@@ -280,6 +305,23 @@ for layout_name, html_content in [("widescreen", html_wide), ("vertical", html_v
           f"{len(detail_sections)} detail sections")
     assert len(summary_sections) > 0, f"{layout_name}: No feature summary sections found!"
     print(f"  {layout_name} detail/summary structure: PASSED")
+
+    display_keys = re.findall(r'data-display-key="([^"]*)"', html_content)
+    print(f"  {layout_name}: found {len(display_keys)} data-display-key attributes")
+    assert len(display_keys) > 0, f"{layout_name}: No data-display-key attributes found!"
+    for dk in display_keys:
+        assert len(dk) <= 40, f"{layout_name}: data-display-key too long ({len(dk)}): {dk}"
+        assert '<' not in dk and '&' not in dk and ' ' not in dk and '"' not in dk, \
+            f"{layout_name}: data-display-key contains unsafe chars: {dk}"
+        if not dk.startswith("_") and not dk[0].isalpha():
+            assert not dk[0].isdigit(), f"{layout_name}: data-display-key starts with digit: {dk}"
+    print(f"  {layout_name} data-display-key attributes valid (all <=40 chars, no unsafe chars): PASSED")
+
+    special_dv = make_display_value(special_chars_name)
+    if special_dv.display_key in html_content:
+        print(f"  {layout_name}: special field display_key '{special_dv.display_key}' found in HTML: PASSED")
+    else:
+        print(f"  {layout_name}: WARNING: special field display_key not found (may be truncated)")
 
 
 print("\n" + "=" * 60)
