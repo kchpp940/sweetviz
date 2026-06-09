@@ -105,9 +105,21 @@ analyze(source: Union[pd.DataFrame, Tuple[pd.DataFrame, str]],
 - **source:** Either the data frame (as in the example) or a tuple containing the data frame and a name to show in the report. 
 e.g. `my_df` or `[my_df, "Training"]`
 - **target_feat:** A string representing the name of the feature to be marked as "target". *Only BOOLEAN and NUMERICAL features can be targets for now.*
-- **feat_cfg:** A FeatureConfig object representing features to be skipped, or to be forced a certain type in the analysis. The arguments can either be a single string or list of strings. Parameters are `skip`, `force_cat`, `force_num` and `force_text`. The "force_" arguments override the built-in type detection. They can be constructed as follows:
+- **feat_cfg:** A FeatureConfig object representing features to be skipped, or to be forced a certain type in the analysis. The arguments can either be a single string or list of strings. Parameters are `skip`, `force_cat`, `force_num`, `force_text`, `alias` and `groups`. The "force_" arguments override the built-in type detection. `alias` maps original column names to human-readable display names; `groups` organizes features into labelled groups in the summary. They can be constructed as follows:
 ```
-feature_config = sv.FeatureConfig(skip="PassengerId", force_text=["Age"])
+feature_config = sv.FeatureConfig(
+    skip="PassengerId",
+    force_cat=["Pclass"],
+    alias={
+        "Survived": "是否生还",
+        "Pclass":   "舱位等级",
+        "Age":      "年龄"
+    },
+    groups={
+        "基本信息": ["Sex", "Age"],
+        "出行属性": ["Pclass", "Fare"]
+    }
+)
 ```
 - **verbosity:** **[NEW]** Can be set to `full`, `progress_only` (to only display the progress bar but not report generation messages) and `off` (fully quiet, except for errors or warnings). Default  verbosity can also be set in the INI override, under the "General" heading (see "The Config file" section below for details).
 - **pairwise_analysis:** Correlations and other associations can take quadratic time (n^2) to complete. The default setting ("auto") will run without warning until a data set contains "association_auto_threshold" features. Past that threshold, you need to explicitly pass the parameter `pairwise_analysis="on"` (or `="off"`) since processing that many features would take a long time. This parameter also covers the generation of the association graphs (based on [Drazen Zaric's concept](https://towardsdatascience.com/better-heatmaps-and-correlation-matrix-plots-in-python-41445d0f2bec)):

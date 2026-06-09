@@ -49,6 +49,7 @@ class DataframeReport:
         self._target = None
         self.test_mode = False
         self.corr_warning = list()
+        self._open_order_indices = []
         if fc is None:
             fc = FeatureConfig()
         self._fc = fc
@@ -376,6 +377,25 @@ class DataframeReport:
 
         return grouped
 
+    def resolve_open_features(self, open_features: Union[str, List[str], Tuple[str]]):
+        """
+        Convert a list of ORIGINAL feature names (or a single name) to their
+        corresponding order_index integers used in DOM ids. Features that do
+        not exist in the report are silently skipped.
+        """
+        if open_features is None:
+            return []
+        if isinstance(open_features, str):
+            open_features = [open_features]
+        indices = []
+        for fname in open_features:
+            if self._target is not None and self._target["name"] == fname:
+                indices.append(int(self._target["order_index"]))
+                continue
+            if fname in self._features:
+                indices.append(int(self._features[fname]["order_index"]))
+        return indices
+
     @staticmethod
     def get_predetermined_type(name: str,
                                feature_predetermined_types: dict):
@@ -580,7 +600,23 @@ class DataframeReport:
             self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
         self._page_html = sv_html.generate_html_dataframe_page(self)
 
-    def show_html(self, filepath='SWEETVIZ_REPORT.html', open_browser=True, layout='widescreen', scale=None):
+    def show_html(self, filepath='SWEETVIZ_REPORT.html', open_browser=True,
+                  layout='widescreen', scale=None,
+                  open_features: Union[str, List[str], Tuple[str]] = None):
+        """
+        Generate and save a standalone HTML report.
+
+        Args:
+            filepath: Output file path.
+            open_browser: If True, open the report in a web browser after saving.
+            layout: 'widescreen' (default) or 'vertical'.
+            scale: Float scaling factor. Defaults to the config file value (1.0).
+            open_features: A single original column name, or a list/tuple of
+                original column names, whose detail panels should be open by
+                default when the page loads. **Must use original column names,
+                not display aliases.** Feature names that are not found are
+                silently ignored.
+        """
         scale = float(self.use_config_if_none(scale, "html_scale"))
         layout = self.use_config_if_none(layout, "html_layout")
         if layout not in ['widescreen', 'vertical']:
@@ -588,6 +624,7 @@ class DataframeReport:
         sv_html.load_layout_globals_from_config()
         self.page_layout = layout
         self.scale = scale
+        self._open_order_indices = self.resolve_open_features(open_features)
         sv_html.set_summary_positions(self)
         sv_html.generate_html_detail(self)
         if self.associations_html_source:
@@ -618,7 +655,26 @@ class DataframeReport:
             self._comet_ml_logger.log_html(self._page_html)
             self._comet_ml_logger.end()
 
-    def show_notebook(self, w=None, h=None, scale=None, layout=None, filepath=None, file_layout=None, file_scale=None):
+    def show_notebook(self, w=None, h=None, scale=None, layout=None, filepath=None,
+                      file_layout=None, file_scale=None,
+                      open_features: Union[str, List[str], Tuple[str]] = None):
+        """
+        Render the report inside a Jupyter / Colab notebook via an iframe, and
+        optionally save it to a standalone HTML file.
+
+        Args:
+            w: iframe width (default from config: '100%%').
+            h: iframe height (default from config: 750). Use 'full' to auto-size
+               to the full report height.
+            scale: Float scaling factor (default from config: 1.0).
+            layout: 'widescreen' or 'vertical' (default from config).
+            filepath: If given, also save a standalone HTML copy to this path.
+            file_layout: Layout for the optional file output (defaults to config).
+            file_scale: Scale for the optional file output (defaults to config).
+            open_features: A single original column name, or list/tuple of original
+                column names, whose detail panels should be open by default.
+                **Must use original column names, not display aliases.**
+        """
         w = self.use_config_if_none(w, "notebook_width")
         h = self.use_config_if_none(h, "notebook_height")
         scale = float(self.use_config_if_none(scale, "notebook_scale"))
@@ -629,6 +685,7 @@ class DataframeReport:
         sv_html.load_layout_globals_from_config()
         self.page_layout = layout
         self.scale = scale
+        self._open_order_indices = self.resolve_open_features(open_features)
         sv_html.set_summary_positions(self)
         sv_html.generate_html_detail(self)
         if self.associations_html_source:
@@ -664,6 +721,7 @@ class DataframeReport:
             sv_html.load_layout_globals_from_config()
             self.page_layout = layout
             self.scale = scale
+            self._open_order_indices = self.resolve_open_features(open_features)
             sv_html.set_summary_positions(self)
             sv_html.generate_html_detail(self)
             if self.associations_html_source:

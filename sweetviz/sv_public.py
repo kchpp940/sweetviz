@@ -8,7 +8,8 @@ from sweetviz.feature_config import FeatureConfig
 def analyze(source: Union[pd.DataFrame, Tuple[pd.DataFrame, str]],
             target_feat: str = None,
             feat_cfg: FeatureConfig = None,
-            pairwise_analysis: str = 'auto'):
+            pairwise_analysis: str = 'auto',
+            verbosity: str = 'default'):
     """
     Analyze a single dataframe and generate a full EDA report.
 
@@ -24,12 +25,13 @@ def analyze(source: Union[pd.DataFrame, Tuple[pd.DataFrame, str]],
             groups lists) **must use original column names**.
         pairwise_analysis: 'auto', 'on', or 'off'. Controls correlation/association
             computation, which is O(n²) in the number of features.
+        verbosity: 'default' (from config), 'full', 'progress_only', or 'off'.
 
     Returns:
         A DataframeReport object; call .show_html() or .show_notebook() on it to render.
     """
-    report = sweetviz.DataframeReport(source, target_feat, None,
-                                      pairwise_analysis, feat_cfg)
+    report = sweetviz.dataframe_report.DataframeReport(source, target_feat, None,
+                                                       pairwise_analysis, feat_cfg, verbosity)
     return report
 
 
@@ -37,7 +39,8 @@ def compare(source: Union[pd.DataFrame, Tuple[pd.DataFrame, str]],
             compare: Union[pd.DataFrame, Tuple[pd.DataFrame, str]],
             target_feat: str = None,
             feat_cfg: FeatureConfig = None,
-            pairwise_analysis: str = 'auto'):
+            pairwise_analysis: str = 'auto',
+            verbosity: str = 'default'):
     """
     Compare two dataframes side-by-side in a single report.
 
@@ -51,12 +54,13 @@ def compare(source: Union[pd.DataFrame, Tuple[pd.DataFrame, str]],
         feat_cfg: A FeatureConfig object. All feature references use original
             column names; aliases only affect display text.
         pairwise_analysis: 'auto', 'on', or 'off'.
+        verbosity: 'default' (from config), 'full', 'progress_only', or 'off'.
 
     Returns:
         A DataframeReport object.
     """
-    report = sweetviz.DataframeReport(source, target_feat, compare,
-                                      pairwise_analysis, feat_cfg)
+    report = sweetviz.dataframe_report.DataframeReport(source, target_feat, compare,
+                                                       pairwise_analysis, feat_cfg, verbosity)
     return report
 
 
@@ -65,7 +69,8 @@ def compare_intra(source_df: pd.DataFrame,
                   names: Tuple[str, str],
                   target_feat: str = None,
                   feat_cfg: FeatureConfig = None,
-                  pairwise_analysis: str = 'auto'):
+                  pairwise_analysis: str = 'auto',
+                  verbosity: str = 'default'):
     """
     Split a single dataframe into two sub-populations by a boolean condition
     and compare them side-by-side.
@@ -80,6 +85,7 @@ def compare_intra(source_df: pd.DataFrame,
         feat_cfg: A FeatureConfig object. All feature references use original
             column names; aliases only affect display text.
         pairwise_analysis: 'auto', 'on', or 'off'.
+        verbosity: 'default' (from config), 'full', 'progress_only', or 'off'.
 
     Returns:
         A DataframeReport object.
@@ -97,8 +103,8 @@ def compare_intra(source_df: pd.DataFrame,
         raise ValueError('compare_intra(): FALSE dataset is empty, nothing to compare!')
     if len(data_true) == 0:
         raise ValueError('compare_intra(): TRUE dataset is empty, nothing to compare!')
-    report = sweetviz.DataframeReport([data_true, names[0]], target_feat,
-                                      [data_false, names[1]],
-                                      pairwise_analysis, feat_cfg)
+    report = sweetviz.dataframe_report.DataframeReport([data_true, names[0]], target_feat,
+                                                       [data_false, names[1]],
+                                                       pairwise_analysis, feat_cfg, verbosity)
     return report
 
