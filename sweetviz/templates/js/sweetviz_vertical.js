@@ -26,6 +26,67 @@ function hideAllDetails()
 //     return false;
 // });
 
+function buildFeatureLookupVertical() {
+    var lookup = {};
+    $(".text-title-tab").each(function() {
+        var name = $(this).text();
+        var parentSummary = $(this).closest(".container-feature-summary, .container-feature-summary-target");
+        if (parentSummary.length > 0) {
+            var summaryId = parentSummary.attr("id");
+            lookup[name] = {
+                summaryId: summaryId,
+                selector: $("#" + summaryId + " .selector").first()
+            };
+        }
+    });
+    return lookup;
+}
+
+function expandFeatureVertical(featInfo) {
+    if (!featInfo) return;
+    var sel = featInfo.selector;
+    if (sel.length === 0) return;
+    if (sel.parent().parent().data('expanded') === 'true') return;
+
+    var detailDiv = sel.data("detail-div");
+    var parent = sel.parent();
+    var grandParent = parent.parent();
+    var summaryId = parent.attr("id");
+
+    $("#" + detailDiv).show();
+    grandParent.data('expanded', 'true');
+
+    var feature_index_str;
+    if (summaryId === "summary-target") {
+        feature_index_str = "f-1";
+    } else {
+        feature_index_str = summaryId.substring(8);
+    }
+
+    if ($('#cat-assoc-window-' + feature_index_str).length) {
+        var $el = $('#detail_breakdown-' + feature_index_str);
+        var bottom = ($el.position().top / g_scale) + $el.outerHeight(true);
+        var desiredBottomBreakdown = bottom + 157;
+
+        $el = $('#cat-assoc-window-' + feature_index_str);
+        var bottomAssoc = $el.position().top + $el.outerHeight(true);
+        var desiredBottomAssoc = bottomAssoc + 166;
+
+        var finalHeight = Math.max(desiredBottomBreakdown, desiredBottomAssoc);
+        if (summaryId === "summary-target") {
+            parent.css('height', String((finalHeight + 50)) + 'px');
+            $("#summary-target").css("overflow", "hidden");
+        }
+        grandParent.css('height', String(finalHeight) + 'px');
+    } else {
+        grandParent.css('height', '1030px');
+    }
+    if (summaryId === "summary-target") {
+        $("#summary-target-bg").addClass("bg-tab-summary-target-full");
+        $("#summary-target-bg").removeClass("bg-tab-summary-target");
+    }
+}
+
 $("span.bg-tab-summary-rollover").hide();
 // hideAllDetails();
 
@@ -35,9 +96,12 @@ $(document).ready(function() {
 hideAllDetails();
 $("span.bg-tab-summary-rollover").hide();
 
-if (typeof g_hide_associations !== 'undefined' && g_hide_associations) {
-    $(".container-df-associations").hide();
-    $("#button-summary-associations-source, #button-summary-associations-compare").hide();
+// Apply config from sv_config
+if (typeof sv_config !== 'undefined') {
+    if (sv_config.hide_associations) {
+        $(".container-df-associations").hide();
+        $("#button-summary-associations-source, #button-summary-associations-compare").hide();
+    }
 }
 
 // Make the detail column the same height, so the floating element has room
@@ -46,37 +110,29 @@ $("#col1").height(g_height);
 $("#col2").height(g_height);
 //alert($("#col1").height());
 
-// Apply open_features and collapse_details for vertical layout
-if (typeof g_open_features !== 'undefined' && g_open_features && g_open_features.length > 0) {
-    var featureNameToIndex = {};
-    $(".text-title-tab").each(function() {
-        var name = $(this).text();
-        var parentSummary = $(this).closest(".container-feature-summary, .container-feature-summary-target");
-        if (parentSummary.length > 0) {
-            var summaryId = parentSummary.attr("id");
-            featureNameToIndex[name] = summaryId;
-        }
-    });
+// Apply open_features and collapse_details for vertical layout (direct DOM, no click simulation)
+if (typeof sv_config !== 'undefined') {
+    var shouldExpandSpecific = sv_config.open_features && sv_config.open_features.length > 0
+        && (!sv_config.collapse_details);
+    var shouldExpandAll = !sv_config.collapse_details
+        && (!sv_config.open_features || sv_config.open_features.length === 0);
 
-    if (typeof g_collapse_details === 'undefined' || !g_collapse_details) {
-        for (var i = 0; i < g_open_features.length; i++) {
-            var featName = g_open_features[i];
-            if (featureNameToIndex[featName]) {
-                var summaryId = featureNameToIndex[featName];
-                var selectorElem = $("#" + summaryId + " .selector").first();
-                if (selectorElem.length > 0) {
-                    selectorElem.click();
-                }
+    if (shouldExpandSpecific) {
+        var featLookup = buildFeatureLookupVertical();
+        for (var i = 0; i < sv_config.open_features.length; i++) {
+            var featName = sv_config.open_features[i];
+            if (featLookup[featName]) {
+                expandFeatureVertical(featLookup[featName]);
+            }
+        }
+    } else if (shouldExpandAll) {
+        var allLookup = buildFeatureLookupVertical();
+        for (var k in allLookup) {
+            if (allLookup.hasOwnProperty(k)) {
+                expandFeatureVertical(allLookup[k]);
             }
         }
     }
-} else if (typeof g_collapse_details !== 'undefined' && !g_collapse_details) {
-    // collapse_details false means expand all by default when no specific open_features
-    $(".selector").each(function() {
-        if ($(this).parent().parent().data('expanded') != 'true') {
-            $(this).click();
-        }
-    });
 }
 
 // SUMMARY AREA

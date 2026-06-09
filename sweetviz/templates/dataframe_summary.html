@@ -67,7 +67,7 @@
                     </div>
                 {% endif %}
             {% endif %}
-            {% if not dataframe.notebook_hide_associations %}
+            {% if not render_options.hide_associations %}
             <button class="button-assoc color-source button-border-source size-df-summary-button pos-df-summary-button-assoc-source" id="button-summary-associations-source"
                 data-detail-div="df-assoc-source">ASSOCIATIONS</button >
             {% if dataframe.summary_compare is not none %}

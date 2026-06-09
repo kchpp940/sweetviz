@@ -52,11 +52,16 @@
         span.graph-legend { content: url(data:image/png;base64,{{ dataframe.graph_legend.graph_base64.decode('ascii') }});}
     </style>
 <script>
-    g_height = {{ dataframe.page_height }};
-    g_scale = {{ dataframe.scale }};
-    g_open_features = {{ dataframe.notebook_open_features|tojson }};
-    g_collapse_details = {{ 'true' if dataframe.notebook_collapse_details else 'false' }};
-    g_hide_associations = {{ 'true' if dataframe.notebook_hide_associations else 'false' }};
+    var sv_config = {{ {
+        'page_height': dataframe.page_height,
+        'scale': dataframe.scale,
+        'layout': render_options.layout,
+        'open_features': render_options.open_features,
+        'collapse_details': render_options.collapse_details,
+        'hide_associations': render_options.hide_associations,
+    }|tojson }};
+    g_height = sv_config.page_height;
+    g_scale = sv_config.scale;
 </script>
 </head>
 

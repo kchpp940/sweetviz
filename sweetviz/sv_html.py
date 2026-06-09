@@ -66,10 +66,18 @@ def generate_html_detail(dataframe_report):
             feature["html_detail"] = generate_html_detail_text(feature, compare_dict, dataframe_report)
 
 
-def generate_html_dataframe_page(dataframe_report):
+def generate_html_dataframe_page(dataframe_report, render_options=None):
+    if render_options is None:
+        render_options = {
+            'layout': dataframe_report.page_layout if hasattr(dataframe_report, 'page_layout') else 'widescreen',
+            'scale': dataframe_report.scale if hasattr(dataframe_report, 'scale') else 1.0,
+            'iframe_width': None,
+            'iframe_height': None,
+            'open_features': [],
+            'collapse_details': False,
+            'hide_associations': False,
+        }
     template = jinja2_env.get_template('dataframe_page.html')
-    # Add in total page size (160 is hardcoded from the top of page-all-summaries in CSS)
-    # This could be programmatically set
     dataframe_report.page_height = 160 + (dataframe_report.num_summaries * (config["Layout"].getint("summary_height_per_element")))
     if dataframe_report.page_layout == "widescreen":
         padding_type = "full_page_padding_widescreen"
@@ -77,16 +85,23 @@ def generate_html_dataframe_page(dataframe_report):
         padding_type = "full_page_padding_vertical"
     padding = config["Layout"].getint(padding_type)
     dataframe_report.page_height += padding
-    # scaling = dict()
-    # scaling["main_column"] = scale
-    # scaling= scale
-    output = template.render(dataframe=dataframe_report, version=sweetviz.__version__)
+    output = template.render(dataframe=dataframe_report, render_options=render_options, version=sweetviz.__version__)
     return output
 
 
-def generate_html_dataframe_summary(dataframe_report):
+def generate_html_dataframe_summary(dataframe_report, render_options=None):
+    if render_options is None:
+        render_options = {
+            'layout': 'widescreen',
+            'scale': 1.0,
+            'iframe_width': None,
+            'iframe_height': None,
+            'open_features': [],
+            'collapse_details': False,
+            'hide_associations': False,
+        }
     template = jinja2_env.get_template('dataframe_summary.html')
-    output = template.render(dataframe=dataframe_report)
+    output = template.render(dataframe=dataframe_report, render_options=render_options)
     return output
 
 def generate_html_associations(dataframe_report, which):

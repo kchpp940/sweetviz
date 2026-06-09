@@ -49,9 +49,6 @@ class DataframeReport:
         self._target = None
         self.test_mode = False
         self.corr_warning = list()
-        self.notebook_open_features = []
-        self.notebook_collapse_details = False
-        self.notebook_hide_associations = False
         if fc is None:
             fc = FeatureConfig()
 
@@ -529,31 +526,53 @@ class DataframeReport:
 
     def generate_comet_friendly_html(self):
         # Enforce comet_ml-friendly layout and re-output report based on INI settings (comet_ml_Defaults)
-        self.page_layout = config["comet_ml_defaults"]["html_layout"]
-        self.scale = float(config["comet_ml_defaults"]["html_scale"])
+        layout = config["comet_ml_defaults"]["html_layout"]
+        scale = float(config["comet_ml_defaults"]["html_scale"])
+        render_options = {
+            'layout': layout,
+            'scale': scale,
+            'iframe_width': None,
+            'iframe_height': None,
+            'open_features': [],
+            'collapse_details': False,
+            'hide_associations': False,
+        }
+        self.page_layout = layout
+        self.scale = scale
         sv_html.set_summary_positions(self)
+        self.dataframe_summary_html = sv_html.generate_html_dataframe_summary(self, render_options=render_options)
         sv_html.generate_html_detail(self)
         if self.associations_html_source:
             self.associations_html_source = sv_html.generate_html_associations(self, "source")
         if self.associations_html_compare:
             self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
-        self._page_html = sv_html.generate_html_dataframe_page(self)
+        self._page_html = sv_html.generate_html_dataframe_page(self, render_options=render_options)
 
     def show_html(self, filepath='SWEETVIZ_REPORT.html', open_browser=True, layout='widescreen', scale=None):
         scale = float(self.use_config_if_none(scale, "html_scale"))
         layout = self.use_config_if_none(layout, "html_layout")
         if layout not in ['widescreen', 'vertical']:
             raise ValueError(f"'layout' parameter must be either 'widescreen' or 'vertical'")
+        render_options = {
+            'layout': layout,
+            'scale': scale,
+            'iframe_width': None,
+            'iframe_height': None,
+            'open_features': [],
+            'collapse_details': False,
+            'hide_associations': False,
+        }
         sv_html.load_layout_globals_from_config()
         self.page_layout = layout
         self.scale = scale
         sv_html.set_summary_positions(self)
+        self.dataframe_summary_html = sv_html.generate_html_dataframe_summary(self, render_options=render_options)
         sv_html.generate_html_detail(self)
         if self.associations_html_source:
             self.associations_html_source = sv_html.generate_html_associations(self, "source")
         if self.associations_html_compare:
             self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
-        self._page_html = sv_html.generate_html_dataframe_page(self)
+        self._page_html = sv_html.generate_html_dataframe_page(self, render_options=render_options)
 
         f = open(filepath, 'w', encoding="utf-8")
         f.write(self._page_html)
@@ -594,14 +613,22 @@ class DataframeReport:
             collapse_details = False
         if hide_associations is None:
             hide_associations = False
-        self.notebook_open_features = open_features
-        self.notebook_collapse_details = collapse_details
-        self.notebook_hide_associations = hide_associations
+
+        render_options = {
+            'layout': layout,
+            'scale': scale,
+            'iframe_width': w,
+            'iframe_height': h,
+            'open_features': open_features,
+            'collapse_details': collapse_details,
+            'hide_associations': hide_associations,
+        }
 
         sv_html.load_layout_globals_from_config()
         self.page_layout = layout
         self.scale = scale
         sv_html.set_summary_positions(self)
+        self.dataframe_summary_html = sv_html.generate_html_dataframe_summary(self, render_options=render_options)
         sv_html.generate_html_detail(self)
         if self.associations_html_source and not hide_associations:
             self.associations_html_source = sv_html.generate_html_associations(self, "source")
@@ -611,10 +638,10 @@ class DataframeReport:
             self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
         elif hide_associations:
             self.associations_html_compare = None
-        self._page_html = sv_html.generate_html_dataframe_page(self)
+        self._page_html = sv_html.generate_html_dataframe_page(self, render_options=render_options)
 
-        width=w
-        height=h
+        width = render_options['iframe_width']
+        height = render_options['iframe_height']
         if str(height).lower() == "full":
             height = self.page_height
 
@@ -627,26 +654,30 @@ class DataframeReport:
         display(HTML(iframe))
 
         if filepath is not None:
-            # We cannot just write out the same HTML as the notebook, as that one has been processed so as to
-            # remove extraneous headings so it is nicely inserted into the notebook.
-            # Instead, just do something similar to the "show_html()" code, but without its less-relevant printouts etc.
-            # f = open(filepath, 'w', encoding="utf-8")
-            # f.write(self._page_html)
-            # f.close()
             scale = float(self.use_config_if_none(file_scale, "html_scale"))
             layout = self.use_config_if_none(file_layout, "html_layout")
             if layout not in ['widescreen', 'vertical']:
                 raise ValueError(f"'layout' parameter for file output must be either 'widescreen' or 'vertical'")
+            file_render_options = {
+                'layout': layout,
+                'scale': scale,
+                'iframe_width': None,
+                'iframe_height': None,
+                'open_features': [],
+                'collapse_details': False,
+                'hide_associations': False,
+            }
             sv_html.load_layout_globals_from_config()
             self.page_layout = layout
             self.scale = scale
             sv_html.set_summary_positions(self)
+            self.dataframe_summary_html = sv_html.generate_html_dataframe_summary(self, render_options=file_render_options)
             sv_html.generate_html_detail(self)
             if self.associations_html_source:
                 self.associations_html_source = sv_html.generate_html_associations(self, "source")
             if self.associations_html_compare:
                 self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
-            self._page_html = sv_html.generate_html_dataframe_page(self)
+            self._page_html = sv_html.generate_html_dataframe_page(self, render_options=file_render_options)
 
             f = open(filepath, 'w', encoding="utf-8")
             f.write(self._page_html)
