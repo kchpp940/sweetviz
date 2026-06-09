@@ -2,6 +2,7 @@ from typing import Union, List, Tuple
 import os
 import time
 import json
+import datetime
 import pandas as pd
 from numpy import isnan
 from tqdm.auto import tqdm
@@ -53,6 +54,7 @@ class DataframeReport:
         self.test_mode = False
         self.corr_warning = list()
         self.drift_summary = None
+        self.generated_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
         if fc is None:
             fc = FeatureConfig()
 

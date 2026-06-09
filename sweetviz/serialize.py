@@ -261,7 +261,7 @@ def serialize_associations(associations: Optional[Dict]) -> Dict:
 def build_report_metadata(report) -> Dict:
     return {
         "schema_version": SCHEMA_VERSION,
-        "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "generated_at": getattr(report, "generated_at", None),
         "source_name": report.source_name,
         "compare_name": report.compare_name,
     }

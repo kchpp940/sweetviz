@@ -190,7 +190,9 @@ export_json_metadata = 1
 json_metadata_indent = 2
 ```
 
-#### JSON Structure Example
+#### JSON Structure Example (fixed schema)
+All fields below are **always present** regardless of `analyze` vs `compare` mode. Optional data is expressed as `null` or empty collections, never by omitting the key.
+
 ```json
 {
   "metadata": {
@@ -203,80 +205,230 @@ json_metadata_indent = 2
     "name": "Train",
     "num_rows": 712,
     "num_columns": 12,
+    "num_skipped_columns": 0,
+    "memory_total": 77294,
+    "memory_single_row": 108,
+    "duplicates": {"number": 0, "percentage": 0.0},
     "num_cat": 5,
     "num_numerical": 6,
-    "memory_total": 77294
+    "num_text": 0,
+    "num_cmp_not_in_source": null
   },
   "compare_summary": {
     "name": "Test",
-    "num_rows": 179
+    "num_rows": 179,
+    "num_columns": 11,
+    "num_skipped_columns": 0,
+    "memory_total": 18987,
+    "memory_single_row": 106,
+    "duplicates": {"number": 0, "percentage": 0.0},
+    "num_cat": 4,
+    "num_numerical": 6,
+    "num_text": 0,
+    "num_cmp_not_in_source": 1
+  },
+  "target": {
+    "name": "Survived",
+    "type": "CATEGORICAL",
+    "is_target": true,
+    "base_stats": {
+      "total_rows": 712,
+      "num_values": {"number": 712, "percentage": 100.0},
+      "num_missing": {"number": 0, "percentage": 0.0},
+      "missing_rate": 0.0,
+      "num_zeroes": {"number": 424, "percentage": 59.55},
+      "num_distinct": {"number": 2, "percentage": 0.28}
+    },
+    "stats": {
+      "max": null, "perc95": null, "perc75": null, "mean": null, "perc50": null,
+      "perc25": null, "perc5": null, "min": null, "range": null, "iqr": null,
+      "std": null, "variance": null, "kurtosis": null, "skewness": null, "sum": null
+    },
+    "details": {
+      "top_categories": [
+        {"name": 0, "count": {"number": 424, "percentage": 59.55}, "count_compare": {"number": 65, "percentage": 63.11}},
+        {"name": 1, "count": {"number": 288, "percentage": 40.45}, "count_compare": {"number": 38, "percentage": 36.89}}
+      ],
+      "frequent_values": [],
+      "min_values": [],
+      "max_values": []
+    },
+    "compare": {
+      "type": "CATEGORICAL",
+      "base_stats": {
+        "total_rows": 103,
+        "num_values": {"number": 103, "percentage": 100.0},
+        "num_missing": {"number": 0, "percentage": 0.0},
+        "missing_rate": 0.0,
+        "num_zeroes": {"number": 65, "percentage": 63.11},
+        "num_distinct": {"number": 2, "percentage": 1.94}
+      },
+      "stats": {
+        "max": null, "perc95": null, "perc75": null, "mean": null, "perc50": null,
+        "perc25": null, "perc5": null, "min": null, "range": null, "iqr": null,
+        "std": null, "variance": null, "kurtosis": null, "skewness": null, "sum": null
+      }
+    },
+    "drift": {
+      "score": 3.56,
+      "severity": "low",
+      "top_reasons": ["类别 '0' 占比差异"],
+      "details": { ... }
+    }
   },
   "features": {
     "Age": {
       "name": "Age",
       "type": "NUMERIC",
+      "is_target": false,
       "base_stats": {
-        "missing_rate": 19.86,
-        "num_distinct": {"number": 88, "percentage": 9.87}
+        "total_rows": 712,
+        "num_values": {"number": 572, "percentage": 80.34},
+        "num_missing": {"number": 140, "percentage": 19.66},
+        "missing_rate": 19.66,
+        "num_zeroes": {"number": 0, "percentage": 0.0},
+        "num_distinct": {"number": 88, "percentage": 12.36}
       },
       "stats": {
-        "min": 0.42, "max": 80.0, "mean": 29.70,
-        "std": 14.53, "perc50": 28.0
+        "max": 80.0, "perc95": 58.0, "perc75": 38.0, "mean": 29.70, "perc50": 28.0,
+        "perc25": 20.0, "perc5": 6.0, "min": 0.42, "range": 79.58, "iqr": 18.0,
+        "std": 14.53, "variance": 211.0, "kurtosis": 0.17, "skewness": 0.39, "sum": 17000.5
+      },
+      "details": {
+        "top_categories": [],
+        "frequent_values": [
+          {"value": 24.0, "count": {"number": 30, "percentage": 4.21}, "count_compare": null}
+        ],
+        "min_values": [
+          {"value": 0.42, "count": {"number": 1, "percentage": 0.14}, "count_compare": null}
+        ],
+        "max_values": [
+          {"value": 80.0, "count": {"number": 1, "percentage": 0.14}, "count_compare": null}
+        ]
       },
       "compare": {
         "type": "NUMERIC",
-        "base_stats": { "missing_rate": 15.64 },
-        "stats": { "mean": 31.2 }
-      },
-      "drift_summary": {
-        "base": {
-          "num_values": {
-            "source": {"number": 572, "percentage": 80.34},
-            "compare": {"number": 151, "percentage": 84.36},
-            "diff_count": -421,
-            "diff_pct_points": 4.02
-          },
-          "num_missing": { "diff_pct_points": -4.22 }
+        "base_stats": {
+          "total_rows": 179,
+          "num_values": {"number": 151, "percentage": 84.36},
+          "num_missing": {"number": 28, "percentage": 15.64},
+          "missing_rate": 15.64,
+          "num_zeroes": {"number": 0, "percentage": 0.0},
+          "num_distinct": {"number": 63, "percentage": 35.20}
         },
-        "numeric_stats": {
-          "mean": {
-            "source": 29.70, "compare": 31.2,
-            "diff": 1.5, "diff_pct": 5.05
-          }
+        "stats": {
+          "max": 76.0, "perc95": 62.0, "perc75": 40.0, "mean": 31.2, "perc50": 29.0,
+          "perc25": 22.0, "perc5": 8.0, "min": 0.83, "range": 75.17, "iqr": 18.0,
+          "std": 14.8, "variance": 219.0, "kurtosis": 0.08, "skewness": 0.31, "sum": 4711.2
+        }
+      },
+      "drift": {
+        "score": 12.4,
+        "severity": "medium",
+        "top_reasons": ["标准差", "平均值", "缺失率差异"],
+        "details": {
+          "base": {
+            "num_values": {
+              "source": {"number": 572, "percentage": 80.34},
+              "compare": {"number": 151, "percentage": 84.36},
+              "diff_count": -421,
+              "diff_pct_points": 4.02
+            }
+          },
+          "numeric_stats": {
+            "mean": {
+              "source": 29.70, "compare": 31.2,
+              "diff": 1.5, "diff_pct": 5.05
+            }
+          },
+          "category_shifts": []
         }
       }
     },
     "Sex": {
       "name": "Sex",
       "type": "CATEGORICAL",
+      "is_target": false,
+      "base_stats": {
+        "total_rows": 712,
+        "num_values": {"number": 712, "percentage": 100.0},
+        "num_missing": {"number": 0, "percentage": 0.0},
+        "missing_rate": 0.0,
+        "num_zeroes": {"number": 0, "percentage": 0.0},
+        "num_distinct": {"number": 2, "percentage": 0.28}
+      },
+      "stats": {
+        "max": null, "perc95": null, "perc75": null, "mean": null, "perc50": null,
+        "perc25": null, "perc5": null, "min": null, "range": null, "iqr": null,
+        "std": null, "variance": null, "kurtosis": null, "skewness": null, "sum": null
+      },
       "details": {
         "top_categories": [
-          {"name": "male", "count": {"number": 577, "percentage": 64.76}},
-          {"name": "female", "count": {"number": 314, "percentage": 35.24}}
-        ]
+          {"name": "male", "count": {"number": 468, "percentage": 65.73}, "count_compare": {"number": 109, "percentage": 60.89}},
+          {"name": "female", "count": {"number": 244, "percentage": 34.27}, "count_compare": {"number": 70, "percentage": 39.11}}
+        ],
+        "frequent_values": [],
+        "min_values": [],
+        "max_values": []
       },
-      "drift_summary": {
-        "base": {
-          "num_values": { "diff_pct_points": 0.5 },
-          "num_missing": { "diff_pct_points": -1.2 }
+      "compare": {
+        "type": "CATEGORICAL",
+        "base_stats": {
+          "total_rows": 179,
+          "num_values": {"number": 179, "percentage": 100.0},
+          "num_missing": {"number": 0, "percentage": 0.0},
+          "missing_rate": 0.0,
+          "num_zeroes": {"number": 0, "percentage": 0.0},
+          "num_distinct": {"number": 2, "percentage": 1.12}
         },
-        "category_shifts": [
-          {
-            "name": "male",
-            "source": {"number": 468, "percentage": 65.73},
-            "compare": {"number": 109, "percentage": 60.89},
-            "diff_count": -359,
-            "diff_pct_points": -4.84
-          }
-        ]
+        "stats": {
+          "max": null, "perc95": null, "perc75": null, "mean": null, "perc50": null,
+          "perc25": null, "perc5": null, "min": null, "range": null, "iqr": null,
+          "std": null, "variance": null, "kurtosis": null, "skewness": null, "sum": null
+        }
+      },
+      "drift": {
+        "score": 4.84,
+        "severity": "low",
+        "top_reasons": ["类别 'male' 占比差异", "类别 'female' 占比差异"],
+        "details": {
+          "category_shifts": [
+            {
+              "name": "male",
+              "source": {"number": 468, "percentage": 65.73},
+              "compare": {"number": 109, "percentage": 60.89},
+              "diff_count": -359,
+              "diff_pct_points": -4.84
+            }
+          ]
+        }
       }
     }
   },
   "associations": {
-    "Survived": {"Pclass": 0.34, "Sex": 0.54, "Age": -0.08}
+    "Survived": {"Pclass": 0.34, "Sex": 0.54, "Age": -0.08},
+    "Pclass": {"Survived": 0.34, "Sex": 0.12, "Age": 0.37}
+  },
+  "associations_compare": {
+    "Survived": {"Pclass": 0.31, "Sex": 0.51, "Age": -0.05}
+  },
+  "drift_summary": {
+    "num_features": 11,
+    "average_score": 8.2,
+    "max_score": 15.7,
+    "severity_counts": {"high": 1, "medium": 3, "low": 5, "none": 2},
+    "top_features": [
+      {"feature_name": "Fare", "score": 15.7, "severity": "high", "top_reasons": ["标准差", "平均值"]},
+      {"feature_name": "Age", "score": 12.4, "severity": "medium", "top_reasons": ["标准差", "平均值", "缺失率差异"]}
+    ]
   }
 }
 ```
+
+**Notes on schema stability:**
+- In `analyze()` mode (no compare): `compare_summary` is still present (all values `null`), every feature's `compare` is `null`, and `drift_summary` is present with `num_features=0` and empty counts/top_features.
+- The `stats` dict inside each feature always has 15 keys (matching HTML numeric display). For non-numeric features all values are `null`.
+- `associations` and `associations_compare` are always `{}` (empty dict) when pairwise analysis is disabled, never `null` or omitted.
 
 ### show_notebook()
 ```
