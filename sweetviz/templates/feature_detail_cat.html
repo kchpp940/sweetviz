@@ -62,6 +62,10 @@
             {% endif %}
         </div>
 
+        <!-- JSON data for lazy expand -->
+        <script type="application/json" id="cat-data-f{{ feature_dict.order_index }}">{{ full_count_json|safe }}</script>
+        <script type="application/json" id="cat-layout-f{{ feature_dict.order_index }}">{{ layout_json|safe }}</script>
+
         <!-- ROW CONTENT: FOLDED (default visible) -->
         <div id="cat-folded-f{{ feature_dict.order_index }}" class="cat-rows-container">
         {% for rowdata in feature_dict.detail.folded_count %}
@@ -112,55 +116,9 @@
         {% endfor %}
         </div>
 
-        <!-- ROW CONTENT: FULL (default hidden, shown on expand) -->
-        <div id="cat-full-f{{ feature_dict.order_index }}" class="cat-rows-container isHidden">
-        {% for rowdata in feature_dict.detail.full_count %}
-            {% if rowdata.is_total is not none %}
-                <div class="breakdown-row text-value" style="width:553px">
-                </div>
-            {% endif %}
-            <div class="breakdown-row text-value {{ loop.cycle('', 'row-colored') }}" style="width:553px">
-                <!-- Name -->
-                <div class="text-label color-normal {{ "color-target-summary" if (dataframe.page_layout == "vertical" and feature_dict.is_target) }}" style="position: absolute; left:10px;
-                width: {{ cols.name_max_len }}px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ rowdata.name }}</div>
+        <!-- Placeholder: dynamically populated with full category data on expand -->
+        <div id="cat-full-f{{ feature_dict.order_index }}" class="cat-rows-container isHidden"></div>
 
-                <!-- Freq -->
-                <div class="pair__col color-source" style="left: {{ cols.source }}px">
-                    <div class="pair-pos__num dim">{{ rowdata.count.number|fmt_int_limit }}</div>
-                    <div class="pair-pos__perc">{{ rowdata.count.perc|fmt_percent }}</div>
-                </div>
-                {% if rowdata.count_compare is not none: %}
-                    <div class="pair__col color-compare" style="position: absolute; left: {{ cols.compare }}px">
-                        <div class="pair-pos__num dim">{{ rowdata.count_compare.number|fmt_int_limit }}</div>
-                        <div class="pair-pos__perc">{{ rowdata.count_compare.perc|fmt_percent }}</div>
-                    </div>
-                {% endif %}
-                <!-- Targets -->
-                {% if rowdata.target_stats is not none: %}
-                    {% if dataframe._target.type == FeatureType.TYPE_BOOL: %}
-                        <div class="pair__col color-source-target" style="position: absolute; left: {{ cols.source_target }}px">
-                            <div class="pair-pos__num dim">{{ rowdata.target_stats.number|fmt_int_limit }}</div>
-                            <div class="pair-pos__perc">{{ rowdata.target_stats.perc|fmt_percent }}</div>
-                        {% else %}
-                        <div class="pair__header color-source-target" style="position: absolute; left: {{ cols.source_target }}px; text-align: right;">
-                            {{ rowdata.target_stats.number|fmt_smart_range(feature_dict.detail.max_range) }}
-                    {% endif %}
-                    </div>
-                {% endif %}
-                {% if rowdata.target_stats_compare is not none: %}
-                    {% if dataframe._target.type == FeatureType.TYPE_BOOL: %}
-                        <div class="pair__col color-compare-target" style="position: absolute; left: {{ cols.compare_target }}px">
-                            <div class="pair-pos__num dim">{{ rowdata.target_stats_compare.number|fmt_int_limit }}</div>
-                            <div class="pair-pos__perc">{{ rowdata.target_stats_compare.perc|fmt_percent }}</div>
-                    {% else %}
-                        <div class="pair__header color-compare-target" style="position: absolute; left: {{ cols.compare_target }}px; text-align: right;">
-                            {{ rowdata.target_stats_compare.number|fmt_smart_range(feature_dict.detail.max_range) }}
-                    {% endif %}
-                    </div>
-                {% endif %}
-            </div>
-        {% endfor %}
-        </div>
         <div id="detail_cat_end-{{ feature_dict.order_index }}"></div>
     </div>
 

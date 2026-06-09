@@ -1,5 +1,6 @@
 import numpy as np
 import html
+import json
 from operator import itemgetter
 from jinja2 import Environment, PackageLoader
 import sweetviz.sv_html_formatters
@@ -494,9 +495,58 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
         influencing = None
         influenced = None
         corr_ratio = None
+
+    def _to_py(v):
+        if isinstance(v, (np.integer,)):
+            return int(v)
+        if isinstance(v, (np.floating,)):
+            return float(v)
+        if isinstance(v, np.ndarray):
+            return v.tolist()
+        return v
+
+    # Serialize full_count data for lazy expand
+    full_count_serializable = []
+    for row in feature_dict["detail"]["full_count"]:
+        r = dict()
+        r["name"] = row["name"]
+        r["is_total"] = row.get("is_total")
+        if row.get("count") is not None:
+            r["count"] = {"number": _to_py(row["count"].number), "perc": _to_py(row["count"].perc)}
+        else:
+            r["count"] = None
+        if row.get("count_compare") is not None:
+            r["count_compare"] = {"number": _to_py(row["count_compare"].number), "perc": _to_py(row["count_compare"].perc)}
+        else:
+            r["count_compare"] = None
+        if row.get("target_stats") is not None:
+            r["target_stats"] = {"number": _to_py(row["target_stats"].number), "perc": _to_py(row["target_stats"].perc)}
+        else:
+            r["target_stats"] = None
+        if row.get("target_stats_compare") is not None:
+            r["target_stats_compare"] = {"number": _to_py(row["target_stats_compare"].number), "perc": _to_py(row["target_stats_compare"].perc)}
+        else:
+            r["target_stats_compare"] = None
+        full_count_serializable.append(r)
+
+    full_count_json = json.dumps(full_count_serializable)
+
+    cols_serializable = {k: _to_py(v) for k, v in cols.items()}
+
+    layout_json = json.dumps({
+        "cols": cols_serializable,
+        "target_type": dataframe_report.get_target_type().value if dataframe_report.get_target_type() else None,
+        "has_compare": compare_dict is not None,
+        "has_compare_target": dataframe_report._target is not None and "compare" in dataframe_report._target,
+        "is_target_feature": feature_dict.get("is_target", False),
+        "max_range": _to_py(feature_dict["detail"].get("max_range", 0.0)),
+        "page_layout": dataframe_report.page_layout
+    })
+
     output = template.render(feature_dict = feature_dict, compare_dict = compare_dict, \
                              dataframe = dataframe_report, cols=cols, detail_layout=detail_layout,
-                             influencing=influencing, influenced=influenced, corr_ratio=corr_ratio)
+                             influencing=influencing, influenced=influenced, corr_ratio=corr_ratio,
+                             full_count_json=full_count_json, layout_json=layout_json)
     return output
 
 
