@@ -29,18 +29,18 @@ function hideAllDetails()
 function buildFeatureLookupVertical() {
     var lookup = {};
     var orderedList = [];
-    $(".text-title-tab").each(function() {
-        var name = $(this).text();
-        var parentSummary = $(this).closest(".container-feature-summary, .container-feature-summary-target");
-        if (parentSummary.length > 0) {
-            var summaryId = parentSummary.attr("id");
-            var featInfo = {
-                summaryId: summaryId,
-                selector: $("#" + summaryId + " .selector").first()
-            };
-            lookup[name] = featInfo;
-            orderedList.push(featInfo);
-        }
+    $(".container-feature-summary, .container-feature-summary-target").each(function() {
+        var $summary = $(this);
+        var name = $summary.data("feature-name");
+        if (typeof name === "undefined" || name === null || name === "") return;
+        var summaryId = $summary.attr("id");
+        var featInfo = {
+            summaryId: summaryId,
+            selector: $summary.find(".selector").first(),
+            name: name
+        };
+        lookup[name] = featInfo;
+        orderedList.push(featInfo);
     });
     return { byName: lookup, ordered: orderedList };
 }
