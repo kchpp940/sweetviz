@@ -74,6 +74,27 @@
                         </div>
                     </div>
                 {% endif %}
+                {% if dataframe.summary_compare.num_cmp_not_in_source_force_ignored > 0 %}
+                    <div class="dataframe-summary-row">
+                        <div class="pos-df-summary-source color-source"></div>
+                        <div class="pos-df-summary-center"> </div>
+                        <div class="pos-df-summary-compare color-compare">{{ dataframe.summary_compare.num_cmp_not_in_source_force_ignored }}
+                            <span class="color-normal" style="font-size: 10px;"> (UNIQUE TO COMPARE, FORCE IGNORED)</span>
+                        </div>
+                    </div>
+                    <div class="dataframe-summary-row">
+                        <div class="pos-df-summary-source color-source"></div>
+                        <div class="pos-df-summary-center"> </div>
+                        <div class="pos-df-summary-compare color-compare" style="font-size: 10px; color: #888;">
+                            {% set ns = namespace(items=[]) %}
+                            {% for item in dataframe.summary_compare.cmp_not_in_source_force_ignored %}
+                                {% set force_label = 'force_cat' if item.force_type == 'force_cat' else ('force_text' if item.force_type == 'force_text' else 'force_num') %}
+                                {% set ns.items = ns.items + [item.name + ' (' + force_label + ')'] %}
+                            {% endfor %}
+                            {{ ', '.join(ns.items) }}
+                        </div>
+                    </div>
+                {% endif %}
                 {% if dataframe.summary_compare.num_cmp_not_in_source_skipped > 0 %}
                     <div class="dataframe-summary-row">
                         <div class="pos-df-summary-source color-source"></div>
