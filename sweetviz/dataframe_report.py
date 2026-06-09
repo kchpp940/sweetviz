@@ -110,30 +110,16 @@ class DataframeReport:
         if target_feature_name in fc.skip:
             raise ValueError(f'"{target_feature_name}" was also specified as "skip". Target cannot be skipped.')
 
-        for skipped in fc.skip:
-            if skipped not in all_source_names and skipped not in all_compare_names:
-                raise ValueError(f'"{skipped}" was marked as "skip" but is not in any provided dataframe (watch case-sensitivity?).')
-
-        force_mentioned = list()
-        force_mentioned.extend(fc.force_cat)
-        force_mentioned.extend(fc.force_text)
-        force_mentioned.extend(fc.force_num)
-        for key in force_mentioned:
-            if key not in all_source_names and key not in all_compare_names:
-                raise ValueError(f'"{key}" was specified in "feature_config" force_* but is not found in any provided dataframe (watch case-sensitivity?).')
-
-        def get_force_type(col_name):
-            if col_name in fc.force_cat:
-                return "force_cat"
-            elif col_name in fc.force_text:
-                return "force_text"
-            elif col_name in fc.force_num:
-                return "force_num"
-            return None
+        for key in fc.get_all_mentioned_features():
+            if key not in all_source_names:
+                raise ValueError(f'"{key}" was specified in "feature_config" but is not found in source dataframe (watch case-sensitivity?).')
 
         # Find Features and Target (FILTER SKIPPED)
         filtered_series_names_in_source = [cur_name for cur_name, cur_series in source_df.items()
                                            if cur_name not in fc.skip]
+        for skipped in fc.skip:
+            if skipped not in all_source_names and skipped not in all_compare_names:
+                raise ValueError(f'"{skipped}" was marked as "skip" but is not in any provided dataframe (watch case-sensitivity?).')
 
         # Progress bar setup
         ratio_progress_of_df_summary_vs_feature = 1.0
@@ -170,35 +156,7 @@ class DataframeReport:
             self.summarize_dataframe(compare_df, self.compare_name, self.summary_compare, fc.skip)
             cmp_not_in_src = \
                 [name for name in all_compare_names if name not in all_source_names]
-            cmp_not_in_src_skipped = [name for name in cmp_not_in_src if name in fc.skip]
-            cmp_not_in_src_not_skipped = [name for name in cmp_not_in_src if name not in fc.skip]
-            cmp_not_in_src_force_ignored = [
-                {"name": name, "force_type": get_force_type(name)}
-                for name in cmp_not_in_src_not_skipped if get_force_type(name) is not None
-            ]
-            cmp_not_in_src_force_ignored_names = [item["name"] for item in cmp_not_in_src_force_ignored]
-            cmp_not_in_src_others = [
-                name for name in cmp_not_in_src_not_skipped if name not in cmp_not_in_src_force_ignored_names
-            ]
-            self.summary_compare["cmp_not_in_source"] = cmp_not_in_src
-            self.summary_compare["cmp_not_in_source_skipped"] = cmp_not_in_src_skipped
-            self.summary_compare["cmp_not_in_source_force_ignored"] = cmp_not_in_src_force_ignored
-            self.summary_compare["cmp_not_in_source_others"] = cmp_not_in_src_others
             self.summary_compare["num_cmp_not_in_source"] = len(cmp_not_in_src)
-            self.summary_compare["num_cmp_not_in_source_skipped"] = len(cmp_not_in_src_skipped)
-            self.summary_compare["num_cmp_not_in_source_force_ignored"] = len(cmp_not_in_src_force_ignored)
-            self.summary_compare["num_cmp_not_in_source_others"] = len(cmp_not_in_src_others)
-
-            src_not_in_cmp = \
-                [name for name in all_source_names if name not in all_compare_names]
-            src_not_in_cmp_skipped = [name for name in src_not_in_cmp if name in fc.skip]
-            src_not_in_cmp_analyzed = [name for name in src_not_in_cmp if name not in fc.skip]
-            self.summary_source["src_not_in_compare"] = src_not_in_cmp
-            self.summary_source["src_not_in_compare_skipped"] = src_not_in_cmp_skipped
-            self.summary_source["src_not_in_compare_analyzed"] = src_not_in_cmp_analyzed
-            self.summary_source["num_src_not_in_compare"] = len(src_not_in_cmp)
-            self.summary_source["num_src_not_in_compare_skipped"] = len(src_not_in_cmp_skipped)
-            self.summary_source["num_src_not_in_compare_analyzed"] = len(src_not_in_cmp_analyzed)
             # UPDATE 2021-02-05: Count the target has an actual feature!!! It is!!!
             # if target_feature_name:
             #     if target_feature_name in compare_df.columns:
@@ -424,20 +382,7 @@ class DataframeReport:
             target_dict["memory_single_row"] = 0
 
         target_dict["duplicates"] = NumWithPercent(sum(source.duplicated()), len(source))
-        target_dict["num_cmp_not_in_source"] = 0
-        target_dict["num_cmp_not_in_source_skipped"] = 0
-        target_dict["num_cmp_not_in_source_force_ignored"] = 0
-        target_dict["num_cmp_not_in_source_others"] = 0
-        target_dict["cmp_not_in_source"] = list()
-        target_dict["cmp_not_in_source_skipped"] = list()
-        target_dict["cmp_not_in_source_force_ignored"] = list()
-        target_dict["cmp_not_in_source_others"] = list()
-        target_dict["num_src_not_in_compare"] = 0
-        target_dict["num_src_not_in_compare_skipped"] = 0
-        target_dict["num_src_not_in_compare_analyzed"] = 0
-        target_dict["src_not_in_compare"] = list()
-        target_dict["src_not_in_compare_skipped"] = list()
-        target_dict["src_not_in_compare_analyzed"] = list()
+        target_dict["num_cmp_not_in_source"] = 0 # set later, as needed
 
     def summarize_category_types(self, this_df: pd.DataFrame, dest_dict: dict, skip: List[str], \
             source_target_dict):

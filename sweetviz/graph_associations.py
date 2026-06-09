@@ -295,8 +295,16 @@ def heatmap(y, x, figure_size, **kwargs):
             # return int(size_scale)
             # return val_position * int(size_scale)
 
+    def safe_label_for_graph(val):
+        text = str(val)
+        text = text.replace("\r", " ").replace("\n", " ")
+        text = text.replace("\t", " ")
+        text = text.replace("$", r"\$")
+        return text
+
     def do_wrapping(label, length):
-        return wrap_custom(label, ["_", "-"], length)
+        safe_label = safe_label_for_graph(label)
+        return wrap_custom(safe_label, ["_", "-"], length)
         # return '\n'.join(wrap(label, 15))
     wrap_x = 12 # at top/bottom
     wrap_y = 13

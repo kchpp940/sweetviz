@@ -136,11 +136,18 @@ class GraphCat(sweetviz.graph.Graph):
             pass
 
 
-        # Escape LaTeX
         tick_names_for_labels_only = tick_names
         if len(tick_names):
             if type(tick_names[0]) == str:
-                tick_names_for_labels_only = [str(x).replace("$",r"\$") for x in tick_names]
+                def safe_graph_label(val):
+                    text = str(val)
+                    text = text.replace("\r", " ").replace("\n", " ")
+                    text = text.replace("\t", " ")
+                    text = text.replace("$", r"\$")
+                    if len(text) > 80:
+                        text = text[:77] + "..."
+                    return text
+                tick_names_for_labels_only = [safe_graph_label(x) for x in tick_names]
         # colors = ("r", "b")
         category_centers, bar_width = \
             plot_grouped_bars(tick_names_for_labels_only, height_lists, cycle_colors, gap_percent,

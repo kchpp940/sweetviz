@@ -2,16 +2,20 @@ import numpy as np
 import html
 from operator import itemgetter
 from jinja2 import Environment, PackageLoader
+try:
+    from jinja2 import Markup
+except ImportError:
+    from markupsafe import Markup
 import sweetviz.sv_html_formatters
 from sweetviz.config import config
 from sweetviz.sv_types import NumWithPercent, FeatureType, OTHERS_GROUPED
-from sweetviz.graph_associations import CORRELATION_ERROR
-from sweetviz.graph_associations import CORRELATION_IDENTICAL
+from sweetviz.graph_associations import CORRELATION_ERROR, CORRELATION_IDENTICAL
 from functools import cmp_to_key
 
 package_loader = PackageLoader("sweetviz", "templates")
 jinja2_env = Environment(lstrip_blocks = True,
                          trim_blocks = True,
+                         autoescape = True,
                          loader = package_loader)
 jinja2_env.filters["fmt_int_commas"] = sweetviz.sv_html_formatters.fmt_int_commas
 jinja2_env.filters["fmt_int_limit"] = sweetviz.sv_html_formatters.fmt_int_limit
@@ -24,6 +28,7 @@ jinja2_env.filters["fmt_RAM"] = sweetviz.sv_html_formatters.fmt_RAM
 jinja2_env.filters["fmt_smart_range"] = sweetviz.sv_html_formatters.fmt_smart_range
 jinja2_env.filters["fmt_div_icon_missing"] = sweetviz.sv_html_formatters.fmt_div_icon_missing
 jinja2_env.filters["fmt_div_color_override_missing"] = sweetviz.sv_html_formatters.fmt_div_color_override_missing
+jinja2_env.filters["escape_for_html"] = sweetviz.sv_html_formatters.escape_for_html
 jinja2_env.globals["hello"] = "Superduper"
 
 def load_layout_globals_from_config():
@@ -81,18 +86,18 @@ def generate_html_dataframe_page(dataframe_report):
     # scaling["main_column"] = scale
     # scaling= scale
     output = template.render(dataframe=dataframe_report, version=sweetviz.__version__)
-    return output
+    return str(output)
 
 
 def generate_html_dataframe_summary(dataframe_report):
     template = jinja2_env.get_template('dataframe_summary.html')
     output = template.render(dataframe=dataframe_report)
-    return output
+    return Markup(output)
 
 def generate_html_associations(dataframe_report, which):
     template = jinja2_env.get_template('dataframe_associations.html')
     output = template.render(dataframe=dataframe_report, which=which)
-    return output
+    return Markup(output)
 
 # SUMMARIES
 # ----------------------------------------------------------------------------------------------
@@ -164,12 +169,12 @@ def generate_html_summary_numeric(feature_dict: dict, compare_dict: dict):
                              group_1_width_suffix=group_1_width_suffix,
                              group_2_width_suffix=group_2_width_suffix
                              )
-    return output
+    return Markup(output)
 
 def generate_html_summary_cat(feature_dict: dict, compare_dict: dict):
     template = jinja2_env.get_template('feature_summary_cat.html')
     output = template.render(feature_dict = feature_dict, compare_dict = compare_dict)
-    return output
+    return Markup(output)
 
 
 def generate_html_summary_text(feature_dict: dict, compare_dict: dict):
@@ -194,13 +199,8 @@ def generate_html_summary_text(feature_dict: dict, compare_dict: dict):
     # Filter final row list to display, add "other"
     # ------------------------------------
     full_list = feature_dict["detail"]["full_count"]
-    feature_dict["detail"]["summary_count"] = full_list[:max_text_rows]
-    summary_list = feature_dict["detail"]["summary_count"]
-
-    # Clipping text only for memory purposes (display will be handled by the browser)
-    max_text_display_length = config["Summary_Stats"].getint("text_max_string_len")
-    for elem in summary_list:
-        elem["name"] = elem["name"][:max_text_display_length]
+    summary_list = [dict(elem) for elem in full_list[:max_text_rows]]
+    feature_dict["detail"]["summary_count"] = summary_list
 
     if len(summary_list) == max_text_rows:
         total = feature_dict["base_stats"]["num_values"].number
@@ -225,7 +225,7 @@ def generate_html_summary_text(feature_dict: dict, compare_dict: dict):
 
     output = template.render(feature_dict = feature_dict, compare_dict = compare_dict, \
                              cols=cols)
-    return output
+    return Markup(output)
 
 
 # Target versions of summaries
@@ -234,13 +234,13 @@ def generate_html_summary_target_numeric(feature_dict: dict, compare_dict: dict)
     group_1, group_2 = create_summary_numeric_group_data(feature_dict, compare_dict)
     output = template.render(feature_dict = feature_dict, compare_dict = compare_dict, \
                              group_1=group_1, group_2=group_2)
-    return output
+    return Markup(output)
 
 
 def generate_html_summary_target_cat(feature_dict: dict, compare_dict: dict):
     template = jinja2_env.get_template('feature_summary_target_cat.html')
     output = template.render(feature_dict = feature_dict, compare_dict = compare_dict)
-    return output
+    return Markup(output)
 
 
 # DETAILS
@@ -309,7 +309,7 @@ def generate_html_detail_numeric(feature_dict: dict, compare_dict: dict, datafra
     output = template.render(feature_dict=feature_dict, compare_dict=compare_dict, \
                              dataframe=dataframe_report, cols=cols, detail_layout=detail_layout, \
                              numerical=numerical, categorical=categorical)
-    return output
+    return Markup(output)
 
 
 def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_report):
@@ -408,7 +408,7 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
     output = template.render(feature_dict = feature_dict, compare_dict = compare_dict, \
                              dataframe = dataframe_report, cols=cols, detail_layout=detail_layout,
                              influencing=influencing, influenced=influenced, corr_ratio=corr_ratio)
-    return output
+    return Markup(output)
 
 
 def generate_html_detail_text(feature_dict: dict, compare_dict: dict, dataframe_report):
@@ -433,13 +433,8 @@ def generate_html_detail_text(feature_dict: dict, compare_dict: dict, dataframe_
     # Filter final row list to display, add "other"
     # ------------------------------------
     full_list = feature_dict["detail"]["full_count"]
-    feature_dict["detail"]["detail_count"] = full_list[:max_text_rows]
-    detail_list = feature_dict["detail"]["detail_count"]
-
-    # Clipping text only for memory purposes (display will be handled by the browser)
-    max_text_display_length = config["Summary_Stats"].getint("text_max_string_len")
-    for elem in detail_list:
-        elem["name"] = elem["name"][:max_text_display_length]
+    detail_list = [dict(elem) for elem in full_list[:max_text_rows]]
+    feature_dict["detail"]["detail_count"] = detail_list
 
     # Add "others"
     if len(detail_list) == max_text_rows:
@@ -465,7 +460,7 @@ def generate_html_detail_text(feature_dict: dict, compare_dict: dict, dataframe_
 
     output = template.render(feature_dict = feature_dict, compare_dict = compare_dict, \
                              dataframe = dataframe_report, cols=cols)
-    return output
+    return Markup(output)
 
 
 #UNUSED yet:
@@ -474,7 +469,7 @@ def generate_html_detail_text(feature_dict: dict, compare_dict: dict, dataframe_
 def generate_html_detail_target_numeric(feature_dict: dict, compare_dict: dict):
     template = jinja2_env.get_template('feature_detail_numeric.html')
     output = template.render(feature_dict = feature_dict, compare_dict = compare_dict)
-    return output
+    return Markup(output)
 
 
 # UNUSED yet:
@@ -483,4 +478,4 @@ def generate_html_detail_target_numeric(feature_dict: dict, compare_dict: dict):
 def generate_html_detail_target_cat(feature_dict: dict, compare_dict: dict):
     template = jinja2_env.get_template('feature_detail_cat.html')
     output = template.render(feature_dict = feature_dict, compare_dict = compare_dict)
-    return output
+    return Markup(output)

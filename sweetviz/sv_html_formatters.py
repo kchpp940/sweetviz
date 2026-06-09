@@ -1,7 +1,23 @@
 from decimal import Decimal
+import html as html_module
 import numpy as np
-from sweetviz.graph_associations import CORRELATION_ERROR
-from sweetviz.graph_associations import CORRELATION_IDENTICAL
+try:
+    from jinja2 import Markup
+except ImportError:
+    from markupsafe import Markup
+from sweetviz.graph_associations import CORRELATION_ERROR, CORRELATION_IDENTICAL
+
+
+def escape_for_html(value, max_len=None):
+    if value is None:
+        return ""
+    text = str(value)
+    text = html_module.escape(text, quote=True)
+    text = text.replace("\n", "<br>")
+    text = text.replace("\r", "")
+    if max_len is not None and len(text) > max_len:
+        text = text[:max_len] + "…"
+    return Markup(text)
 
 
 def fmt_int_commas(value: float) -> str:
@@ -161,12 +177,12 @@ def fmt_smart_range_tight(value: float, range: float) -> str:
 
 def fmt_div_color_override_missing(value: float) -> str:
     if value is None or np.isnan(value) or value <= 0:
-        return ''
-    return 'style="color:#202020"'
+        return Markup('')
+    return Markup('style="color:#202020"')
 
 def fmt_div_icon_missing(value: float) -> str:
     if value is None or np.isnan(value) or value <= 0:
-        return ''
+        return Markup('')
 
     returned = '<div class="'
     if value <= 15:
@@ -178,4 +194,4 @@ def fmt_div_icon_missing(value: float) -> str:
     else:
         returned += "ic-missing-red"
     returned += '"></div>'
-    return returned
+    return Markup(returned)

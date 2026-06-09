@@ -58,89 +58,12 @@
                 <div class="pos-df-summary-compare color-compare">{{ dataframe.summary_compare.num_text if dataframe.summary_compare is not none  }}</div>
             </div>
             {% if dataframe.summary_compare is not none: %}
-                {% if dataframe.summary_source.num_src_not_in_compare_analyzed > 0 %}
-                    <div class="dataframe-summary-row">
-                        <div class="pos-df-summary-source color-source">{{ dataframe.summary_source.num_src_not_in_compare_analyzed }}
-                            <span class="color-normal" style="font-size: 10px;"> (UNIQUE TO SOURCE, ANALYZED)</span>
-                        </div>
-                        <div class="pos-df-summary-center"> </div>
-                        <div class="pos-df-summary-compare color-compare"></div>
-                    </div>
-                    <div class="dataframe-summary-row">
-                        <div class="pos-df-summary-source color-source" style="font-size: 10px; color: #888;">
-                            {{ ', '.join(dataframe.summary_source.src_not_in_compare_analyzed) }}
-                        </div>
-                        <div class="pos-df-summary-center"> </div>
-                        <div class="pos-df-summary-compare color-compare"></div>
-                    </div>
-                {% endif %}
-                {% if dataframe.summary_source.num_src_not_in_compare_skipped > 0 %}
-                    <div class="dataframe-summary-row">
-                        <div class="pos-df-summary-source color-source">{{ dataframe.summary_source.num_src_not_in_compare_skipped }}
-                            <span class="color-normal" style="font-size: 10px;"> (UNIQUE TO SOURCE, SKIPPED)</span>
-                        </div>
-                        <div class="pos-df-summary-center"> </div>
-                        <div class="pos-df-summary-compare color-compare"></div>
-                    </div>
-                    <div class="dataframe-summary-row">
-                        <div class="pos-df-summary-source color-source" style="font-size: 10px; color: #888;">
-                            {{ ', '.join(dataframe.summary_source.src_not_in_compare_skipped) }}
-                        </div>
-                        <div class="pos-df-summary-center"> </div>
-                        <div class="pos-df-summary-compare color-compare"></div>
-                    </div>
-                {% endif %}
-                {% if dataframe.summary_compare.num_cmp_not_in_source_others > 0 %}
+                {% if dataframe.summary_compare.num_cmp_not_in_source > 0 %}
                     <div class="dataframe-summary-row">
                         <div class="pos-df-summary-source color-source"></div>
                         <div class="pos-df-summary-center"> </div>
-                        <div class="pos-df-summary-compare color-compare">{{ dataframe.summary_compare.num_cmp_not_in_source_others }}
-                            <span class="color-normal" style="font-size: 10px;"> (UNIQUE TO COMPARE, IGNORED)</span>
-                        </div>
-                    </div>
-                    <div class="dataframe-summary-row">
-                        <div class="pos-df-summary-source color-source"></div>
-                        <div class="pos-df-summary-center"> </div>
-                        <div class="pos-df-summary-compare color-compare" style="font-size: 10px; color: #888;">
-                            {{ ', '.join(dataframe.summary_compare.cmp_not_in_source_others) }}
-                        </div>
-                    </div>
-                {% endif %}
-                {% if dataframe.summary_compare.num_cmp_not_in_source_force_ignored > 0 %}
-                    <div class="dataframe-summary-row">
-                        <div class="pos-df-summary-source color-source"></div>
-                        <div class="pos-df-summary-center"> </div>
-                        <div class="pos-df-summary-compare color-compare">{{ dataframe.summary_compare.num_cmp_not_in_source_force_ignored }}
-                            <span class="color-normal" style="font-size: 10px;"> (UNIQUE TO COMPARE, FORCE IGNORED)</span>
-                        </div>
-                    </div>
-                    <div class="dataframe-summary-row">
-                        <div class="pos-df-summary-source color-source"></div>
-                        <div class="pos-df-summary-center"> </div>
-                        <div class="pos-df-summary-compare color-compare" style="font-size: 10px; color: #888;">
-                            {% set ns = namespace(items=[]) %}
-                            {% for item in dataframe.summary_compare.cmp_not_in_source_force_ignored %}
-                                {% set force_label = 'force_cat' if item.force_type == 'force_cat' else ('force_text' if item.force_type == 'force_text' else 'force_num') %}
-                                {% set ns.items = ns.items + [item.name + ' (' + force_label + ')'] %}
-                            {% endfor %}
-                            {{ ', '.join(ns.items) }}
-                        </div>
-                    </div>
-                {% endif %}
-                {% if dataframe.summary_compare.num_cmp_not_in_source_skipped > 0 %}
-                    <div class="dataframe-summary-row">
-                        <div class="pos-df-summary-source color-source"></div>
-                        <div class="pos-df-summary-center"> </div>
-                        <div class="pos-df-summary-compare color-compare">{{ dataframe.summary_compare.num_cmp_not_in_source_skipped }}
-                            <span class="color-normal" style="font-size: 10px;"> (UNIQUE TO COMPARE, SKIPPED)</span>
-                        </div>
-                    </div>
-                    <div class="dataframe-summary-row">
-                        <div class="pos-df-summary-source color-source"></div>
-                        <div class="pos-df-summary-center"> </div>
-                        <div class="pos-df-summary-compare color-compare" style="font-size: 10px; color: #888;">
-                            {{ ', '.join(dataframe.summary_compare.cmp_not_in_source_skipped) }}
-                        </div>
+                        <div class="pos-df-summary-compare color-compare">{{ dataframe.summary_compare.num_cmp_not_in_source }}
+                            <span class="color-normal" style="font-size: 10px;"> (IGNORED: NOT IN SOURCE DATASET)</span></div>
                     </div>
                 {% endif %}
             {% endif %}
