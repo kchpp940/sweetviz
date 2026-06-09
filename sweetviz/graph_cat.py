@@ -136,17 +136,11 @@ class GraphCat(sweetviz.graph.Graph):
             pass
 
 
+        # Escape LaTeX
         tick_names_for_labels_only = tick_names
         if len(tick_names):
             if type(tick_names[0]) == str:
-                if which_graph == "mini":
-                    label_max_len = 35
-                else:
-                    label_max_len = 18
-                tick_names_for_labels_only = [
-                    sweetviz.graph.Graph.safe_label_for_graph(x, max_len=label_max_len)
-                    for x in tick_names
-                ]
+                tick_names_for_labels_only = [str(x).replace("$",r"\$") for x in tick_names]
         # colors = ("r", "b")
         category_centers, bar_width = \
             plot_grouped_bars(tick_names_for_labels_only, height_lists, cycle_colors, gap_percent,

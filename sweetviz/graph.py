@@ -29,13 +29,6 @@ class Graph:
         return
 
     @staticmethod
-    def safe_label_for_graph(val, max_len=None, wrap_len=None,
-                             break_chars=None, keep_break_chars=True):
-        return sv_html_formatters.make_display_value(val).graph_label(
-            max_len=max_len, wrap_len=wrap_len,
-            break_chars=break_chars, keep_break_chars=keep_break_chars)
-
-    @staticmethod
     def _iter_padding_artists(axis):
         # These are the text artists most likely to get clipped when Matplotlib
         # or font metrics shift slightly across environments.
@@ -53,27 +46,6 @@ class Graph:
     def _set_subplot_padding_from_pixels(figure, padding_pixels):
         figure_width_px, figure_height_px = figure.get_size_inches() * figure.dpi
         top_px, left_px, bottom_px, right_px = [float(value) for value in padding_pixels]
-
-        min_axis_px = 20.0
-        max_left_px = figure_width_px - right_px - min_axis_px
-        max_right_px = figure_width_px - left_px - min_axis_px
-        max_top_px = figure_height_px - bottom_px - min_axis_px
-        max_bottom_px = figure_height_px - top_px - min_axis_px
-
-        if left_px > max_left_px:
-            left_px = max_left_px
-        if right_px > max_right_px:
-            right_px = max_right_px
-        if top_px > max_top_px:
-            top_px = max_top_px
-        if bottom_px > max_bottom_px:
-            bottom_px = max_bottom_px
-
-        left_px = max(0.0, left_px)
-        right_px = max(0.0, right_px)
-        top_px = max(0.0, top_px)
-        bottom_px = max(0.0, bottom_px)
-
         figure.subplots_adjust(
             top=(1.0 - (top_px / figure_height_px)),
             left=(left_px / figure_width_px),

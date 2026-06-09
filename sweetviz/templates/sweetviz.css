@@ -94,8 +94,8 @@ body
 .color-title-disabled  { color: #e2e2e2; }
 
 a { color: #58544f; }
-.text-dataframe-title { font-family: RobotoBoldCond; font-size: 24px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.text-dataframe-title-small { font-family: RobotoBoldCond; font-size: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.text-dataframe-title { font-family: RobotoBoldCond; font-size: 24px; }
+.text-dataframe-title-small { font-family: RobotoBoldCond; font-size: 20px; }
 .text-large-bold { font-family: RobotoBoldCond; font-size: 15.4px; }
 .text-med-bold { font-family: RobotoBoldCond; font-size: 12px; }
 .text-med { font-family: RobotoMed; font-size: 12px; }
@@ -128,7 +128,7 @@ a { color: #58544f; }
 .breakdown-hr-2-lines   { position:absolute; top: 20px; left: 10px; width: 592px; }
 
 /* TAB ICON/NAME */
-.text-title-tab                     { font-family: RobotoBoldCond; font-size: 15.4px; position: absolute; left: 74px; top: 24px; width:250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.text-title-tab                     { font-family: RobotoBoldCond; font-size: 15.4px; position: absolute; left: 74px; top: 24px; width:250px; }
 .pos-tab-image                      { position: absolute; left: 45px; top: 21px; }
 .pos-detail-tab-icon-text__offset    { position: absolute; left: -4px; top: -4px; }
 .pos-text-title-tab__no-icon { position: absolute; left: 37px; top: 17px; }
@@ -136,9 +136,9 @@ a { color: #58544f; }
 /*
  DATAFRAME SUMMARY
 ------------------------------------*/
-.pos-dataframe-summary-title-source { position: absolute; left: 0px; top: 12px; width: 250px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pos-dataframe-summary-title-compare { position: absolute; left: 350px; top: 12px; width: 250px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pos-dataframe-summary-title-compare-none { position: absolute; left: 350px; top: 16px; width: 250px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pos-dataframe-summary-title-source { position: absolute; left: 0px; top: 12px; width: 250px; text-align: right; }
+.pos-dataframe-summary-title-compare { position: absolute; left: 350px; top: 12px; width: 250px; text-align: left; }
+.pos-dataframe-summary-title-compare-none { position: absolute; left: 350px; top: 16px; width: 250px; text-align: left; }
 .pos-dataframe-summary  { position: absolute; top: 9px; left: 380px; }
 .pos-dataframe-summary-rows  { position: absolute; top: 47px; left: 19px; }
 .dataframe-summary-row  { height: 13px; width: 563px; line-height: 12px; }

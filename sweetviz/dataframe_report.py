@@ -16,7 +16,6 @@ from sweetviz.graph_legend import GraphLegend
 from sweetviz.config import config
 import sweetviz.comet_ml_logger as comet_ml_logger
 import sweetviz.sv_html as sv_html
-import sweetviz.sv_html_formatters as sv_html_formatters
 from sweetviz.feature_config import FeatureConfig
 import webbrowser
 from sweetviz.config import config
@@ -600,7 +599,8 @@ class DataframeReport:
             height = self.page_height
 
         # Output to iFrame
-        self._page_html = str(sv_html_formatters.escape_for_attr(self._page_html))
+        import html
+        self._page_html = html.escape(self._page_html)
         iframe = f' <iframe width="{width}" height="{height}" srcdoc="{self._page_html}" frameborder="0" allowfullscreen></iframe>'
         from IPython.display import display
         from IPython.display import HTML

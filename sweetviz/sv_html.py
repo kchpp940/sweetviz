@@ -2,20 +2,16 @@ import numpy as np
 import html
 from operator import itemgetter
 from jinja2 import Environment, PackageLoader
-try:
-    from jinja2 import Markup
-except ImportError:
-    from markupsafe import Markup
 import sweetviz.sv_html_formatters
 from sweetviz.config import config
 from sweetviz.sv_types import NumWithPercent, FeatureType, OTHERS_GROUPED
-from sweetviz.graph_associations import CORRELATION_ERROR, CORRELATION_IDENTICAL
+from sweetviz.graph_associations import CORRELATION_ERROR
+from sweetviz.graph_associations import CORRELATION_IDENTICAL
 from functools import cmp_to_key
 
 package_loader = PackageLoader("sweetviz", "templates")
 jinja2_env = Environment(lstrip_blocks = True,
                          trim_blocks = True,
-                         autoescape = True,
                          loader = package_loader)
 jinja2_env.filters["fmt_int_commas"] = sweetviz.sv_html_formatters.fmt_int_commas
 jinja2_env.filters["fmt_int_limit"] = sweetviz.sv_html_formatters.fmt_int_limit
@@ -28,10 +24,7 @@ jinja2_env.filters["fmt_RAM"] = sweetviz.sv_html_formatters.fmt_RAM
 jinja2_env.filters["fmt_smart_range"] = sweetviz.sv_html_formatters.fmt_smart_range
 jinja2_env.filters["fmt_div_icon_missing"] = sweetviz.sv_html_formatters.fmt_div_icon_missing
 jinja2_env.filters["fmt_div_color_override_missing"] = sweetviz.sv_html_formatters.fmt_div_color_override_missing
-jinja2_env.filters["escape_for_html"] = sweetviz.sv_html_formatters.escape_for_html
-jinja2_env.filters["as_display"] = sweetviz.sv_html_formatters.make_display_value
 jinja2_env.globals["hello"] = "Superduper"
-jinja2_env.globals["make_display_value"] = sweetviz.sv_html_formatters.make_display_value
 
 def load_layout_globals_from_config():
     jinja2_env.globals["FeatureType"] = FeatureType
@@ -88,18 +81,18 @@ def generate_html_dataframe_page(dataframe_report):
     # scaling["main_column"] = scale
     # scaling= scale
     output = template.render(dataframe=dataframe_report, version=sweetviz.__version__)
-    return str(output)
+    return output
 
 
 def generate_html_dataframe_summary(dataframe_report):
     template = jinja2_env.get_template('dataframe_summary.html')
     output = template.render(dataframe=dataframe_report)
-    return Markup(output)
+    return output
 
 def generate_html_associations(dataframe_report, which):
     template = jinja2_env.get_template('dataframe_associations.html')
     output = template.render(dataframe=dataframe_report, which=which)
-    return Markup(output)
+    return output
 
 # SUMMARIES
 # ----------------------------------------------------------------------------------------------
@@ -171,12 +164,12 @@ def generate_html_summary_numeric(feature_dict: dict, compare_dict: dict):
                              group_1_width_suffix=group_1_width_suffix,
                              group_2_width_suffix=group_2_width_suffix
                              )
-    return Markup(output)
+    return output
 
 def generate_html_summary_cat(feature_dict: dict, compare_dict: dict):
     template = jinja2_env.get_template('feature_summary_cat.html')
     output = template.render(feature_dict = feature_dict, compare_dict = compare_dict)
-    return Markup(output)
+    return output
 
 
 def generate_html_summary_text(feature_dict: dict, compare_dict: dict):
@@ -201,8 +194,13 @@ def generate_html_summary_text(feature_dict: dict, compare_dict: dict):
     # Filter final row list to display, add "other"
     # ------------------------------------
     full_list = feature_dict["detail"]["full_count"]
-    summary_list = [dict(elem) for elem in full_list[:max_text_rows]]
-    feature_dict["detail"]["summary_count"] = summary_list
+    feature_dict["detail"]["summary_count"] = full_list[:max_text_rows]
+    summary_list = feature_dict["detail"]["summary_count"]
+
+    # Clipping text only for memory purposes (display will be handled by the browser)
+    max_text_display_length = config["Summary_Stats"].getint("text_max_string_len")
+    for elem in summary_list:
+        elem["name"] = elem["name"][:max_text_display_length]
 
     if len(summary_list) == max_text_rows:
         total = feature_dict["base_stats"]["num_values"].number
@@ -227,7 +225,7 @@ def generate_html_summary_text(feature_dict: dict, compare_dict: dict):
 
     output = template.render(feature_dict = feature_dict, compare_dict = compare_dict, \
                              cols=cols)
-    return Markup(output)
+    return output
 
 
 # Target versions of summaries
@@ -236,13 +234,13 @@ def generate_html_summary_target_numeric(feature_dict: dict, compare_dict: dict)
     group_1, group_2 = create_summary_numeric_group_data(feature_dict, compare_dict)
     output = template.render(feature_dict = feature_dict, compare_dict = compare_dict, \
                              group_1=group_1, group_2=group_2)
-    return Markup(output)
+    return output
 
 
 def generate_html_summary_target_cat(feature_dict: dict, compare_dict: dict):
     template = jinja2_env.get_template('feature_summary_target_cat.html')
     output = template.render(feature_dict = feature_dict, compare_dict = compare_dict)
-    return Markup(output)
+    return output
 
 
 # DETAILS
@@ -311,7 +309,7 @@ def generate_html_detail_numeric(feature_dict: dict, compare_dict: dict, datafra
     output = template.render(feature_dict=feature_dict, compare_dict=compare_dict, \
                              dataframe=dataframe_report, cols=cols, detail_layout=detail_layout, \
                              numerical=numerical, categorical=categorical)
-    return Markup(output)
+    return output
 
 
 def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_report):
@@ -341,9 +339,7 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
     # ------------------------
     # Find name width
     count_row_data = feature_dict["detail"]["full_count"]
-    longest_cat = max(map(
-        lambda row: len(sweetviz.sv_html_formatters.make_display_value(row['name']).plain_text),
-        count_row_data))
+    longest_cat = max(map(lambda row : len(str(row['name'])), count_row_data))
     longest_width = longest_cat * config["Layout"].getint("character_width_estimate")
     # Set columns
     #cur_x = config["Layout"].getint("cat_detail_col_1_x")
@@ -368,7 +364,92 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
             cur_x = cur_x + spacing
 
     max_rows = config["Detail_Stats"].getint("max_num_breakdown_categories")
-    feature_dict["detail"]["detail_count"] = feature_dict["detail"]["full_count"][:max_rows]
+
+    full_count = feature_dict["detail"]["full_count"]
+    all_row = None
+    data_rows = []
+    for row in full_count:
+        if row.get("is_total"):
+            all_row = row
+        else:
+            data_rows.append(row)
+
+    if len(data_rows) <= max_rows:
+        feature_dict["detail"]["detail_count"] = list(data_rows)
+        if all_row:
+            feature_dict["detail"]["detail_count"].append(all_row)
+    else:
+        top_rows = data_rows[:max_rows]
+        other_rows = data_rows[max_rows:]
+
+        num_values_total = feature_dict["base_stats"]["num_values"].number
+        other_count_total = sum(row["count"].number for row in other_rows)
+
+        other_row = dict()
+        other_row["name"] = OTHERS_GROUPED.strip()
+        other_row["count"] = NumWithPercent(other_count_total, num_values_total)
+        other_row["count_compare"] = None
+        other_row["target_stats"] = None
+        other_row["target_stats_compare"] = None
+        other_row["is_total"] = None
+
+        if compare_dict is not None:
+            num_values_compare_total = compare_dict["base_stats"]["num_values"].number
+            other_count_compare_total = sum(
+                (row["count_compare"].number if row.get("count_compare") else 0)
+                for row in other_rows
+            )
+            other_row["count_compare"] = NumWithPercent(other_count_compare_total, num_values_compare_total)
+
+        target_type = dataframe_report.get_target_type()
+        if target_type is not None:
+            if target_type == FeatureType.TYPE_BOOL:
+                total_true = 0
+                total_in_cat = 0
+                for row in other_rows:
+                    if row.get("target_stats") and row["target_stats"].number is not None:
+                        total_true += row["target_stats"].number
+                        total_in_cat += row["count"].number
+                if total_in_cat > 0:
+                    other_row["target_stats"] = NumWithPercent(total_true, total_in_cat)
+
+                if compare_dict is not None and dataframe_report._target is not None and "compare" in dataframe_report._target:
+                    total_true_compare = 0
+                    total_in_cat_compare = 0
+                    for row in other_rows:
+                        if row.get("target_stats_compare") and row["target_stats_compare"].number is not None:
+                            total_true_compare += row["target_stats_compare"].number
+                            if row.get("count_compare") and row["count_compare"].number is not None:
+                                total_in_cat_compare += row["count_compare"].number
+                    if total_in_cat_compare > 0:
+                        other_row["target_stats_compare"] = NumWithPercent(total_true_compare, total_in_cat_compare)
+
+            elif target_type == FeatureType.TYPE_NUM:
+                weighted_sum = 0.0
+                total_in_cat = 0
+                for row in other_rows:
+                    if row.get("target_stats") and row["target_stats"].number is not None:
+                        weighted_sum += row["target_stats"].number * row["count"].number
+                        total_in_cat += row["count"].number
+                if total_in_cat > 0:
+                    other_row["target_stats"] = NumWithPercent(weighted_sum / total_in_cat, 1.0)
+
+                if compare_dict is not None and dataframe_report._target is not None and "compare" in dataframe_report._target:
+                    weighted_sum_compare = 0.0
+                    total_in_cat_compare = 0
+                    for row in other_rows:
+                        if row.get("target_stats_compare") and row["target_stats_compare"].number is not None:
+                            if row.get("count_compare") and row["count_compare"].number is not None:
+                                weighted_sum_compare += row["target_stats_compare"].number * row["count_compare"].number
+                                total_in_cat_compare += row["count_compare"].number
+                    if total_in_cat_compare > 0:
+                        other_row["target_stats_compare"] = NumWithPercent(weighted_sum_compare / total_in_cat_compare, 1.0)
+
+        detail_count = list(top_rows)
+        detail_count.append(other_row)
+        if all_row:
+            detail_count.append(all_row)
+        feature_dict["detail"]["detail_count"] = detail_count
 
     # Set up ASSOCIATION data
     # ------------------------------------
@@ -412,7 +493,7 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
     output = template.render(feature_dict = feature_dict, compare_dict = compare_dict, \
                              dataframe = dataframe_report, cols=cols, detail_layout=detail_layout,
                              influencing=influencing, influenced=influenced, corr_ratio=corr_ratio)
-    return Markup(output)
+    return output
 
 
 def generate_html_detail_text(feature_dict: dict, compare_dict: dict, dataframe_report):
@@ -437,8 +518,13 @@ def generate_html_detail_text(feature_dict: dict, compare_dict: dict, dataframe_
     # Filter final row list to display, add "other"
     # ------------------------------------
     full_list = feature_dict["detail"]["full_count"]
-    detail_list = [dict(elem) for elem in full_list[:max_text_rows]]
-    feature_dict["detail"]["detail_count"] = detail_list
+    feature_dict["detail"]["detail_count"] = full_list[:max_text_rows]
+    detail_list = feature_dict["detail"]["detail_count"]
+
+    # Clipping text only for memory purposes (display will be handled by the browser)
+    max_text_display_length = config["Summary_Stats"].getint("text_max_string_len")
+    for elem in detail_list:
+        elem["name"] = elem["name"][:max_text_display_length]
 
     # Add "others"
     if len(detail_list) == max_text_rows:
@@ -464,7 +550,7 @@ def generate_html_detail_text(feature_dict: dict, compare_dict: dict, dataframe_
 
     output = template.render(feature_dict = feature_dict, compare_dict = compare_dict, \
                              dataframe = dataframe_report, cols=cols)
-    return Markup(output)
+    return output
 
 
 #UNUSED yet:
@@ -473,7 +559,7 @@ def generate_html_detail_text(feature_dict: dict, compare_dict: dict, dataframe_
 def generate_html_detail_target_numeric(feature_dict: dict, compare_dict: dict):
     template = jinja2_env.get_template('feature_detail_numeric.html')
     output = template.render(feature_dict = feature_dict, compare_dict = compare_dict)
-    return Markup(output)
+    return output
 
 
 # UNUSED yet:
@@ -482,4 +568,4 @@ def generate_html_detail_target_numeric(feature_dict: dict, compare_dict: dict):
 def generate_html_detail_target_cat(feature_dict: dict, compare_dict: dict):
     template = jinja2_env.get_template('feature_detail_cat.html')
     output = template.render(feature_dict = feature_dict, compare_dict = compare_dict)
-    return Markup(output)
+    return output

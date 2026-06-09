@@ -1,0 +1,24 @@
+Checking dependencies...
+  importlib_resources: OK
+  pandas: OK (version 3.0.2)
+  numpy: OK
+
+Importing sweetviz...
+  Import OK!
+  __version__ = 2.3.3
+  analyze = <function analyze at 0x10ff08c20>
+  compare = <function compare at 0x10ff0b1a0>
+
+Creating test DataFrame and running analyze()...
+                                             |          | [  0%]   00:00 -> (? left)[Summarizing dataframe]                      |          | [  0%]   00:00 -> (? left)Feature: num_col                             |███▎      | [ 33%]   00:00 -> (00:00 left)Feature: num_col                             |██████▋   | [ 67%]   00:00 -> (00:00 left)Feature: cat_col                             |██████▋   | [ 67%]   00:00 -> (00:00 left)Feature: cat_col                             |          | [  0%]   00:00 -> (? left)    [Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 3/3] Generating associations graph     |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)
+  analyze() OK! Report type: DataframeReport
+
+Testing compare()...
+                                             |          | [  0%]   00:00 -> (? left)[Summarizing dataframe]                      |          | [  0%]   00:00 -> (? left)Feature: num_col                             |███▎      | [ 33%]   00:00 -> (00:00 left)Feature: cat_col                             |██████▋   | [ 67%]   00:00 -> (00:00 left)Feature: cat_col                             |██████████| [100%]   00:00 -> (00:00 left)Feature: cat_col                             |          | [  0%]   00:00 -> (? left)    [Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 3/3] Generating associations graph     |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)
+  compare() OK! Report type: DataframeReport
+
+Testing HTML generation (uses __version__)...
+Report /var/folders/5n/5fk0gy756kj43rvymptfpp1r0000gn/T/tmp6rtg2skh/report.html was generated.
+  show_html() OK! Version '2.3.3' rendered in HTML
+
+=== ALL TESTS PASSED ===

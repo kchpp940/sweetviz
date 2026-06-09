@@ -1,3 +1,4 @@
+import html
 import sweetviz.sv_html as sv_html
 from sweetviz.sv_types import NumWithPercent, FeatureToProcess
 
@@ -17,7 +18,7 @@ def do_detail_text(to_process: FeatureToProcess, updated_dict: dict):
     # Iterate through ALL VALUES and get stats
     for item in to_process.source_counts["value_counts_without_nan"].items():
         row = dict()
-        row["name"] = item[0]
+        row["name"] = html.escape(str(item[0]))
         row["count"] = NumWithPercent(item[1], num_values)
         # Defaults to no comparison or target
         row["count_compare"] = None

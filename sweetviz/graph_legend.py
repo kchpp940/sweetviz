@@ -42,27 +42,21 @@ class GraphLegend(sweetviz.graph.Graph):
         bar_text_offset = np.array([6,0])
         line_text_offset = np.array([0,-3])
 
-        legend_label_max = 30
-        safe_source_name = sweetviz.graph.Graph.safe_label_for_graph(
-            dataframe_report.source_name, max_len=legend_label_max)
-
         axs.add_patch(patches.Rectangle(to_fractionsxy(gfx_x_source, gfx_bar_y), bar_size[0] * scale[0], bar_size[1] * scale[1], facecolor=cycle_colors[0]))
         text1 = np.array([gfx_x_source,gfx_bar_y]) - bar_text_offset
         text1[1] += 1
-        text1_elem = plt.text(text1[0] * scale[0], text1[1] * scale[1], "" + safe_source_name, fontsize=8, color=cycle_colors[0],
+        text1_elem = plt.text(text1[0] * scale[0], text1[1] * scale[1], "" + dataframe_report.source_name, fontsize=8, color=cycle_colors[0],
                               ha='right')
 
         # COMPARE value
         if dataframe_report.compare_name:
-            safe_compare_name = sweetviz.graph.Graph.safe_label_for_graph(
-                dataframe_report.compare_name, max_len=legend_label_max)
             axs.add_patch(
                 patches.Rectangle(to_fractionsxy(gfx_x_compare, gfx_bar_y), bar_size[0] * scale[0], bar_size[1] * scale[1],
                                   facecolor=cycle_colors[1]))
             text2 = np.array([gfx_x_compare, gfx_bar_y]) + bar_text_offset
             text2[0] += bar_size[0]
             text2_elem = plt.text(text2[0] * scale[0], text2[1] * scale[1],
-                                  "" + safe_compare_name, fontsize=8, color=cycle_colors[1])
+                                  "" + dataframe_report.compare_name, fontsize=8, color=cycle_colors[1])
 
         # TARGETS
         if dataframe_report.get_target_type() is not None:
@@ -72,12 +66,10 @@ class GraphLegend(sweetviz.graph.Graph):
                                         color=sweetviz.graph.COLOR_TARGET_SOURCE, marker='o' ))
             text1[1] = gfx_line_y
             text1 += line_text_offset
-            safe_target_name = sweetviz.graph.Graph.safe_label_for_graph(
-                dataframe_report._target["name"], max_len=legend_label_max)
             if dataframe_report.get_target_type() == FeatureType.TYPE_NUM:
-                text_content = "Avg. " + safe_target_name
+                text_content = "Avg. " + dataframe_report._target["name"]
             else:
-                text_content = "% " + safe_target_name
+                text_content = "% " + dataframe_report._target["name"]
             text1_elem = plt.text(text1[0] * scale[0], text1[1] * scale[1], text_content, fontsize=8, color=sweetviz.graph.COLOR_TARGET_SOURCE,
                                   ha='right')
 
@@ -91,9 +83,11 @@ class GraphLegend(sweetviz.graph.Graph):
                 text2[1] = gfx_line_y
                 text2 += line_text_offset
                 if dataframe_report.get_target_type() == FeatureType.TYPE_NUM:
-                    text_content = "Avg. " + safe_target_name
+                    text_content = "Avg. " + dataframe_report._target["name"]
+                    #+ f" ({dataframe_report.compare_name})"
                 else:
-                    text_content = "% " + safe_target_name
+                    text_content = "% " + dataframe_report._target["name"]
+                    #+ f" ({dataframe_report.compare_name})"
                 text2_elem = plt.text(text2[0] * scale[0], text2[1] * scale[1], text_content, fontsize=8, color=sweetviz.graph.COLOR_TARGET_COMPARE)
 
         # transf = axs.transData.inverted()

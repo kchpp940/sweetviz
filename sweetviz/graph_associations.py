@@ -295,20 +295,16 @@ def heatmap(y, x, figure_size, **kwargs):
             # return int(size_scale)
             # return val_position * int(size_scale)
 
-    wrap_x = 12
-    wrap_y = 13
-    hard_max_len = 80
-
     def do_wrapping(label, length):
-        return sweetviz.graph.Graph.safe_label_for_graph(
-            label, max_len=hard_max_len, wrap_len=length,
-            break_chars=["_", "-"], keep_break_chars=True
-        )
-
+        return wrap_custom(label, ["_", "-"], length)
+        # return '\n'.join(wrap(label, 15))
+    wrap_x = 12 # at top/bottom
+    wrap_y = 13
     if 'x_order' in kwargs:
         x_names = [t for t in kwargs['x_order']]
     else:
         x_names = [t for t in sorted(set([v for v in x]))]
+    # Wrap to help avoid overflow
     x_names = [do_wrapping(label, wrap_x) for label in x_names]
 
     x_to_num = {p[1]:p[0] for p in enumerate(x_names)}
@@ -317,6 +313,7 @@ def heatmap(y, x, figure_size, **kwargs):
         y_names = [t for t in kwargs['y_order']]
     else:
         y_names = [t for t in sorted(set([v for v in y]))]
+    # Wrap to help avoid overflow
     y_names = [do_wrapping(label, wrap_y) for label in y_names]
 
     y_to_num = {p[1]:p[0] for p in enumerate(y_names)}
