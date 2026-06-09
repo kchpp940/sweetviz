@@ -92,20 +92,28 @@ $("#col1").height(g_height);
 $("#col2").height(g_height);
 //alert($("#col1").height());
 
-// Apply open_features: open specified feature details by default (direct DOM, no click simulation)
-if (typeof sv_config !== 'undefined' && sv_config.open_features && sv_config.open_features.length > 0) {
-    var featLookup = buildFeatureLookup();
-    // Hide any currently shown details first
-    $(".container-feature-detail").hide();
-    $("span.bg-tab-summary-rollover").hide();
+// Apply collapse_details and open_features (shared semantics with vertical layout)
+if (typeof sv_config !== 'undefined') {
+    var shouldOpenSpecific = sv_config.open_features && sv_config.open_features.length > 0
+        && (!sv_config.collapse_details);
 
-    for (var i = 0; i < sv_config.open_features.length; i++) {
-        var featName = sv_config.open_features[i];
-        if (featLookup[featName]) {
-            openFeatureWidescreen(featLookup[featName]);
-            // In widescreen only one can be snapped at a time; open the last one
+    if (shouldOpenSpecific) {
+        var featLookup = buildFeatureLookup();
+        // Clear any currently shown state first
+        $(".container-feature-detail").hide();
+        $("span.bg-tab-summary-rollover").hide();
+        g_snapped = "";
+
+        for (var i = 0; i < sv_config.open_features.length; i++) {
+            var featName = sv_config.open_features[i];
+            if (featLookup[featName]) {
+                openFeatureWidescreen(featLookup[featName]);
+                // In widescreen only one can be snapped at a time; the last one wins
+            }
         }
     }
+    // When collapse_details is true, or no open_features specified: keep everything hidden
+    // (hideAllDetails was already called at the top of $(document).ready)
 }
 
 // SUMMARY AREA
