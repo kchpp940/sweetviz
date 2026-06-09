@@ -1,8 +1,6 @@
 import pandas as pd
-import numpy as np
 from sweetviz.sv_types import NumWithPercent, FeatureType, FeatureToProcess
 from sweetviz.type_detection import determine_feature_type
-from sweetviz import drift_detection
 import sweetviz.series_analyzer_numeric
 import sweetviz.series_analyzer_cat
 import sweetviz.series_analyzer_text
@@ -103,27 +101,20 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
 
     # Determine COMPARED feature type & initialize
     compare_dict = None
-    type_mismatch_detected = False
     if to_process.compare is not None:
         to_process.compare_counts = get_counts(to_process.compare)
-        try:
-            compare_type = determine_feature_type(to_process.compare,
-                                                  to_process.compare_counts,
-                                                  returned_feature_dict["type"], "COMPARED")
-        except TypeError:
-            compare_type = determine_feature_type(to_process.compare,
-                                                  to_process.compare_counts,
-                                                  FeatureType.TYPE_UNKNOWN, "COMPARED")
-            type_mismatch_detected = True
-        if not type_mismatch_detected and compare_type != FeatureType.TYPE_ALL_NAN and \
+        compare_type = determine_feature_type(to_process.compare,
+                                              to_process.compare_counts,
+                                              returned_feature_dict["type"], "COMPARED")
+        if compare_type != FeatureType.TYPE_ALL_NAN and \
             source_type != FeatureType.TYPE_ALL_NAN:
+            # Explicitly show missing categories on each set
             if compare_type == FeatureType.TYPE_CAT or compare_type == FeatureType.TYPE_BOOL:
                 fill_out_missing_counts_in_other_series(to_process.compare_counts, to_process.source_counts)
                 fill_out_missing_counts_in_other_series(to_process.source_counts, to_process.compare_counts)
         returned_feature_dict["compare"] = dict()
         compare_dict = returned_feature_dict["compare"]
         compare_dict["type"] = compare_type
-        compare_dict["type_mismatch"] = type_mismatch_detected
 
     # Settle all-NaN series, depending on source versus compared
     if to_process.compare is not None:
@@ -146,17 +137,6 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
         add_series_base_stats_to_dict(to_process.compare, to_process.compare_counts, compare_dict)
 
     # Perform full analysis on source/compare/target
-    saved_compare = to_process.compare
-    saved_compare_counts = to_process.compare_counts
-    saved_compare_target = to_process.compare_target
-    saved_compare_dict = returned_feature_dict.get("compare")
-    if type_mismatch_detected:
-        to_process.compare = None
-        to_process.compare_counts = None
-        to_process.compare_target = None
-        if "compare" in returned_feature_dict:
-            del returned_feature_dict["compare"]
-
     if returned_feature_dict["type"] == FeatureType.TYPE_NUM:
         sweetviz.series_analyzer_numeric.analyze(to_process, returned_feature_dict)
     elif returned_feature_dict["type"] == FeatureType.TYPE_CAT:
@@ -167,72 +147,6 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
         sweetviz.series_analyzer_text.analyze(to_process, returned_feature_dict)
     else:
         raise ValueError
-
-    if type_mismatch_detected:
-        to_process.compare = saved_compare
-        to_process.compare_counts = saved_compare_counts
-        to_process.compare_target = saved_compare_target
-        returned_feature_dict["compare"] = saved_compare_dict
-
-    source_is_numeric = False
-    compare_is_numeric = False
-    try:
-        def _safe_is_numeric(dtype):
-            try:
-                is_bool = pd.api.types.is_bool_dtype(dtype) or isinstance(dtype, pd.BooleanDtype)
-                if is_bool:
-                    return False
-                return pd.api.types.is_numeric_dtype(dtype)
-            except (TypeError, ValueError):
-                return False
-        source_is_numeric = _safe_is_numeric(to_process.source.dtype)
-        if to_process.compare is not None:
-            compare_is_numeric = _safe_is_numeric(to_process.compare.dtype)
-    except (TypeError, ValueError):
-        pass
-    if source_is_numeric and "mean" not in returned_feature_dict.get("stats", {}):
-        if "stats" not in returned_feature_dict:
-            returned_feature_dict["stats"] = dict()
-        sweetviz.series_analyzer_numeric.do_stats_numeric(to_process.source, returned_feature_dict)
-    if compare_is_numeric and compare_dict is not None and "mean" not in compare_dict.get("stats", {}):
-        if "stats" not in compare_dict:
-            compare_dict["stats"] = dict()
-        if to_process.compare is not None:
-            sweetviz.series_analyzer_numeric.do_stats_numeric(to_process.compare, compare_dict)
-
-    # Perform drift detection if compare is present
-    if compare_dict is not None:
-        source_total = returned_feature_dict["base_stats"]["num_values"].number
-        compare_total = compare_dict["base_stats"]["num_values"].number
-        source_type = source_type
-        compare_type_val = compare_dict.get("type", source_type)
-        source_dtype = to_process.source.dtype
-        compare_dtype = to_process.compare.dtype if to_process.compare is not None else None
-        returned_feature_dict["drift"] = drift_detection.compute_feature_drift(
-            feature_type=returned_feature_dict["type"],
-            source_type=source_type,
-            compare_type=compare_type_val,
-            source_base=returned_feature_dict["base_stats"],
-            compare_base=compare_dict["base_stats"],
-            source_stats=returned_feature_dict.get("stats"),
-            compare_stats=compare_dict.get("stats"),
-            source_counts=to_process.source_counts,
-            compare_counts=to_process.compare_counts,
-            source_total=source_total,
-            compare_total=compare_total,
-            source_dtype=source_dtype,
-            compare_dtype=compare_dtype
-        )
-    else:
-        returned_feature_dict["drift"] = {
-            "has_drift": False,
-            "drift_score": 0.0,
-            "severity": "none",
-            "top_reasons": [],
-            "all_drifts": [],
-            "category_scores": {"basic": 0.0, "numeric": 0.0, "category": 0.0},
-            "type_mismatch": False
-        }
 
     # print(f"{to_process.source.name} PROCESSED ------> "
     #       f" {time.perf_counter() - start}")

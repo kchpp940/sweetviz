@@ -1,6 +1,7 @@
 from typing import Union, List, Tuple
 import os
 import time
+import json
 import pandas as pd
 from numpy import isnan
 from tqdm.auto import tqdm
@@ -17,6 +18,7 @@ from sweetviz.config import config
 import sweetviz.comet_ml_logger as comet_ml_logger
 import sweetviz.sv_html as sv_html
 from sweetviz.feature_config import FeatureConfig
+from sweetviz import serialize as sv_serialize
 import webbrowser
 from sweetviz.config import config
 
@@ -285,9 +287,6 @@ class DataframeReport:
         self.summarize_category_types(source_df, self.summary_source, fc.skip, self._target)
         if compare is not None:
             self.summarize_category_types(compare_df, self.summary_compare, fc.skip, self._target)
-            self.summarize_drift_features()
-        else:
-            self.drift_summary = None
         self.dataframe_summary_html = sv_html.generate_html_dataframe_summary(self)
 
         self.graph_legend = GraphLegend(self)
@@ -405,65 +404,6 @@ class DataframeReport:
                 dest_dict["num_cat"] = dest_dict["num_cat"] + 1
         return
 
-    def summarize_drift_features(self):
-        drift_summary = dict()
-        drift_summary["features_with_drift"] = list()
-        drift_summary["high_severity"] = list()
-        drift_summary["medium_severity"] = list()
-        drift_summary["low_severity"] = list()
-        drift_summary["type_mismatch_features"] = list()
-        drift_summary["total_features"] = 0
-        drift_summary["type_mismatch_count"] = 0
-        drift_summary["avg_drift_score"] = 0.0
-        drift_summary["max_drift_score"] = 0.0
-
-        all_features = list(self._features.values())
-        if self._target is not None:
-            all_features.append(self._target)
-
-        total_score = 0.0
-        for feature in all_features:
-            drift_info = feature.get("drift")
-            if drift_info is None or not drift_info.get("has_drift"):
-                continue
-            drift_summary["total_features"] += 1
-            is_type_mismatch = drift_info.get("type_mismatch", False)
-            feature_drift = {
-                "name": feature["name"],
-                "type": feature["type"],
-                "drift_score": drift_info.get("drift_score", 0.0),
-                "severity": drift_info.get("severity", "low"),
-                "top_reasons": drift_info.get("top_reasons", []),
-                "all_drifts": drift_info.get("all_drifts", []),
-                "category_scores": drift_info.get("category_scores", {}),
-                "order_index": feature.get("order_index", 0),
-                "type_mismatch": is_type_mismatch,
-            }
-            if is_type_mismatch:
-                feature_drift["source_type"] = drift_info.get("source_type", "")
-                feature_drift["compare_type"] = drift_info.get("compare_type", "")
-                drift_summary["type_mismatch_count"] += 1
-                drift_summary["type_mismatch_features"].append(feature_drift)
-            drift_summary["features_with_drift"].append(feature_drift)
-            total_score += feature_drift["drift_score"]
-            if feature_drift["drift_score"] > drift_summary["max_drift_score"]:
-                drift_summary["max_drift_score"] = feature_drift["drift_score"]
-            if feature_drift["severity"] == "high":
-                drift_summary["high_severity"].append(feature_drift)
-            elif feature_drift["severity"] == "medium":
-                drift_summary["medium_severity"].append(feature_drift)
-            else:
-                drift_summary["low_severity"].append(feature_drift)
-
-        drift_summary["features_with_drift"].sort(key=lambda x: (-x["drift_score"]))
-        drift_summary["high_severity_count"] = len(drift_summary["high_severity"])
-        drift_summary["medium_severity_count"] = len(drift_summary["medium_severity"])
-        drift_summary["low_severity_count"] = len(drift_summary["low_severity"])
-        if drift_summary["total_features"] > 0:
-            drift_summary["avg_drift_score"] = total_score / drift_summary["total_features"]
-        self.drift_summary = drift_summary
-        return
-
     def get_what_influences_me(self, feature_name: str) -> dict:
         influenced = dict()
         for cur_name, cur_associations in self._associations.items():
@@ -502,12 +442,7 @@ class DataframeReport:
 
             for other in features_to_process:
             # for other in [of for of in features_to_process if of.source.name != feature_name]:
-                feature_compare = self._features.get(feature_name, {}).get("compare", {})
-                other_compare = self._features.get(other.source.name, {}).get("compare", {})
-                feature_tm = feature_compare.get("type_mismatch", False)
-                other_tm = other_compare.get("type_mismatch", False)
-                process_compare = (cur_associations_compare is not None and other.compare is not None
-                                   and not feature_tm and not other_tm)
+                process_compare = cur_associations_compare is not None and other.compare is not None
                 # if other.source.name in cur_associations.keys():
                 #     print(f"Skipping {feature_name} {other.source.name}")
                 #     continue
@@ -603,7 +538,7 @@ class DataframeReport:
             self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
         self._page_html = sv_html.generate_html_dataframe_page(self)
 
-    def show_html(self, filepath='SWEETVIZ_REPORT.html', open_browser=True, layout='widescreen', scale=None):
+    def show_html(self, filepath='SWEETVIZ_REPORT.html', open_browser=True, layout='widescreen', scale=None, export_json=None):
         scale = float(self.use_config_if_none(scale, "html_scale"))
         layout = self.use_config_if_none(layout, "html_layout")
         if layout not in ['widescreen', 'vertical']:
@@ -634,6 +569,12 @@ class DataframeReport:
                   "(likely due to only having a single row, containing non-NaN values for both correlated features)\n"
                   "Affected correlations:" + str(self.corr_warning))
 
+        if export_json is not False:
+            if export_json is True or config["Output_Defaults"].getboolean("export_json_metadata"):
+                base, _ = os.path.splitext(filepath)
+                json_filepath = base + '.json'
+                self.export_json(json_filepath)
+
         # Auto-log to comet_ml if desired & present
         self._comet_ml_logger = comet_ml_logger.CometLogger()
         if self._comet_ml_logger._logging:
@@ -641,7 +582,7 @@ class DataframeReport:
             self._comet_ml_logger.log_html(self._page_html)
             self._comet_ml_logger.end()
 
-    def show_notebook(self, w=None, h=None, scale=None, layout=None, filepath=None, file_layout=None, file_scale=None):
+    def show_notebook(self, w=None, h=None, scale=None, layout=None, filepath=None, file_layout=None, file_scale=None, export_json=None):
         w = self.use_config_if_none(w, "notebook_width")
         h = self.use_config_if_none(h, "notebook_height")
         scale = float(self.use_config_if_none(scale, "notebook_scale"))
@@ -700,6 +641,12 @@ class DataframeReport:
             f.close()
             self.verbose_print(f"Report '{filepath}' was saved to storage.")
 
+            if export_json is not False:
+                if export_json is True or config["Output_Defaults"].getboolean("export_json_metadata"):
+                    base, _ = os.path.splitext(filepath)
+                    json_filepath = base + '.json'
+                    self.export_json(json_filepath)
+
         if len(self.corr_warning):
             print("WARNING: one or more correlations had an edge-case/error and a 1.0 correlation was assigned\n"
                   "(likely due to only a single row containing non-NaN values for both correlated features)\n"
@@ -718,3 +665,42 @@ class DataframeReport:
             experiment.log_html(self._page_html)
         except:
             print("log_comet(): error logging HTML report.")
+
+    def to_dict(self) -> dict:
+        result = {
+            "source_summary": sv_serialize.serialize_dataframe_summary(self.summary_source),
+            "features": {},
+        }
+
+        if self.summary_compare is not None:
+            result["compare_summary"] = sv_serialize.serialize_dataframe_summary(self.summary_compare)
+
+        if self._target is not None:
+            result["target"] = sv_serialize.serialize_feature(self._target)
+
+        for feat_name, feat_dict in self._features.items():
+            result["features"][feat_name] = sv_serialize.serialize_feature(feat_dict)
+
+        result["associations"] = sv_serialize.serialize_associations(self._associations)
+        if self._associations_compare:
+            result["associations_compare"] = sv_serialize.serialize_associations(self._associations_compare)
+
+        return result
+
+    def to_json(self, indent: int = None) -> str:
+        if indent is None:
+            indent = config["Output_Defaults"].getint("json_metadata_indent")
+        return json.dumps(self.to_dict(), indent=indent, ensure_ascii=False)
+
+    def export_json(self, filepath: str = 'SWEETVIZ_REPORT.json', indent: int = None):
+        json_str = self.to_json(indent=indent)
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(json_str)
+        self.verbose_print(f"JSON metadata {filepath} was generated.")
+        return filepath
+
+    def _auto_export_json_if_configured(self, html_filepath: str):
+        if config["Output_Defaults"].getboolean("export_json_metadata"):
+            base, _ = os.path.splitext(html_filepath)
+            json_filepath = base + '.json'
+            self.export_json(json_filepath)

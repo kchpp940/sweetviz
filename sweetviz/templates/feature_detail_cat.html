@@ -13,63 +13,6 @@
         {% include 'include_missing.html' %}
     {% endif %}
 
-    {% if feature_dict.drift is defined and feature_dict.drift.has_drift %}
-        <div class="drift-detail-container">
-            <div class="drift-detail-title">
-                📊 分布漂移检测结果
-                <span class="drift-score-badge-large">{{ feature_dict.drift.drift_score|fmt_drift_score }}</span>
-                {% if feature_dict.drift.type_mismatch is defined and feature_dict.drift.type_mismatch %}
-                    <span class="drift-badge drift-badge-high">
-                        ⚠️ 类型不一致: {{ feature_dict.drift.source_type }} → {{ feature_dict.drift.compare_type }}
-                    </span>
-                {% else %}
-                    <span class="drift-badge drift-badge-{{ feature_dict.drift.severity }}">
-                        {{ feature_dict.drift.severity|fmt_drift_icon }} {{ feature_dict.drift.severity|fmt_severity_label }}严重度
-                    </span>
-                {% endif %}
-                {% if not (feature_dict.drift.type_mismatch is defined and feature_dict.drift.type_mismatch) and (feature_dict.drift.category_scores.basic > 0 or feature_dict.drift.category_scores.numeric > 0 or feature_dict.drift.category_scores.category > 0) %}
-                    <span style="font-size:10px; color:#837d76; margin-left:8px;">
-                        基础: {{ feature_dict.drift.category_scores.basic|fmt_drift_score }}
-                        {% if feature_dict.drift.category_scores.numeric > 0 %}
-                            | 数值: {{ feature_dict.drift.category_scores.numeric|fmt_drift_score }}
-                        {% endif %}
-                        {% if feature_dict.drift.category_scores.category > 0 %}
-                            | 类别: {{ feature_dict.drift.category_scores.category|fmt_drift_score }}
-                        {% endif %}
-                    </span>
-                {% endif %}
-            </div>
-            <ul class="drift-detail-list">
-                {% for drift in feature_dict.drift.all_drifts %}
-                    <li class="drift-detail-item {{ drift.severity|fmt_severity_class }}">
-                        <span class="drift-detail-label">
-                            <span style="display:inline-block; width:40px; font-size:10px; color:#837d76;">
-                                +{{ drift.weighted_score|fmt_drift_score }}
-                            </span>
-                            {{ drift.severity|fmt_drift_icon }} {{ drift.label }}
-                        </span>
-                        {% if drift.type == 'category_membership' %}
-                            <span class="drift-detail-values">
-                                仅Source: {{ drift.source_only|join(', ') if drift.source_only else '无' }} |
-                                仅Compare: {{ drift.compare_only|join(', ') if drift.compare_only else '无' }}
-                            </span>
-                        {% elif drift.type == 'type_mismatch' %}
-                            <span class="drift-detail-values">
-                                跳过数值/类别对比，仅检测基础统计差异
-                            </span>
-                        {% else %}
-                            <span class="drift-detail-values">
-                                Source: {{ drift.source_value|fmt_drift_value }}
-                                → Compare: {{ drift.compare_value|fmt_drift_value }}
-                                (差异: {{ drift.diff_percent|fmt_drift_diff }})
-                            </span>
-                        {% endif %}
-                    </li>
-                {% endfor %}
-            </ul>
-        </div>
-    {% endif %}
-
     <span class="detail_graph-f{{ feature_dict.order_index }}-{{ feature_dict.detail_graphs[0].index_for_css }}
                 pos-detail-cat-graph" id="detail_graph-f{{ feature_dict.order_index }}"
     style="top: {{ detail_layout.graph_y }}px;"></span>

@@ -4,66 +4,6 @@ from sweetviz.graph_associations import CORRELATION_ERROR
 from sweetviz.graph_associations import CORRELATION_IDENTICAL
 
 
-def fmt_drift_diff(diff_value):
-    if diff_value is None:
-        return "---"
-    if diff_value == float('inf'):
-        return "∞"
-    if abs(diff_value) >= 100:
-        return f"{diff_value:.0f}%"
-    elif abs(diff_value) >= 10:
-        return f"{diff_value:.1f}%"
-    else:
-        return f"{diff_value:.1f}%"
-
-
-def fmt_drift_value(value):
-    if value is None or (isinstance(value, float) and np.isnan(value)):
-        return "---"
-    if isinstance(value, (int, float)):
-        if abs(value) >= 1000:
-            return f"{value:,.0f}"
-        elif abs(value) >= 1:
-            return f"{value:.2f}"
-        else:
-            return f"{value:.3f}"
-    return str(value)
-
-
-def fmt_severity_class(severity):
-    if severity == "high":
-        return "drift-high"
-    elif severity == "medium":
-        return "drift-medium"
-    return ""
-
-
-def fmt_drift_icon(severity):
-    if severity == "high":
-        return "⚠️"
-    elif severity == "medium":
-        return "⚡"
-    elif severity == "low":
-        return "🔹"
-    return ""
-
-
-def fmt_drift_score(score):
-    if score is None:
-        return "0"
-    return f"{score:.1f}"
-
-
-def fmt_severity_label(severity):
-    if severity == "high":
-        return "高"
-    elif severity == "medium":
-        return "中"
-    elif severity == "low":
-        return "低"
-    return "无"
-
-
 def fmt_int_commas(value: float) -> str:
     return f"{value:,}"
 

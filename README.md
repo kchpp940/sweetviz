@@ -130,12 +130,97 @@ Once you have created your report object (e.g. `my_report` in the examples above
 show_html(  filepath='SWEETVIZ_REPORT.html', 
             open_browser=True, 
             layout='widescreen', 
-            scale=None)
+            scale=None,
+            export_json=None)
 ```            
 **show_html(...)** will create and save an HTML report at the given file path. There are options for:
 - **layout**: Either `'widescreen'` or `'vertical'`. The widescreen layout displays details on the right side of the screen, as the mouse goes over each feature. The new (as of 2.0) vertical layout is more compact horizontally and enables expanding each detail area upon clicking.
 - **scale**: Use a floating-point number (e.g. `scale = 0.8` or `None`) to scale the entire report. This is very useful to fit reports to any output.
 - **open_browser**: Enables the automatic opening of a web browser to show the report. Since under some circumstances this is not desired (or causes issues with some IDE's), you can disable it here.
+- **export_json**: When set to `True`, also exports a JSON metadata file alongside the HTML report. When `None` (default), follows the config file setting. When `False`, explicitly disables JSON export even if configured in the INI file.
+
+### JSON Metadata Export
+Sweetviz can also export structured report metadata as JSON, which is useful for programmatic analysis, CI pipelines, and further data processing. The JSON output contains:
+
+- **Dataframe summaries**: row counts, column counts, memory usage, duplicates, type distributions
+- **Per-feature information**: field types, missing rates, unique value counts, top categories, numerical statistics (min/max/mean/std/quartiles/etc.)
+- **Associations/correlations**: pairwise association results between features
+- **Compare difference summaries**: when comparing datasets, includes differences in missing rates, distinct rates, and numerical statistics
+
+There are three ways to get JSON metadata:
+
+#### 1. Export alongside HTML via parameter
+```python
+my_report = sv.analyze(my_dataframe)
+my_report.show_html(export_json=True)
+# Generates: SWEETVIZ_REPORT.html + SWEETVIZ_REPORT.json
+```
+
+#### 2. Direct JSON export
+```python
+my_report = sv.analyze(my_dataframe)
+my_report.export_json('my_report_metadata.json')
+```
+
+#### 3. Get as Python dict or JSON string
+```python
+my_report = sv.analyze(my_dataframe)
+
+# Get as a Python dictionary
+metadata_dict = my_report.to_dict()
+
+# Get as a JSON string
+json_str = my_report.to_json(indent=2)
+```
+
+#### 4. Enable globally via config
+Add this to your override INI file to auto-export JSON every time:
+```ini
+[Output_Defaults]
+export_json_metadata = 1
+json_metadata_indent = 2
+```
+
+#### JSON Structure Example
+```json
+{
+  "source_summary": {
+    "name": "DataFrame",
+    "num_rows": 891,
+    "num_columns": 12,
+    "num_cat": 5,
+    "num_numerical": 6,
+    "memory_total": 77294
+  },
+  "features": {
+    "Age": {
+      "name": "Age",
+      "type": "NUMERIC",
+      "base_stats": {
+        "missing_rate": 19.86,
+        "num_distinct": {"number": 88, "percentage": 9.87}
+      },
+      "stats": {
+        "min": 0.42, "max": 80.0, "mean": 29.70,
+        "std": 14.53, "perc50": 28.0
+      }
+    },
+    "Sex": {
+      "name": "Sex",
+      "type": "CATEGORICAL",
+      "details": {
+        "top_categories": [
+          {"name": "male", "count": {"number": 577, "percentage": 64.76}},
+          {"name": "female", "count": {"number": 314, "percentage": 35.24}}
+        ]
+      }
+    }
+  },
+  "associations": {
+    "Survived": {"Pclass": 0.34, "Sex": 0.54, "Age": -0.08}
+  }
+}
+```
 
 ### show_notebook()
 ```
@@ -145,7 +230,8 @@ show_notebook(  w=None,
                 layout='widescreen',
                 filepath=None,
                 file_layout=None,
-                file_scale=None)
+                file_scale=None,
+                export_json=None)
 ```            
 **show_notebook(...)** is new as of 2.0 and will embed an IFRAME element showing the report right inside a notebook (e.g. Jupyter, Google Colab, etc.). 
 
@@ -157,6 +243,7 @@ Note that since notebooks are generally a more constrained visual environment, i
 - **filepath**: An OPTIONAL output HTML report.
 - **file_layout**: Layout for the OPTIONAL file output ONLY (same as `layout` for `show_html()`, above)
 - **file_scale**: Scale for the OPTIONAL file output ONLY (same as `scale` for `show_html()`, above)
+- **export_json**: When `filepath` is provided and this is set to `True`, also exports JSON metadata alongside the file. When `None` (default), follows the config file setting. When `False`, explicitly disables JSON export.
 # Customizing defaults: the Config file
 The package contains an INI file for configuration. You can override any setting by providing your own then calling this before creating a report:
 ```
