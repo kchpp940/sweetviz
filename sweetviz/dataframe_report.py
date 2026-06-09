@@ -411,7 +411,9 @@ class DataframeReport:
         drift_summary["high_severity"] = list()
         drift_summary["medium_severity"] = list()
         drift_summary["low_severity"] = list()
+        drift_summary["type_mismatch_features"] = list()
         drift_summary["total_features"] = 0
+        drift_summary["type_mismatch_count"] = 0
         drift_summary["avg_drift_score"] = 0.0
         drift_summary["max_drift_score"] = 0.0
 
@@ -425,6 +427,7 @@ class DataframeReport:
             if drift_info is None or not drift_info.get("has_drift"):
                 continue
             drift_summary["total_features"] += 1
+            is_type_mismatch = drift_info.get("type_mismatch", False)
             feature_drift = {
                 "name": feature["name"],
                 "type": feature["type"],
@@ -433,8 +436,14 @@ class DataframeReport:
                 "top_reasons": drift_info.get("top_reasons", []),
                 "all_drifts": drift_info.get("all_drifts", []),
                 "category_scores": drift_info.get("category_scores", {}),
-                "order_index": feature.get("order_index", 0)
+                "order_index": feature.get("order_index", 0),
+                "type_mismatch": is_type_mismatch,
             }
+            if is_type_mismatch:
+                feature_drift["source_type"] = drift_info.get("source_type", "")
+                feature_drift["compare_type"] = drift_info.get("compare_type", "")
+                drift_summary["type_mismatch_count"] += 1
+                drift_summary["type_mismatch_features"].append(feature_drift)
             drift_summary["features_with_drift"].append(feature_drift)
             total_score += feature_drift["drift_score"]
             if feature_drift["drift_score"] > drift_summary["max_drift_score"]:
@@ -446,7 +455,7 @@ class DataframeReport:
             else:
                 drift_summary["low_severity"].append(feature_drift)
 
-        drift_summary["features_with_drift"].sort(key=lambda x: -x["drift_score"])
+        drift_summary["features_with_drift"].sort(key=lambda x: (-x["drift_score"]))
         drift_summary["high_severity_count"] = len(drift_summary["high_severity"])
         drift_summary["medium_severity_count"] = len(drift_summary["medium_severity"])
         drift_summary["low_severity_count"] = len(drift_summary["low_severity"])
@@ -493,7 +502,12 @@ class DataframeReport:
 
             for other in features_to_process:
             # for other in [of for of in features_to_process if of.source.name != feature_name]:
-                process_compare = cur_associations_compare is not None and other.compare is not None
+                feature_compare = self._features.get(feature_name, {}).get("compare", {})
+                other_compare = self._features.get(other.source.name, {}).get("compare", {})
+                feature_tm = feature_compare.get("type_mismatch", False)
+                other_tm = other_compare.get("type_mismatch", False)
+                process_compare = (cur_associations_compare is not None and other.compare is not None
+                                   and not feature_tm and not other_tm)
                 # if other.source.name in cur_associations.keys():
                 #     print(f"Skipping {feature_name} {other.source.name}")
                 #     continue

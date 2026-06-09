@@ -81,6 +81,9 @@
                     <span style="color:#837d76; font-weight:normal; font-size:10px;">
                         平均分: {{ dataframe.drift_summary.avg_drift_score|fmt_drift_score }} / 最高分: {{ dataframe.drift_summary.max_drift_score|fmt_drift_score }}
                     </span>
+                    {% if dataframe.drift_summary.type_mismatch_count > 0 %}
+                        <span class="drift-badge drift-badge-high">🚫 类型不一致: {{ dataframe.drift_summary.type_mismatch_count }}</span>
+                    {% endif %}
                     {% if dataframe.drift_summary.high_severity_count > 0 %}
                         <span class="drift-badge drift-badge-high">⚠️ 高: {{ dataframe.drift_summary.high_severity_count }}</span>
                     {% endif %}
@@ -97,11 +100,18 @@
                             data-detail-div="detail-f{{ feat.order_index }}"
                             onclick="document.querySelector('[data-detail-div=&quot;detail-f{{ feat.order_index }}&quot;]').click();">
                             <span class="drift-score-badge">{{ feat.drift_score|fmt_drift_score }}</span>
-                            <strong>{{ feat.name }}</strong>
-                            <span style="color:#837d76; font-size:9px;">
-                                → {% for r in feat.top_reasons[:2] %}{{ r.label }}{% if not loop.last %}, {% endif %}{% endfor %}
-                                {% if feat.top_reasons|length > 2 %}...{% endif %}
-                            </span>
+                            {% if feat.type_mismatch %}
+                                <span style="color:#e74c3c;"><strong>{{ feat.name }}</strong> 🚫</span>
+                                <span style="color:#e74c3c; font-size:9px;">
+                                    类型不一致: {{ feat.source_type }} → {{ feat.compare_type }}
+                                </span>
+                            {% else %}
+                                <strong>{{ feat.name }}</strong>
+                                <span style="color:#837d76; font-size:9px;">
+                                    → {% for r in feat.top_reasons[:2] %}{{ r.label }}{% if not loop.last %}, {% endif %}{% endfor %}
+                                    {% if feat.top_reasons|length > 2 %}...{% endif %}
+                                </span>
+                            {% endif %}
                         </li>
                     {% endfor %}
                     {% if dataframe.drift_summary.features_with_drift|length > 10 %}

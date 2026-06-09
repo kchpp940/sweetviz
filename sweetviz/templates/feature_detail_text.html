@@ -18,10 +18,16 @@
             <div class="drift-detail-title">
                 📊 分布漂移检测结果
                 <span class="drift-score-badge-large">{{ feature_dict.drift.drift_score|fmt_drift_score }}</span>
-                <span class="drift-badge drift-badge-{{ feature_dict.drift.severity }}">
-                    {{ feature_dict.drift.severity|fmt_drift_icon }} {{ feature_dict.drift.severity|fmt_severity_label }}严重度
-                </span>
-                {% if feature_dict.drift.category_scores.basic > 0 or feature_dict.drift.category_scores.numeric > 0 or feature_dict.drift.category_scores.category > 0 %}
+                {% if feature_dict.drift.type_mismatch is defined and feature_dict.drift.type_mismatch %}
+                    <span class="drift-badge drift-badge-high">
+                        ⚠️ 类型不一致: {{ feature_dict.drift.source_type }} → {{ feature_dict.drift.compare_type }}
+                    </span>
+                {% else %}
+                    <span class="drift-badge drift-badge-{{ feature_dict.drift.severity }}">
+                        {{ feature_dict.drift.severity|fmt_drift_icon }} {{ feature_dict.drift.severity|fmt_severity_label }}严重度
+                    </span>
+                {% endif %}
+                {% if not (feature_dict.drift.type_mismatch is defined and feature_dict.drift.type_mismatch) and (feature_dict.drift.category_scores.basic > 0 or feature_dict.drift.category_scores.numeric > 0 or feature_dict.drift.category_scores.category > 0) %}
                     <span style="font-size:10px; color:#837d76; margin-left:8px;">
                         基础: {{ feature_dict.drift.category_scores.basic|fmt_drift_score }}
                         {% if feature_dict.drift.category_scores.numeric > 0 %}
@@ -46,6 +52,10 @@
                             <span class="drift-detail-values">
                                 仅Source: {{ drift.source_only|join(', ') if drift.source_only else '无' }} |
                                 仅Compare: {{ drift.compare_only|join(', ') if drift.compare_only else '无' }}
+                            </span>
+                        {% elif drift.type == 'type_mismatch' %}
+                            <span class="drift-detail-values">
+                                跳过数值/类别对比，仅检测基础统计差异
                             </span>
                         {% else %}
                             <span class="drift-detail-values">

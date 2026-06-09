@@ -103,20 +103,27 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
 
     # Determine COMPARED feature type & initialize
     compare_dict = None
+    type_mismatch_detected = False
     if to_process.compare is not None:
         to_process.compare_counts = get_counts(to_process.compare)
-        compare_type = determine_feature_type(to_process.compare,
-                                              to_process.compare_counts,
-                                              returned_feature_dict["type"], "COMPARED")
-        if compare_type != FeatureType.TYPE_ALL_NAN and \
+        try:
+            compare_type = determine_feature_type(to_process.compare,
+                                                  to_process.compare_counts,
+                                                  returned_feature_dict["type"], "COMPARED")
+        except TypeError:
+            compare_type = determine_feature_type(to_process.compare,
+                                                  to_process.compare_counts,
+                                                  FeatureType.TYPE_UNKNOWN, "COMPARED")
+            type_mismatch_detected = True
+        if not type_mismatch_detected and compare_type != FeatureType.TYPE_ALL_NAN and \
             source_type != FeatureType.TYPE_ALL_NAN:
-            # Explicitly show missing categories on each set
             if compare_type == FeatureType.TYPE_CAT or compare_type == FeatureType.TYPE_BOOL:
                 fill_out_missing_counts_in_other_series(to_process.compare_counts, to_process.source_counts)
                 fill_out_missing_counts_in_other_series(to_process.source_counts, to_process.compare_counts)
         returned_feature_dict["compare"] = dict()
         compare_dict = returned_feature_dict["compare"]
         compare_dict["type"] = compare_type
+        compare_dict["type_mismatch"] = type_mismatch_detected
 
     # Settle all-NaN series, depending on source versus compared
     if to_process.compare is not None:
@@ -139,6 +146,17 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
         add_series_base_stats_to_dict(to_process.compare, to_process.compare_counts, compare_dict)
 
     # Perform full analysis on source/compare/target
+    saved_compare = to_process.compare
+    saved_compare_counts = to_process.compare_counts
+    saved_compare_target = to_process.compare_target
+    saved_compare_dict = returned_feature_dict.get("compare")
+    if type_mismatch_detected:
+        to_process.compare = None
+        to_process.compare_counts = None
+        to_process.compare_target = None
+        if "compare" in returned_feature_dict:
+            del returned_feature_dict["compare"]
+
     if returned_feature_dict["type"] == FeatureType.TYPE_NUM:
         sweetviz.series_analyzer_numeric.analyze(to_process, returned_feature_dict)
     elif returned_feature_dict["type"] == FeatureType.TYPE_CAT:
@@ -150,12 +168,22 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
     else:
         raise ValueError
 
+    if type_mismatch_detected:
+        to_process.compare = saved_compare
+        to_process.compare_counts = saved_compare_counts
+        to_process.compare_target = saved_compare_target
+        returned_feature_dict["compare"] = saved_compare_dict
+
     # Perform drift detection if compare is present
     if compare_dict is not None:
         source_total = returned_feature_dict["base_stats"]["num_values"].number
         compare_total = compare_dict["base_stats"]["num_values"].number
+        source_type = source_type
+        compare_type_val = compare_dict.get("type", source_type)
         returned_feature_dict["drift"] = drift_detection.compute_feature_drift(
             feature_type=returned_feature_dict["type"],
+            source_type=source_type,
+            compare_type=compare_type_val,
             source_base=returned_feature_dict["base_stats"],
             compare_base=compare_dict["base_stats"],
             source_stats=returned_feature_dict.get("stats"),
@@ -172,7 +200,8 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
             "severity": "none",
             "top_reasons": [],
             "all_drifts": [],
-            "category_scores": {"basic": 0.0, "numeric": 0.0, "category": 0.0}
+            "category_scores": {"basic": 0.0, "numeric": 0.0, "category": 0.0},
+            "type_mismatch": False
         }
 
     # print(f"{to_process.source.name} PROCESSED ------> "
