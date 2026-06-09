@@ -6,6 +6,7 @@ import matplotlib.font_manager as fm
 from io import BytesIO
 import base64
 import importlib_resources
+from textwrap import wrap as _textwrap_wrap
 from pandas.plotting import register_matplotlib_converters
 
 from sweetviz import sv_html_formatters
@@ -29,6 +30,57 @@ class Graph:
         return
 
     @staticmethod
+    def safe_label_for_graph(val, max_len=None, wrap_len=None,
+                             break_chars=None, keep_break_chars=True):
+        if val is None:
+            return ""
+        text = str(val)
+        text = text.replace("\r", " ").replace("\n", " ")
+        text = text.replace("\t", " ")
+        text = text.replace("$", r"\$")
+        if max_len is not None and len(text) > max_len:
+            text = text[:max_len - 3] + "..."
+        if wrap_len is not None and len(text) > wrap_len:
+            if break_chars:
+                text = Graph._wrap_custom(text, break_chars, wrap_len, keep_break_chars)
+            else:
+                text = "\n".join(_textwrap_wrap(text, wrap_len, break_long_words=True,
+                                                break_on_hyphens=False))
+        return text
+
+    @staticmethod
+    def _wrap_custom(source_text, separator_chars, width, keep_separators=True):
+        current_length = 0
+        latest_separator = -1
+        current_chunk_start = 0
+        output = ""
+        char_index = 0
+        while char_index < len(source_text):
+            if source_text[char_index] in separator_chars:
+                latest_separator = char_index
+            output += source_text[char_index]
+            current_length += 1
+            if current_length == width:
+                if latest_separator >= current_chunk_start:
+                    cutting_length = char_index - latest_separator
+                    if not keep_separators:
+                        cutting_length += 1
+                    if cutting_length:
+                        output = output[:-cutting_length]
+                    output += "\n"
+                    current_chunk_start = latest_separator + 1
+                    char_index = current_chunk_start
+                else:
+                    output += "\n"
+                    current_chunk_start = char_index + 1
+                    latest_separator = current_chunk_start - 1
+                    char_index += 1
+                current_length = 0
+            else:
+                char_index += 1
+        return output
+
+    @staticmethod
     def _iter_padding_artists(axis):
         # These are the text artists most likely to get clipped when Matplotlib
         # or font metrics shift slightly across environments.
@@ -46,6 +98,27 @@ class Graph:
     def _set_subplot_padding_from_pixels(figure, padding_pixels):
         figure_width_px, figure_height_px = figure.get_size_inches() * figure.dpi
         top_px, left_px, bottom_px, right_px = [float(value) for value in padding_pixels]
+
+        min_axis_px = 20.0
+        max_left_px = figure_width_px - right_px - min_axis_px
+        max_right_px = figure_width_px - left_px - min_axis_px
+        max_top_px = figure_height_px - bottom_px - min_axis_px
+        max_bottom_px = figure_height_px - top_px - min_axis_px
+
+        if left_px > max_left_px:
+            left_px = max_left_px
+        if right_px > max_right_px:
+            right_px = max_right_px
+        if top_px > max_top_px:
+            top_px = max_top_px
+        if bottom_px > max_bottom_px:
+            bottom_px = max_bottom_px
+
+        left_px = max(0.0, left_px)
+        right_px = max(0.0, right_px)
+        top_px = max(0.0, top_px)
+        bottom_px = max(0.0, bottom_px)
+
         figure.subplots_adjust(
             top=(1.0 - (top_px / figure_height_px)),
             left=(left_px / figure_width_px),
