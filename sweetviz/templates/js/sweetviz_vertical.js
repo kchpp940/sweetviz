@@ -235,5 +235,48 @@ $(".button-bin").click(function() {
     $("#"+which_id).attr('class', $(this).attr('data-new_class') + " pos-detail-num-graph");
 });
 
+// CATEGORICAL DETAIL: EXPAND/COLLAPSE
+$(".cat-fold-toggle").click(function() {
+    let feature_index = $(this).data('feature-index');
+    let folded_id = "#cat-folded-f" + feature_index;
+    let full_id = "#cat-full-f" + feature_index;
+    let btn = $(this);
+
+    if ($(folded_id).is(":visible")) {
+        $(folded_id).hide();
+        $(full_id).show();
+        btn.text("收起");
+    } else {
+        $(full_id).hide();
+        $(folded_id).show();
+        btn.text("显示全部类别");
+    }
+
+    // Recompute container height for vertical layout
+    let summary_parent = $(this).closest('[data-expanded]');
+    if (summary_parent.length > 0 && summary_parent.data('expanded') == 'true') {
+        let feature_index_str = summary_parent.attr('id').substring(8);
+        if (summary_parent.attr('id') == "summary-target") {
+            feature_index_str = "f-1";
+        }
+        if ($('#cat-assoc-window-'+feature_index_str).length) {
+            let $el = $('#detail_breakdown-' + feature_index_str);
+            let bottom = ($el.position().top / g_scale) + $el.outerHeight(true);
+            let desiredBottomBreakdown = bottom + 157;
+
+            $el = $('#cat-assoc-window-' + feature_index_str);
+            let bottomAssoc = $el.position().top + $el.outerHeight(true);
+            let desiredBottomAssoc = bottomAssoc + 166;
+
+            let finalHeight = Math.max(desiredBottomBreakdown, desiredBottomAssoc);
+            if (summary_parent.attr('id') == "summary-target") {
+                summary_parent.css('height', String((finalHeight + 50))+ 'px');
+                $("#summary-target").css("overflow", "hidden");
+            }
+            summary_parent.parent().css('height', String(finalHeight) + 'px');
+        }
+    }
+});
+
 
 }); // $(document).ready(...

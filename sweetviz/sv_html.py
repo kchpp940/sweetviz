@@ -374,10 +374,12 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
         else:
             data_rows.append(row)
 
-    if len(data_rows) <= max_rows:
-        feature_dict["detail"]["detail_count"] = list(data_rows)
+    needs_fold = len(data_rows) > max_rows
+
+    if not needs_fold:
+        folded_count = list(data_rows)
         if all_row:
-            feature_dict["detail"]["detail_count"].append(all_row)
+            folded_count.append(all_row)
     else:
         top_rows = data_rows[:max_rows]
         other_rows = data_rows[max_rows:]
@@ -445,11 +447,13 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
                     if total_in_cat_compare > 0:
                         other_row["target_stats_compare"] = NumWithPercent(weighted_sum_compare / total_in_cat_compare, 1.0)
 
-        detail_count = list(top_rows)
-        detail_count.append(other_row)
+        folded_count = list(top_rows)
+        folded_count.append(other_row)
         if all_row:
-            detail_count.append(all_row)
-        feature_dict["detail"]["detail_count"] = detail_count
+            folded_count.append(all_row)
+
+    feature_dict["detail"]["folded_count"] = folded_count
+    feature_dict["detail"]["needs_fold"] = needs_fold
 
     # Set up ASSOCIATION data
     # ------------------------------------
