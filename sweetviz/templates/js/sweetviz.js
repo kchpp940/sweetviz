@@ -180,11 +180,11 @@ $("#button-summary-associations-source, #button-summary-associations-compare").h
         if(g_snapped=="")
         {
             hideAllDetails();
-            $("#" + getSafeId(this)).show();
+            $("#" + $(this).data("target-panel-id")).show();
             // $("#df-assoc").show();
             //$("#df-assoc").show();
         }
-        // g_lastHovered = "#" + getSafeId(this);
+        // g_lastHovered = "#" + $(this).data("target-panel-id");
     },
     // EXIT function
     function()
@@ -202,7 +202,7 @@ $("#button-summary-associations-source, #button-summary-associations-compare").c
     $("#button-summary-associations-source, #button-summary-associations-compare").removeClass("button-assoc-selected");
     $("#button-summary-associations-source, #button-summary-associations-compare").addClass("button-assoc");
     let this_to_snap=this.id;
-    let safeId = getSafeId(this);
+    let targetPanelId = $(this).data("target-panel-id");
     if(g_snapped == this_to_snap)
     {
         // DESELECT/HIDE ASSOC
@@ -229,7 +229,7 @@ $("#button-summary-associations-source, #button-summary-associations-compare").c
         hideAllDetails();
         $(this).addClass("button-assoc-selected");
         g_snapped = this.id;
-        $("#" + safeId).show();
+        $("#" + targetPanelId).show();
     }
 //    $(this).addClass("assoc_active");
 });

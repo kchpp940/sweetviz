@@ -218,8 +218,8 @@ $(".selector").click(function(event) {
 
 // ASSOCIATIONS CLICK
 $("#button-summary-associations-source, #button-summary-associations-compare").click(function(event) {
-    let safeId = getSafeId(this);
-    let actual_div = "#" + safeId;
+    let targetPanelId = $(this).data("target-panel-id");
+    let actual_div = "#" + targetPanelId;
     // Quick hack: just remove the selected state to both buttons and restore if needed
     $("#button-summary-associations-source, #button-summary-associations-compare").removeClass("button-assoc-selected");
     $("#button-summary-associations-source, #button-summary-associations-compare").addClass("button-assoc");

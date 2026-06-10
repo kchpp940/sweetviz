@@ -3,9 +3,9 @@
         data-safe-id="{{ feature_dict.safe_name }}"
         data-order-index="{{ feature_dict.order_index }}"
         style="top: {{ layout.summary_spacing * (feature_dict.order_index + 0) }}px">
-    <div class="selector selector__body" data-detail-div="detail-{{ feature_dict.safe_name }}" data-rollover-span="rollover-{{ feature_dict.safe_name }}" data-safe-id="{{ feature_dict.safe_name }}"></div>
-    <div class="selector selector__bottom" data-detail-div="detail-{{ feature_dict.safe_name }}" data-rollover-span="rollover-{{ feature_dict.safe_name }}" data-safe-id="{{ feature_dict.safe_name }}"></div>
-    <div class="selector selector__top" data-detail-div="detail-{{ feature_dict.safe_name }}" data-rollover-span="rollover-{{ feature_dict.safe_name }}" data-safe-id="{{ feature_dict.safe_name }}"></div>
+    <div class="selector selector__body" data-safe-id="{{ feature_dict.safe_name }}"></div>
+    <div class="selector selector__bottom" data-safe-id="{{ feature_dict.safe_name }}"></div>
+    <div class="selector selector__top" data-safe-id="{{ feature_dict.safe_name }}"></div>
     <span class="bg-tab-summary" style="z-index: {{ -20000 + (2*feature_dict.order_index) }}"></span>
     <span class="bg-tab-summary-rollover" id="rollover-{{ feature_dict.safe_name }}" style="z-index: {{ -19999 + (2*feature_dict.order_index) }}" data-safe-id="{{ feature_dict.safe_name }}"></span>
     <div class="{{ "summary-number" if feature_dict.order_index < 999 else "summary-number-vertical" }}"
