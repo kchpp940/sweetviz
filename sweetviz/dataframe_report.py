@@ -16,7 +16,7 @@ from sweetviz.graph_legend import GraphLegend
 from sweetviz.config import config
 import sweetviz.comet_ml_logger as comet_ml_logger
 import sweetviz.sv_html as sv_html
-from sweetviz.feature_config import FeatureConfig, FeatureConfigContext
+from sweetviz.feature_config import FeatureConfig, FeatureConfigContext, NormalizedFeatureConfig
 import webbrowser
 from sweetviz.config import config
 
@@ -65,28 +65,24 @@ class DataframeReport:
                 raise ValueError('Duplicate column names detected in "compare"; this is not supported.')
             compare_df = self._rename_index_column(compare_df)
 
-        if target_feature_name == 'index':
-            target_feature_name = 'df_index'
-
         self._fc_context = FeatureConfigContext(
             source_columns=list(source_df.columns),
             compare_columns=list(compare_df.columns) if compare_df is not None else None,
             target_feature_name=target_feature_name,
             fc=fc
         )
-        target_feature_name = self._fc_context.target_feature_name
-        filtered_series_names_in_source = list(self._fc_context.filtered_source_names)
+        cfg: NormalizedFeatureConfig = self._fc_context.result
 
-        if target_feature_name:
-            self._check_target_no_nans(source_df, target_feature_name, "SOURCE")
-            if compare_df is not None and target_feature_name in compare_df.columns:
-                self._check_target_no_nans(compare_df, target_feature_name, "COMPARED")
+        if cfg.target_column:
+            self._check_target_no_nans(source_df, cfg.target_column, "SOURCE")
+            if compare_df is not None and cfg.target_column in compare_df.columns:
+                self._check_target_no_nans(compare_df, cfg.target_column, "COMPARED")
 
         ratio_progress_of_df_summary_vs_feature = 1.0
-        number_features = len(filtered_series_names_in_source)
+        number_features = len(cfg.source_columns_filtered)
         exponential_checks = number_features * number_features
         progress_chunks = ratio_progress_of_df_summary_vs_feature \
-                            + number_features + (0 if target_feature_name is not None else 0)
+                            + number_features + (0 if cfg.target_column is not None else 0)
 
         class DummyFile(object):
             def write(self, x):
@@ -105,12 +101,12 @@ class DataframeReport:
 
         self.progress_bar.set_description_str("[Summarizing dataframe]")
         self.summary_source = dict()
-        self.summarize_dataframe(source_df, self.source_name, self.summary_source, self._fc_context.skip)
+        self.summarize_dataframe(source_df, self.source_name, self.summary_source, cfg.skip_columns)
         if compare_df is not None:
             self.summary_compare = dict()
-            self.summarize_dataframe(compare_df, self.compare_name, self.summary_compare, self._fc_context.skip)
+            self.summarize_dataframe(compare_df, self.compare_name, self.summary_compare, cfg.skip_columns)
             cmp_not_in_src = \
-                [name for name in self._fc_context.all_compare_names if name not in self._fc_context.all_source_names]
+                [name for name in cfg.compare_columns if name not in cfg.source_columns]
             self.summary_compare["num_cmp_not_in_source"] = len(cmp_not_in_src)
         else:
             self.summary_compare = None
@@ -133,46 +129,46 @@ class DataframeReport:
 
         target_to_process = None
         target_type = None
-        if target_feature_name:
-            self.progress_bar.set_description_str(f"Feature: {target_feature_name} (TARGET)")
+        if cfg.target_column:
+            self.progress_bar.set_description_str(f"Feature: {cfg.target_column} (TARGET)")
 
             compare_target_series = None
-            if compare_df is not None and target_feature_name in compare_df.columns:
-                compare_target_series = compare_df[target_feature_name]
+            if compare_df is not None and cfg.target_column in compare_df.columns:
+                compare_target_series = compare_df[cfg.target_column]
 
             target_to_process = FeatureToProcess(
-                -1, source_df[target_feature_name], compare_target_series,
-                None, None, self._fc_context.get_predetermined_type(target_feature_name)
+                -1, source_df[cfg.target_column], compare_target_series,
+                None, None, cfg.get_predetermined_type(cfg.target_column)
             )
             self._target = sa.analyze_feature_to_dictionary(target_to_process)
-            filtered_series_names_in_source.remove(target_feature_name)
             target_type = self._target["type"]
             self.progress_bar.update(1)
 
         source_target_series = None
         compare_target_series = None
-        if target_feature_name:
+        if cfg.target_column:
             if self._target["type"] == sa.FeatureType.TYPE_BOOL:
-                source_target_series = self.get_sanitized_bool_series(source_df[target_feature_name])
+                source_target_series = self.get_sanitized_bool_series(source_df[cfg.target_column])
             else:
-                source_target_series = source_df[target_feature_name]
+                source_target_series = source_df[cfg.target_column]
 
-            if compare_df is not None and target_feature_name in compare_df.columns:
+            if compare_df is not None and cfg.target_column in compare_df.columns:
                 if self._target["type"] == sa.FeatureType.TYPE_BOOL:
-                    compare_target_series = self.get_sanitized_bool_series(compare_df[target_feature_name])
+                    compare_target_series = self.get_sanitized_bool_series(compare_df[cfg.target_column])
                 else:
-                    compare_target_series = compare_df[target_feature_name]
+                    compare_target_series = compare_df[cfg.target_column]
 
+        aligned_compare_set = set(cfg.compare_columns_aligned)
         features_to_process = []
-        for cur_series_name, cur_order_index in zip(filtered_series_names_in_source,
-                                                 range(0, len(filtered_series_names_in_source))):
-            if compare_df is not None and cur_series_name in compare_df.columns:
+        for cur_series_name, cur_order_index in zip(cfg.source_columns_filtered,
+                                                 range(0, len(cfg.source_columns_filtered))):
+            if cur_series_name in aligned_compare_set:
                 this_feat = FeatureToProcess(cur_order_index,
                                              source_df[cur_series_name],
                                              compare_df[cur_series_name],
                                              source_target_series,
                                              compare_target_series,
-                                             self._fc_context.get_predetermined_type(cur_series_name),
+                                             cfg.get_predetermined_type(cur_series_name),
                                              target_type)
             else:
                 this_feat = FeatureToProcess(cur_order_index,
@@ -180,7 +176,7 @@ class DataframeReport:
                                              None,
                                              source_target_series,
                                              None,
-                                             self._fc_context.get_predetermined_type(cur_series_name),
+                                             cfg.get_predetermined_type(cur_series_name),
                                              target_type)
             features_to_process.append(this_feat)
 
@@ -191,9 +187,9 @@ class DataframeReport:
             self._features[f.source.name] = sa.analyze_feature_to_dictionary(f)
             self.progress_bar.update(1)
 
-        self.summarize_category_types(source_df, self.summary_source, self._fc_context.skip, self._target)
+        self.summarize_category_types(source_df, self.summary_source, cfg.skip_columns, self._target)
         if compare is not None:
-            self.summarize_category_types(compare_df, self.summary_compare, self._fc_context.skip, self._target)
+            self.summarize_category_types(compare_df, self.summary_compare, cfg.skip_columns, self._target)
         self.dataframe_summary_html = sv_html.generate_html_dataframe_summary(self)
 
         self.graph_legend = GraphLegend(self)
