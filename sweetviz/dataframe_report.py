@@ -167,6 +167,11 @@ class DataframeReport:
 
         self.num_summaries = number_features
 
+        # Generate unique safe IDs for all features (avoid collisions like a-b / a_b / a b)
+        safe_id_gen = sa.SafeIdGenerator()
+        safe_id_gen.generate_all(filtered_series_names_in_source)
+        self._safe_id_map = safe_id_gen._name_to_safe.copy()
+
         # Association check
         if pairwise_analysis == 'auto' and \
                 number_features > config["Processing"].getint("association_auto_threshold"):
@@ -215,8 +220,10 @@ class DataframeReport:
                     compare_target_series = compare_df[target_feature_name]
 
             # TARGET processed HERE with COMPARE if present
+            target_safe_name = self._safe_id_map[targets_found[0]]
             target_to_process = FeatureToProcess(-1, source_df[targets_found[0]], compare_target_series,
-                                                 None, None, fc.get_predetermined_type(targets_found[0]))
+                                                 None, None, fc.get_predetermined_type(targets_found[0]),
+                                                 safe_name=target_safe_name)
             self._target = sa.analyze_feature_to_dictionary(target_to_process)
             filtered_series_names_in_source.remove(targets_found[0])
             target_type = self._target["type"]
@@ -254,7 +261,8 @@ class DataframeReport:
                                              source_target_series,
                                              compare_target_series,
                                              fc.get_predetermined_type(cur_series_name),
-                                             target_type)
+                                             target_type,
+                                             safe_name=self._safe_id_map[cur_series_name])
             else:
                 this_feat = FeatureToProcess(cur_order_index,
                                              source_df[cur_series_name],
@@ -262,7 +270,8 @@ class DataframeReport:
                                              source_target_series,
                                              None,
                                              fc.get_predetermined_type(cur_series_name),
-                                             target_type)
+                                             target_type,
+                                             safe_name=self._safe_id_map[cur_series_name])
             features_to_process.append(this_feat)
 
 
