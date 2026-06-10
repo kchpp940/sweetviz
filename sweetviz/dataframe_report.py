@@ -1,4 +1,5 @@
 from typing import Union, List, Tuple
+import json
 import os
 import time
 import pandas as pd
@@ -651,3 +652,64 @@ class DataframeReport:
             experiment.log_html(self._page_html)
         except:
             print("log_comet(): error logging HTML report.")
+
+    @staticmethod
+    def _sanitize_for_json(obj):
+        if obj is None:
+            return None
+        if isinstance(obj, NumWithPercent):
+            return {
+                "number": int(obj.number) if isinstance(obj.number, (int, float)) else obj.number,
+                "percentage": float(obj.perc) if isinstance(obj.perc, (int, float)) else obj.perc,
+            }
+        if isinstance(obj, FeatureType):
+            return obj.value
+        if isinstance(obj, (bytes, bytearray)):
+            return None
+        if isinstance(obj, bool):
+            return obj
+        if isinstance(obj, (int, float, str)):
+            return obj
+        if isinstance(obj, dict):
+            return {k: DataframeReport._sanitize_for_json(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            return [DataframeReport._sanitize_for_json(v) for v in obj]
+        try:
+            import numpy as np
+            if isinstance(obj, np.integer):
+                return int(obj)
+            if isinstance(obj, np.floating):
+                return float(obj)
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()
+            if isinstance(obj, np.bool_):
+                return bool(obj)
+        except ImportError:
+            pass
+        try:
+            import pandas as pd
+            if isinstance(obj, (pd.Timestamp, pd.Timedelta)):
+                return str(obj)
+            if pd.isna(obj):
+                return None
+        except ImportError:
+            pass
+        return None
+
+    def to_dict(self) -> dict:
+        result = {
+            "name": self.source_name,
+            "compare_name": self.compare_name if self.compare_name else None,
+            "num_features": len(self._features),
+            "target": self._sanitize_for_json(self._target) if self._target else None,
+            "features": {},
+        }
+        for feat_name, feat_data in self._features.items():
+            result["features"][feat_name] = self._sanitize_for_json(feat_data)
+        return result
+
+    def get_metadata(self) -> dict:
+        return self.to_dict()
+
+    def to_json(self, indent: int = 2) -> str:
+        return json.dumps(self.to_dict(), indent=indent, default=str)

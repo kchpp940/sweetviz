@@ -51,7 +51,7 @@ def do_detail_categorical(to_process: FeatureToProcess, updated_dict: dict):
 
     # Compute COUNT stats (i.e. below graph)
     # ----------------------------------------------------------------------------------------------
-    detail["full_count"] = []
+    detail["detail_count"] = []
 
     # To get percentages
     num_values = updated_dict["base_stats"]["num_values"].number
@@ -133,7 +133,7 @@ def do_detail_categorical(to_process: FeatureToProcess, updated_dict: dict):
                             # None will be correctly interpreted by our display, not nan
                             row["target_stats_compare"] = None
 
-        detail["full_count"].append(row)
+        detail["detail_count"].append(row)
     detail["max_range"] = max_abs_value
 
     # "ALL" row
@@ -170,7 +170,7 @@ def do_detail_categorical(to_process: FeatureToProcess, updated_dict: dict):
             elif to_process.predetermined_type_target == FeatureType.TYPE_NUM:
                 # TODO: OPTIMIZE: CACHE FROM GRAPH?
                 row["target_stats_compare"] = NumWithPercent(to_process.compare_target.mean(), 1.0)
-    detail["full_count"].append(row)
+    detail["detail_count"].append(row)
     updated_dict["detail"]["cat"] = detail
     return
 

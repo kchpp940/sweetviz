@@ -44,7 +44,7 @@ def do_detail_text(to_process: FeatureToProcess, updated_dict: dict):
 
     # Compute COUNT stats (i.e. below graph)
     # ----------------------------------------------------------------------------------------------
-    detail["full_count"] = []
+    detail["detail_count"] = []
 
     num_values = updated_dict["base_stats"]["num_values"].number
     if to_process.compare_counts is not None:
@@ -66,7 +66,7 @@ def do_detail_text(to_process: FeatureToProcess, updated_dict: dict):
                 matching = to_process.compare_counts["value_counts_without_nan"][row["name"]]
                 row["count_compare"] = NumWithPercent(matching, num_values_compare)
 
-        detail["full_count"].append(row)
+        detail["detail_count"].append(row)
 
     updated_dict["detail"]["text"] = detail
     return

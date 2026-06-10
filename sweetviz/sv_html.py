@@ -175,10 +175,7 @@ def generate_html_summary_cat(feature_dict: dict, compare_dict: dict):
 def generate_html_summary_text(feature_dict: dict, compare_dict: dict):
     template = jinja2_env.get_template('feature_summary_text.html')
 
-    # Set some parameters for breakdown columns
-    # ------------------------------------
     cols = dict()
-    # Cols: Move text if there is a comparison pair display
     cur_x = config["Layout"].getint("pair_spacing")
     padding =config["Layout"].getint("col_spacing")
     if compare_dict is not None:
@@ -191,20 +188,16 @@ def generate_html_summary_text(feature_dict: dict, compare_dict: dict):
 
     max_text_rows = config["Summary_Stats"].getint("summary_max_text_rows")
 
-    # Filter final row list to display, add "other"
-    # ------------------------------------
-    full_list = feature_dict["detail"]["text"]["full_count"]
-    feature_dict["detail"]["text"]["summary_count"] = full_list[:max_text_rows]
-    summary_list = feature_dict["detail"]["text"]["summary_count"]
+    full_list = feature_dict["detail"]["text"]["detail_count"]
+    summary_rows = [dict(row) for row in full_list[:max_text_rows]]
 
-    # Clipping text only for memory purposes (display will be handled by the browser)
     max_text_display_length = config["Summary_Stats"].getint("text_max_string_len")
-    for elem in summary_list:
+    for elem in summary_rows:
         elem["name"] = elem["name"][:max_text_display_length]
 
-    if len(summary_list) == max_text_rows:
+    if len(summary_rows) == max_text_rows:
         total = feature_dict["base_stats"]["num_values"].number
-        cur_count = sum(row_data["count"].number for row_data in summary_list)
+        cur_count = sum(row_data["count"].number for row_data in summary_rows)
         other = total - cur_count
         row = dict()
         row["name"] = OTHERS_GROUPED.strip()
@@ -215,16 +208,16 @@ def generate_html_summary_text(feature_dict: dict, compare_dict: dict):
             total = compare_dict["base_stats"]["num_values"].number
             cur_count = sum( \
                 (row_data["count_compare"].number if row_data.get("count_compare") else 0) \
-                for row_data in summary_list)
+                for row_data in summary_rows)
             other = total - cur_count
             row["count_compare"] = NumWithPercent(other, total)
         else:
             row["count_compare"] = None
         if row["count"].number > 0 or (row.get("count_compare") and row.get("count_compare").number > 0):
-            summary_list.append(row)
+            summary_rows.append(row)
 
     output = template.render(feature_dict = feature_dict, compare_dict = compare_dict, \
-                             cols=cols)
+                             cols=cols, summary_rows=summary_rows)
     return output
 
 
@@ -338,7 +331,7 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
     # Column Layout
     # ------------------------
     # Find name width
-    count_row_data = feature_dict["detail"]["cat"]["full_count"]
+    count_row_data = feature_dict["detail"]["cat"]["detail_count"]
     longest_cat = max(map(lambda row : len(str(row['name'])), count_row_data))
     longest_width = longest_cat * config["Layout"].getint("character_width_estimate")
     # Set columns
@@ -364,7 +357,7 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
             cur_x = cur_x + spacing
 
     max_rows = config["Detail_Stats"].getint("max_num_breakdown_categories")
-    feature_dict["detail"]["cat"]["detail_count"] = feature_dict["detail"]["cat"]["full_count"][:max_rows]
+    detail_rows = feature_dict["detail"]["cat"]["detail_count"][:max_rows]
 
     # Set up ASSOCIATION data
     # ------------------------------------
@@ -407,6 +400,7 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
         corr_ratio = None
     output = template.render(feature_dict = feature_dict, compare_dict = compare_dict, \
                              dataframe = dataframe_report, cols=cols, detail_layout=detail_layout,
+                             detail_rows=detail_rows,
                              influencing=influencing, influenced=influenced, corr_ratio=corr_ratio)
     return output
 
@@ -414,10 +408,7 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
 def generate_html_detail_text(feature_dict: dict, compare_dict: dict, dataframe_report):
     template = jinja2_env.get_template('feature_detail_text.html')
 
-    # Set some parameters for detail columns
-    # ------------------------------------
     cols = dict()
-    # Cols: Move text if there is a comparison pair display
     cur_x = config["Layout"].getint("pair_spacing")
     padding =config["Layout"].getint("col_spacing")
     if compare_dict is not None:
@@ -430,21 +421,16 @@ def generate_html_detail_text(feature_dict: dict, compare_dict: dict, dataframe_
 
     max_text_rows = config["Detail_Stats"].getint("detail_max_text_rows")
 
-    # Filter final row list to display, add "other"
-    # ------------------------------------
-    full_list = feature_dict["detail"]["text"]["full_count"]
-    feature_dict["detail"]["text"]["detail_count"] = full_list[:max_text_rows]
-    detail_list = feature_dict["detail"]["text"]["detail_count"]
+    full_list = feature_dict["detail"]["text"]["detail_count"]
+    detail_rows = [dict(row) for row in full_list[:max_text_rows]]
 
-    # Clipping text only for memory purposes (display will be handled by the browser)
     max_text_display_length = config["Summary_Stats"].getint("text_max_string_len")
-    for elem in detail_list:
+    for elem in detail_rows:
         elem["name"] = elem["name"][:max_text_display_length]
 
-    # Add "others"
-    if len(detail_list) == max_text_rows:
+    if len(detail_rows) == max_text_rows:
         total = feature_dict["base_stats"]["num_values"].number
-        cur_count = sum(row_data["count"].number for row_data in detail_list)
+        cur_count = sum(row_data["count"].number for row_data in detail_rows)
         other = total - cur_count
         row = dict()
         row["name"] = OTHERS_GROUPED.strip()
@@ -455,16 +441,16 @@ def generate_html_detail_text(feature_dict: dict, compare_dict: dict, dataframe_
             total = compare_dict["base_stats"]["num_values"].number
             cur_count = sum( \
                 (row_data["count_compare"].number if row_data.get("count_compare") else 0) \
-                for row_data in detail_list)
+                for row_data in detail_rows)
             other = total - cur_count
             row["count_compare"] = NumWithPercent(other, total)
         else:
             row["count_compare"] = None
         if row["count"].number > 0 or (row.get("count_compare") and row.get("count_compare").number > 0):
-            detail_list.append(row)
+            detail_rows.append(row)
 
     output = template.render(feature_dict = feature_dict, compare_dict = compare_dict, \
-                             dataframe = dataframe_report, cols=cols)
+                             dataframe = dataframe_report, cols=cols, detail_rows=detail_rows)
     return output
 
 
