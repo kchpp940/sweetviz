@@ -1,9 +1,5 @@
 ![version](https://img.shields.io/badge/2.3.2-blue.svg?label=version) ![updated](https://img.shields.io/badge/April%204%2C%202026-green.svg?label=updated)
 
-### !!! June 2026 UPDATE !!! -  Version 2.4.0: Feature aliases & groups
-
-New in 2.4.0: **display aliases** and **feature groups** via `FeatureConfig`. You can now set human-readable display names for each column and organize features into business groups in the summary area. See below for full docs and examples.
-
 ### !!! April 2026 UPDATE !!! -  Version 2.3.2: Long-standing issues fixed
 
 ---
@@ -105,21 +101,9 @@ analyze(source: Union[pd.DataFrame, Tuple[pd.DataFrame, str]],
 - **source:** Either the data frame (as in the example) or a tuple containing the data frame and a name to show in the report. 
 e.g. `my_df` or `[my_df, "Training"]`
 - **target_feat:** A string representing the name of the feature to be marked as "target". *Only BOOLEAN and NUMERICAL features can be targets for now.*
-- **feat_cfg:** A FeatureConfig object representing features to be skipped, or to be forced a certain type in the analysis. The arguments can either be a single string or list of strings. Parameters are `skip`, `force_cat`, `force_num`, `force_text`, `alias` and `groups`. The "force_" arguments override the built-in type detection. `alias` maps original column names to human-readable display names; `groups` organizes features into labelled groups in the summary. They can be constructed as follows:
+- **feat_cfg:** A FeatureConfig object representing features to be skipped, or to be forced a certain type in the analysis. The arguments can either be a single string or list of strings. Parameters are `skip`, `force_cat`, `force_num` and `force_text`. The "force_" arguments override the built-in type detection. They can be constructed as follows:
 ```
-feature_config = sv.FeatureConfig(
-    skip="PassengerId",
-    force_cat=["Pclass"],
-    alias={
-        "Survived": "是否生还",
-        "Pclass":   "舱位等级",
-        "Age":      "年龄"
-    },
-    groups={
-        "基本信息": ["Sex", "Age"],
-        "出行属性": ["Pclass", "Fare"]
-    }
-)
+feature_config = sv.FeatureConfig(skip="PassengerId", force_text=["Age"])
 ```
 - **verbosity:** **[NEW]** Can be set to `full`, `progress_only` (to only display the progress bar but not report generation messages) and `off` (fully quiet, except for errors or warnings). Default  verbosity can also be set in the INI override, under the "General" heading (see "The Config file" section below for details).
 - **pairwise_analysis:** Correlations and other associations can take quadratic time (n^2) to complete. The default setting ("auto") will run without warning until a data set contains "association_auto_threshold" features. Past that threshold, you need to explicitly pass the parameter `pairwise_analysis="on"` (or `="off"`) since processing that many features would take a long time. This parameter also covers the generation of the association graphs (based on [Drazen Zaric's concept](https://towardsdatascience.com/better-heatmaps-and-correlation-matrix-plots-in-python-41445d0f2bec)):
@@ -138,84 +122,6 @@ Support for this is built in through the `compare_intra()` function. This functi
 ```
 my_report = sv.compare_intra(my_dataframe, my_dataframe["Sex"] == "male", ["Male", "Female"], "Survived", feature_config)
 ```
-#### Full example: aliases + groups + target + compare
-Here is a complete real-world example combining aliases, groups, a target feature, and a compare report, then outputting to both HTML and a Jupyter notebook:
-
-```python
-import pandas as pd
-import sweetviz as sv
-
-# Load data
-train_df = pd.read_csv("train.csv")   # e.g. Titanic with cols: PassengerId, Survived, Pclass, Sex, Age, Fare, ...
-test_df  = pd.read_csv("test.csv")
-
-# Build FeatureConfig:
-#   - skip PassengerId from analysis
-#   - force Pclass to be treated as categorical (not numeric)
-#   - set Chinese display aliases for every column
-#   - organize features into logical business groups
-cfg = sv.FeatureConfig(
-    skip=["PassengerId"],
-    force_cat=["Pclass"],
-    alias={
-        "Survived": "是否生还",
-        "Pclass":   "舱位等级",
-        "Sex":      "性别",
-        "Age":      "年龄",
-        "SibSp":    "同乘兄弟姐妹/配偶数",
-        "Parch":    "同乘父母/子女人数",
-        "Fare":     "票价",
-        "Embarked": "登船港口"
-    },
-    groups={
-        "基本信息": ["Sex", "Age"],
-        "出行属性": ["Pclass", "Fare", "Embarked"],
-        "家庭关系": ["SibSp", "Parch"]
-    }
-)
-
-# 1) Compare training vs test data sets, targeting "Survived"
-#    NOTE: target_feat uses the ORIGINAL column name "Survived", not the alias!
-report = sv.compare(
-    [train_df, "训练集"],
-    [test_df,  "测试集"],
-    target_feat="Survived",   # ← original column name, ALWAYS
-    feat_cfg=cfg,
-    pairwise_analysis="on"
-)
-
-# 2a) Output as a standalone widescreen HTML file
-report.show_html(
-    filepath="titanic_report.html",
-    open_browser=False,
-    layout="widescreen",
-    scale=1.0
-)
-
-# 2b) Or embed directly inside a Jupyter/Colab notebook
-#     NOTE: open_features only works in show_notebook() and uses ORIGINAL column names
-report.show_notebook(
-    w="100%",
-    h="Full",
-    layout="vertical",
-    scale=0.9,
-    filepath="titanic_notebook_report.html",   # optional: also save to file
-    open_features=["Age", "Fare"]              # ← original column names, ONLY in show_notebook()
-)
-```
-
-Every alias you set will appear in:
-- Feature titles in the summary panels
-- Detail page headings and association row labels
-- Association heatmap X/Y tick labels
-- Compare report columns and notebook iframe
-
-Meanwhile, **all of the following still use the original column names**:
-- `skip=["PassengerId"]`, `force_cat=["Pclass"]`
-- `target_feat="Survived"`
-- Column matching between `train_df` and `test_df` in `sv.compare()`
-- Internal statistical calculations, correlation matrices and missing-value counts
-
 ## Step 2: Show the report
 Once you have created your report object (e.g. `my_report` in the examples above), simply pass it into one of the two `show' functions:
 
@@ -239,8 +145,7 @@ show_notebook(  w=None,
                 layout='widescreen',
                 filepath=None,
                 file_layout=None,
-                file_scale=None,
-                open_features=None)
+                file_scale=None)
 ```            
 **show_notebook(...)** is new as of 2.0 and will embed an IFRAME element showing the report right inside a notebook (e.g. Jupyter, Google Colab, etc.). 
 
@@ -252,7 +157,6 @@ Note that since notebooks are generally a more constrained visual environment, i
 - **filepath**: An OPTIONAL output HTML report.
 - **file_layout**: Layout for the OPTIONAL file output ONLY (same as `layout` for `show_html()`, above)
 - **file_scale**: Scale for the OPTIONAL file output ONLY (same as `scale` for `show_html()`, above)
-- **open_features**: A single string or list of **original** column names whose detail panels should be open by default inside the notebook iframe. **Only works in `show_notebook()`** — standalone HTML files use `show_html()` which does not accept this parameter. Always use the original column names, not display aliases. Feature titles still show your configured aliases.
 # Customizing defaults: the Config file
 The package contains an INI file for configuration. You can override any setting by providing your own then calling this before creating a report:
 ```

@@ -1,5 +1,4 @@
 <div class="container-feature-summary" id="summary-f{{ feature_dict.order_index }}"
-     data-feature-name="{{ feature_dict.name }}"
      style="top: {{ layout.summary_spacing * (feature_dict.order_index ) }}px">
     <div class="selector selector__body" data-detail-div="detail-f{{ feature_dict.order_index }}" data-rollover-span="rollover-f{{ feature_dict.order_index }}"></div>
     <div class="selector selector__bottom" data-detail-div="detail-f{{ feature_dict.order_index }}" data-rollover-span="rollover-f{{ feature_dict.order_index }}"></div>
@@ -11,7 +10,7 @@
         {{ feature_dict.order_index + 1}}
     </div>
     <div class="pos-tab-image ic-numeric"></div>
-    <span class="text-title-tab color-normal">{{ feature_dict.display_name }}</span>
+    <span class="text-title-tab color-normal">{{ feature_dict.name }}</span>
 
     {% include 'feature_summary_base_stats.html' %}
 
@@ -19,9 +18,9 @@
     {% for item in group_1 %}
         <div class="row-numeric-summary {{ "row-separator-top" if item.name == "MIN" }} {{ "row-separator-bottom" if item.name == "MAX" }} ">
             <div class="text-label" style="position:absolute">{{ item.name }}</div>
-            <div class="pos-summary-numeric-source{{ group_1_width_suffix }} text-value color-source">{{ item.value|fmt_smart_range(feature_dict.stats.range) }}</div>
+            <div class="pos-summary-numeric-source{{ group_1_width_suffix }} text-value color-source">{{ item.value|fmt_smart_range(feature_dict.numeric_stats.range) }}</div>
             {% if compare_dict is not none: %}
-                <div class="pos-summary-numeric-compare{{ group_1_width_suffix }} text-value color-compare">{{ item.compare_value|fmt_smart_range(feature_dict.stats.range) }}</div>
+                <div class="pos-summary-numeric-compare{{ group_1_width_suffix }} text-value color-compare">{{ item.compare_value|fmt_smart_range(feature_dict.numeric_stats.range) }}</div>
             {% endif %}
         </div>
     {% endfor %}

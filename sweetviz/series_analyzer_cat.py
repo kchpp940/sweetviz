@@ -7,8 +7,7 @@ from sweetviz.sv_types import OTHERS_GROUPED
 
 
 def do_detail_categorical(to_process: FeatureToProcess, updated_dict: dict):
-    updated_dict["detail"] = dict()
-    detail = updated_dict["detail"]
+    detail = dict()
 
     # Compute COUNT stats (i.e. below graph)
     # ----------------------------------------------------------------------------------------------
@@ -132,19 +131,18 @@ def do_detail_categorical(to_process: FeatureToProcess, updated_dict: dict):
                 # TODO: OPTIMIZE: CACHE FROM GRAPH?
                 row["target_stats_compare"] = NumWithPercent(to_process.compare_target.mean(), 1.0)
     detail["full_count"].append(row)
+    updated_dict["detail"]["cat"] = detail
     return
 
+
 def analyze(to_process: FeatureToProcess, feature_dict: dict):
-    compare_dict = feature_dict.get("compare")
-    feature_dict["stats"] = dict()
-    if compare_dict:
-        compare_dict["stats"] = dict()
+    compare_dict = feature_dict["compare"]
 
     do_detail_categorical(to_process, feature_dict)
 
-    feature_dict["minigraph"] = GraphCat("mini", to_process)
-    feature_dict["detail_graphs"] = list()
-    feature_dict["detail_graphs"].append(GraphCat("detail", to_process))
+    feature_dict["viz"]["minigraph"] = GraphCat("mini", to_process)
+    feature_dict["viz"]["detail_graphs"] = []
+    feature_dict["viz"]["detail_graphs"].append(GraphCat("detail", to_process))
 
     if to_process.is_target():
         feature_dict["html_summary"] = sv_html.generate_html_summary_target_cat(feature_dict, compare_dict)

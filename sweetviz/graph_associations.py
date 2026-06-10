@@ -300,33 +300,23 @@ def heatmap(y, x, figure_size, **kwargs):
         # return '\n'.join(wrap(label, 15))
     wrap_x = 12 # at top/bottom
     wrap_y = 13
-
-    # Get display name helper from dataframe_report if available
-    dataframe_report_for_labels = kwargs.get('dataframe_report', None)
-    def get_display(name):
-        if dataframe_report_for_labels is not None:
-            return dataframe_report_for_labels.get_display_name(name)
-        return name
-
     if 'x_order' in kwargs:
-        x_names_orig = [t for t in kwargs['x_order']]
+        x_names = [t for t in kwargs['x_order']]
     else:
-        x_names_orig = [t for t in sorted(set([v for v in x]))]
-    # Wrap to help avoid overflow - use display names for labels
-    x_names = [do_wrapping(get_display(label), wrap_x) for label in x_names_orig]
+        x_names = [t for t in sorted(set([v for v in x]))]
+    # Wrap to help avoid overflow
+    x_names = [do_wrapping(label, wrap_x) for label in x_names]
 
     x_to_num = {p[1]:p[0] for p in enumerate(x_names)}
-    x_orig_to_display = {orig: disp for orig, disp in zip(x_names_orig, x_names)}
 
     if 'y_order' in kwargs:
-        y_names_orig = [t for t in kwargs['y_order']]
+        y_names = [t for t in kwargs['y_order']]
     else:
-        y_names_orig = [t for t in sorted(set([v for v in y]))]
-    # Wrap to help avoid overflow - use display names for labels
-    y_names = [do_wrapping(get_display(label), wrap_y) for label in y_names_orig]
+        y_names = [t for t in sorted(set([v for v in y]))]
+    # Wrap to help avoid overflow
+    y_names = [do_wrapping(label, wrap_y) for label in y_names]
 
     y_to_num = {p[1]:p[0] for p in enumerate(y_names)}
-    y_orig_to_display = {orig: disp for orig, disp in zip(y_names_orig, y_names)}
 
     figure, axs = plt.subplots(1, 1, figsize=figure_size)
 
@@ -360,8 +350,8 @@ def heatmap(y, x, figure_size, **kwargs):
 
     index = 0
     for cur_x, cur_y in zip(x,y):
-        wrapped_x_name = x_orig_to_display.get(cur_x, do_wrapping(get_display(cur_x), wrap_x))
-        wrapped_y_name = y_orig_to_display.get(cur_y, do_wrapping(get_display(cur_y), wrap_y))
+        wrapped_x_name = do_wrapping(cur_x, wrap_x)
+        wrapped_y_name = do_wrapping(cur_y, wrap_y)
         before_coordinate = np.array(ax.transData.transform((x_to_num[wrapped_x_name]-0.5, y_to_num[wrapped_y_name] -0.5)))
         after_coordinate = np.array(ax.transData.transform((x_to_num[wrapped_x_name]+0.5, y_to_num[wrapped_y_name] +0.5)))
         before_pixels = np.round(before_coordinate, 0)

@@ -59,7 +59,6 @@ def fill_out_missing_counts_in_other_series(my_counts:dict, other_counts:dict):
                     my_counts[to_fill].at[key] = 0
 
 def add_series_base_stats_to_dict(series: pd.Series, counts: dict, updated_dict: dict) -> dict:
-    updated_dict["stats"] = dict()
     updated_dict["base_stats"] = dict()
     base_stats = updated_dict["base_stats"]
     num_total = counts["num_rows_total"]
@@ -73,6 +72,38 @@ def add_series_base_stats_to_dict(series: pd.Series, counts: dict, updated_dict:
     base_stats["num_missing"] = NumWithPercent(num_total - non_nan, num_total)
     base_stats["num_zeroes"] = NumWithPercent(num_zeros, num_total)
     base_stats["num_distinct"] = NumWithPercent(counts["distinct_count_without_nan"], num_total)
+
+
+def init_feature_skeleton(feature_dict: dict) -> dict:
+    feature_dict["numeric_stats"] = None
+    feature_dict["cat_stats"] = None
+    feature_dict["text_stats"] = None
+    feature_dict["detail"] = {
+        "numeric": None,
+        "cat": None,
+        "text": None,
+    }
+    feature_dict["compare"] = None
+    feature_dict["viz"] = {
+        "minigraph": None,
+        "detail_graphs": [],
+    }
+    feature_dict["html_summary"] = ""
+    feature_dict["html_detail"] = ""
+    feature_dict["summary_pos"] = 0.0
+    return feature_dict
+
+
+def init_compare_skeleton(compare_dict: dict) -> dict:
+    compare_dict["numeric_stats"] = None
+    compare_dict["cat_stats"] = None
+    compare_dict["text_stats"] = None
+    compare_dict["detail"] = {
+        "numeric": None,
+        "cat": None,
+        "text": None,
+    }
+    return compare_dict
 
 
 # This generates everything EXCEPT the "detail pane"
@@ -90,10 +121,9 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
     # Initialize some dictionary values
     returned_feature_dict = dict()
     returned_feature_dict["name"] = to_process.source.name
-    returned_feature_dict["display_name"] = to_process.alias
-    returned_feature_dict["group"] = to_process.group
     returned_feature_dict["order_index"] = to_process.order
     returned_feature_dict["is_target"] = True if to_process.order == -1 else False
+    init_feature_skeleton(returned_feature_dict)
 
     # Determine SOURCE feature type
     to_process.source_counts = get_counts(to_process.source)
@@ -117,6 +147,7 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
         returned_feature_dict["compare"] = dict()
         compare_dict = returned_feature_dict["compare"]
         compare_dict["type"] = compare_type
+        init_compare_skeleton(compare_dict)
 
     # Settle all-NaN series, depending on source versus compared
     if to_process.compare is not None:

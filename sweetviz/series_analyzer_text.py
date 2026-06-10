@@ -4,8 +4,7 @@ from sweetviz.sv_types import NumWithPercent, FeatureToProcess
 
 
 def do_detail_text(to_process: FeatureToProcess, updated_dict: dict):
-    updated_dict["detail"] = dict()
-    detail = updated_dict["detail"]
+    detail = dict()
 
     # Compute COUNT stats (i.e. below graph)
     # ----------------------------------------------------------------------------------------------
@@ -33,14 +32,12 @@ def do_detail_text(to_process: FeatureToProcess, updated_dict: dict):
 
         detail["full_count"].append(row)
 
+    updated_dict["detail"]["text"] = detail
     return
 
 
 def analyze(to_process: FeatureToProcess, feature_dict: dict):
-    compare_dict = feature_dict.get("compare")
-    feature_dict["stats"] = dict()
-    if compare_dict:
-        compare_dict["stats"] = dict()
+    compare_dict = feature_dict["compare"]
 
     do_detail_text(to_process, feature_dict)
 

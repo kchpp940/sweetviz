@@ -25,7 +25,6 @@ jinja2_env.filters["fmt_smart_range"] = sweetviz.sv_html_formatters.fmt_smart_ra
 jinja2_env.filters["fmt_div_icon_missing"] = sweetviz.sv_html_formatters.fmt_div_icon_missing
 jinja2_env.filters["fmt_div_color_override_missing"] = sweetviz.sv_html_formatters.fmt_div_color_override_missing
 jinja2_env.globals["hello"] = "Superduper"
-jinja2_env.filters["get_display_name"] = lambda name, dataframe: dataframe.get_display_name(name)
 
 def load_layout_globals_from_config():
     jinja2_env.globals["FeatureType"] = FeatureType
@@ -57,7 +56,7 @@ def generate_html_detail(dataframe_report):
         all_detail.append(dataframe_report._target)
 
     for feature in (all_detail):
-        compare_dict = feature.get("compare")
+        compare_dict = feature["compare"]
         if feature["type"] == FeatureType.TYPE_CAT or \
                 feature["type"] == FeatureType.TYPE_BOOL:
             feature["html_detail"] = generate_html_detail_cat(feature, compare_dict, dataframe_report)
@@ -71,12 +70,7 @@ def generate_html_dataframe_page(dataframe_report):
     template = jinja2_env.get_template('dataframe_page.html')
     # Add in total page size (160 is hardcoded from the top of page-all-summaries in CSS)
     # This could be programmatically set
-    total_features_height = dataframe_report.num_summaries * (config["Layout"].getint("summary_height_per_element"))
-    # Add group header heights
-    grouped = dataframe_report.get_grouped_features()
-    num_group_headers = sum(1 for g in grouped if g["group_name"] is not None)
-    total_features_height += num_group_headers * 40
-    dataframe_report.page_height = 160 + total_features_height
+    dataframe_report.page_height = 160 + (dataframe_report.num_summaries * (config["Layout"].getint("summary_height_per_element")))
     if dataframe_report.page_layout == "widescreen":
         padding_type = "full_page_padding_widescreen"
     else:
@@ -103,10 +97,10 @@ def generate_html_associations(dataframe_report, which):
 # SUMMARIES
 # ----------------------------------------------------------------------------------------------
 def create_summary_numeric_group_data(feature_dict: dict, compare_dict: dict):
-    stats = feature_dict["stats"]
+    stats = feature_dict["numeric_stats"]
     def get_compare(stat_name):
         if compare_dict is not None:
-            return compare_dict["stats"][stat_name]
+            return compare_dict["numeric_stats"][stat_name]
         return 0
 
     group_1 = list()
@@ -140,15 +134,15 @@ def generate_html_summary_numeric(feature_dict: dict, compare_dict: dict):
 
     # Edge case fix for if there is only data in the compare
     if compare_dict is not None:
-        if np.isnan(feature_dict["stats"]["range"]) and \
-             np.isnan(compare_dict["stats"]["range"]) == False:
-            feature_dict["stats"]["range"] = compare_dict["stats"]["range"]
+        if np.isnan(feature_dict["numeric_stats"]["range"]) and \
+             np.isnan(compare_dict["numeric_stats"]["range"]) == False:
+            feature_dict["numeric_stats"]["range"] = compare_dict["numeric_stats"]["range"]
 
     # NEW: Move numbers if there is not enough room
     def formatted_range(val):
         if isinstance(val, str):
             return ""
-        return sweetviz.sv_html_formatters.fmt_smart_range(val, feature_dict["stats"]["range"])
+        return sweetviz.sv_html_formatters.fmt_smart_range(val, feature_dict["numeric_stats"]["range"])
     longest = max([len(formatted_range(x["value"])) for x in group_1])
     if longest > 7:
         group_1_width_suffix = "-wide"
@@ -199,9 +193,9 @@ def generate_html_summary_text(feature_dict: dict, compare_dict: dict):
 
     # Filter final row list to display, add "other"
     # ------------------------------------
-    full_list = feature_dict["detail"]["full_count"]
-    feature_dict["detail"]["summary_count"] = full_list[:max_text_rows]
-    summary_list = feature_dict["detail"]["summary_count"]
+    full_list = feature_dict["detail"]["text"]["full_count"]
+    feature_dict["detail"]["text"]["summary_count"] = full_list[:max_text_rows]
+    summary_list = feature_dict["detail"]["text"]["summary_count"]
 
     # Clipping text only for memory purposes (display will be handled by the browser)
     max_text_display_length = config["Summary_Stats"].getint("text_max_string_len")
@@ -259,16 +253,13 @@ def cmp_assoc_values(item1, item2):
         return 1
     return abs(item1[1]) - abs(item2[1])
 
-def add_is_target_or_not(association_list, target_name, dataframe_report=None):
+def add_is_target_or_not(association_list, target_name):
     returned = list()
     for it in association_list:
-        display_name = it[0]
-        if dataframe_report is not None:
-            display_name = dataframe_report.get_display_name(it[0])
         if it[0] == target_name:
-            returned.append([it[0], it[1], True, display_name])
+            returned.append([it[0], it[1], True])
         else:
-            returned.append([it[0], it[1], False, display_name])
+            returned.append([it[0], it[1], False])
     return returned
 
 def generate_html_detail_numeric(feature_dict: dict, compare_dict: dict, dataframe_report):
@@ -282,7 +273,7 @@ def generate_html_detail_numeric(feature_dict: dict, compare_dict: dict, datafra
     detail_layout = dict()
     detail_layout["graph_y"] = config["Layout"].getint("cat_detail_graph_y")
     # detail_layout["breakdown_y"] = detail_layout["graph_y"] \
-    #                                + feature_dict["detail_graphs"][0].size_in_inches[1] * 100 \
+    #                                + feature_dict["viz"]["detail_graphs"][0].size_in_inches[1] * 100 \
     #                                + config["Layout"].getint("cat_detail_breakdown_y_offset")
     # detail_layout["breakdown_height"] = 900 - detail_layout["breakdown_y"]
 
@@ -306,13 +297,10 @@ def generate_html_detail_numeric(feature_dict: dict, compare_dict: dict, datafra
         numerical = sorted(numerical.items(), key=cmp_to_key(cmp_assoc_values), reverse=True)[:max_num]
         categorical = sorted(categorical.items(), key=itemgetter(1), reverse=True)[:max_num]
 
-        # Set who's the target, for highlighting, AND add display names
+        # Set who's the target, for highlighting
         if dataframe_report._target is not None:
-            numerical = add_is_target_or_not(numerical, dataframe_report._target["name"], dataframe_report)
-            categorical = add_is_target_or_not(categorical, dataframe_report._target["name"], dataframe_report)
-        else:
-            numerical = add_is_target_or_not(numerical, None, dataframe_report)
-            categorical = add_is_target_or_not(categorical, None, dataframe_report)
+            numerical = add_is_target_or_not(numerical, dataframe_report._target["name"])
+            categorical = add_is_target_or_not(categorical, dataframe_report._target["name"])
     else:
         max_num = None
         numerical = None
@@ -335,7 +323,7 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
     detail_layout = dict()
     detail_layout["graph_y"] = config["Layout"].getint("cat_detail_graph_y")
     detail_layout["breakdown_y"] = detail_layout["graph_y"] \
-                                + feature_dict["detail_graphs"][0].size_in_inches[1] * 100 \
+                                + feature_dict["viz"]["detail_graphs"][0].size_in_inches[1] * 100 \
                                 + config["Layout"].getint("cat_detail_breakdown_y_offset")
     detail_layout["breakdown_height"] = 910 - detail_layout["breakdown_y"]
 
@@ -350,7 +338,7 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
     # Column Layout
     # ------------------------
     # Find name width
-    count_row_data = feature_dict["detail"]["full_count"]
+    count_row_data = feature_dict["detail"]["cat"]["full_count"]
     longest_cat = max(map(lambda row : len(str(row['name'])), count_row_data))
     longest_width = longest_cat * config["Layout"].getint("character_width_estimate")
     # Set columns
@@ -371,12 +359,12 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
         cur_x = cur_x + config["Layout"].getint("cat_detail_col_target_extra_spacing")
         cols["source_target"] = cur_x
         cur_x = cur_x + spacing
-        if "compare" in dataframe_report._target:
+        if dataframe_report._target["compare"] is not None:
             cols["compare_target"] = cur_x
             cur_x = cur_x + spacing
 
     max_rows = config["Detail_Stats"].getint("max_num_breakdown_categories")
-    feature_dict["detail"]["detail_count"] = feature_dict["detail"]["full_count"][:max_rows]
+    feature_dict["detail"]["cat"]["detail_count"] = feature_dict["detail"]["cat"]["full_count"][:max_rows]
 
     # Set up ASSOCIATION data
     # ------------------------------------
@@ -408,15 +396,11 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
         influenced = sorted(influenced.items(), key=itemgetter(1), reverse=True)[:max_num]
         corr_ratio = sorted(corr_ratio.items(), key=itemgetter(1), reverse=True)[:max_num]
 
-        # Set who's the target, for highlighting, AND add display names
+        # Set who's the target, for highlighting
         if dataframe_report._target is not None:
-            influencing = add_is_target_or_not(influencing, dataframe_report._target["name"], dataframe_report)
-            influenced = add_is_target_or_not(influenced, dataframe_report._target["name"], dataframe_report)
-            corr_ratio = add_is_target_or_not(corr_ratio, dataframe_report._target["name"], dataframe_report)
-        else:
-            influencing = add_is_target_or_not(influencing, None, dataframe_report)
-            influenced = add_is_target_or_not(influenced, None, dataframe_report)
-            corr_ratio = add_is_target_or_not(corr_ratio, None, dataframe_report)
+            influencing = add_is_target_or_not(influencing, dataframe_report._target["name"])
+            influenced = add_is_target_or_not(influenced, dataframe_report._target["name"])
+            corr_ratio = add_is_target_or_not(corr_ratio, dataframe_report._target["name"])
     else:
         influencing = None
         influenced = None
@@ -448,9 +432,9 @@ def generate_html_detail_text(feature_dict: dict, compare_dict: dict, dataframe_
 
     # Filter final row list to display, add "other"
     # ------------------------------------
-    full_list = feature_dict["detail"]["full_count"]
-    feature_dict["detail"]["detail_count"] = full_list[:max_text_rows]
-    detail_list = feature_dict["detail"]["detail_count"]
+    full_list = feature_dict["detail"]["text"]["full_count"]
+    feature_dict["detail"]["text"]["detail_count"] = full_list[:max_text_rows]
+    detail_list = feature_dict["detail"]["text"]["detail_count"]
 
     # Clipping text only for memory purposes (display will be handled by the browser)
     max_text_display_length = config["Summary_Stats"].getint("text_max_string_len")

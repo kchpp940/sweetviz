@@ -49,10 +49,8 @@ class DataframeReport:
         self._target = None
         self.test_mode = False
         self.corr_warning = list()
-        self._open_order_indices = []
         if fc is None:
             fc = FeatureConfig()
-        self._fc = fc
 
         # Associations: _associations[FEATURE][GIVES INFORMATION ABOUT THIS FEATURE]
         self._associations = dict()
@@ -218,9 +216,7 @@ class DataframeReport:
 
             # TARGET processed HERE with COMPARE if present
             target_to_process = FeatureToProcess(-1, source_df[targets_found[0]], compare_target_series,
-                                                 None, None, fc.get_predetermined_type(targets_found[0]),
-                                                 alias=fc.get_alias(targets_found[0]),
-                                                 group=fc.get_group(targets_found[0]))
+                                                 None, None, fc.get_predetermined_type(targets_found[0]))
             self._target = sa.analyze_feature_to_dictionary(target_to_process)
             filtered_series_names_in_source.remove(targets_found[0])
             target_type = self._target["type"]
@@ -250,8 +246,6 @@ class DataframeReport:
         for cur_series_name, cur_order_index in zip(filtered_series_names_in_source,
                                                  range(0, len(filtered_series_names_in_source))):
             # TODO: BETTER HANDLING OF DIFFERENT COLUMNS IN SOURCE/COMPARE
-            cur_alias = fc.get_alias(cur_series_name)
-            cur_group = fc.get_group(cur_series_name)
             if compare_df is not None and cur_series_name in \
                     compare_df.columns:
                 this_feat = FeatureToProcess(cur_order_index,
@@ -260,9 +254,7 @@ class DataframeReport:
                                              source_target_series,
                                              compare_target_series,
                                              fc.get_predetermined_type(cur_series_name),
-                                             target_type,
-                                             alias=cur_alias,
-                                             group=cur_group)
+                                             target_type)
             else:
                 this_feat = FeatureToProcess(cur_order_index,
                                              source_df[cur_series_name],
@@ -270,9 +262,7 @@ class DataframeReport:
                                              source_target_series,
                                              None,
                                              fc.get_predetermined_type(cur_series_name),
-                                             target_type,
-                                             alias=cur_alias,
-                                             group=cur_group)
+                                             target_type)
             features_to_process.append(this_feat)
 
 
@@ -341,60 +331,6 @@ class DataframeReport:
 
     def __setitem__(self, key, value):
         self._features[key] = value
-
-    def get_display_name(self, feature_name: str) -> str:
-        if feature_name in self._features:
-            return self._features[feature_name].get("display_name", feature_name)
-        if self._target is not None and feature_name == self._target["name"]:
-            return self._target.get("display_name", feature_name)
-        return self._fc.get_alias(feature_name)
-
-    def get_grouped_features(self) -> list:
-        grouped = []
-        ungrouped = []
-        ordered_groups = self._fc.get_ordered_groups()
-        group_to_features = {g: [] for g in ordered_groups}
-
-        for fname, fdata in self._features.items():
-            grp = fdata.get("group")
-            if grp and grp in group_to_features:
-                group_to_features[grp].append(fdata)
-            else:
-                ungrouped.append(fdata)
-
-        for gname in ordered_groups:
-            if group_to_features[gname]:
-                grouped.append({
-                    "group_name": gname,
-                    "features": sorted(group_to_features[gname], key=lambda x: x["order_index"])
-                })
-
-        if ungrouped:
-            grouped.append({
-                "group_name": None,
-                "features": sorted(ungrouped, key=lambda x: x["order_index"])
-            })
-
-        return grouped
-
-    def resolve_open_features(self, open_features: Union[str, List[str], Tuple[str]]):
-        """
-        Convert a list of ORIGINAL feature names (or a single name) to their
-        corresponding order_index integers used in DOM ids. Features that do
-        not exist in the report are silently skipped.
-        """
-        if open_features is None:
-            return []
-        if isinstance(open_features, str):
-            open_features = [open_features]
-        indices = []
-        for fname in open_features:
-            if self._target is not None and self._target["name"] == fname:
-                indices.append(int(self._target["order_index"]))
-                continue
-            if fname in self._features:
-                indices.append(int(self._features[fname]["order_index"]))
-        return indices
 
     @staticmethod
     def get_predetermined_type(name: str,
@@ -600,8 +536,7 @@ class DataframeReport:
             self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
         self._page_html = sv_html.generate_html_dataframe_page(self)
 
-    def show_html(self, filepath='SWEETVIZ_REPORT.html', open_browser=True,
-                  layout='widescreen', scale=None):
+    def show_html(self, filepath='SWEETVIZ_REPORT.html', open_browser=True, layout='widescreen', scale=None):
         scale = float(self.use_config_if_none(scale, "html_scale"))
         layout = self.use_config_if_none(layout, "html_layout")
         if layout not in ['widescreen', 'vertical']:
@@ -609,7 +544,6 @@ class DataframeReport:
         sv_html.load_layout_globals_from_config()
         self.page_layout = layout
         self.scale = scale
-        self._open_order_indices = []
         sv_html.set_summary_positions(self)
         sv_html.generate_html_detail(self)
         if self.associations_html_source:
@@ -640,28 +574,7 @@ class DataframeReport:
             self._comet_ml_logger.log_html(self._page_html)
             self._comet_ml_logger.end()
 
-    def show_notebook(self, w=None, h=None, scale=None, layout=None, filepath=None,
-                      file_layout=None, file_scale=None,
-                      open_features: Union[str, List[str], Tuple[str]] = None):
-        """
-        Render the report inside a Jupyter / Colab notebook via an iframe, and
-        optionally save it to a standalone HTML file.
-
-        Args:
-            w: iframe width (default from config: '100%%').
-            h: iframe height (default from config: 750). Use 'full' to auto-size
-               to the full report height.
-            scale: Float scaling factor (default from config: 1.0).
-            layout: 'widescreen' or 'vertical' (default from config).
-            filepath: If given, also save a standalone HTML copy to this path.
-            file_layout: Layout for the optional file output (defaults to config).
-            file_scale: Scale for the optional file output (defaults to config).
-            open_features: A single original column name, or list/tuple of original
-                column names, whose detail panels should be open by default
-                inside the notebook iframe. **Must use original column names,
-                not display aliases. This option has no effect on the optional standalone
-                file output (use show_html() for standalone reports).
-        """
+    def show_notebook(self, w=None, h=None, scale=None, layout=None, filepath=None, file_layout=None, file_scale=None):
         w = self.use_config_if_none(w, "notebook_width")
         h = self.use_config_if_none(h, "notebook_height")
         scale = float(self.use_config_if_none(scale, "notebook_scale"))
@@ -672,7 +585,6 @@ class DataframeReport:
         sv_html.load_layout_globals_from_config()
         self.page_layout = layout
         self.scale = scale
-        self._open_order_indices = []
         sv_html.set_summary_positions(self)
         sv_html.generate_html_detail(self)
         if self.associations_html_source:
@@ -680,39 +592,6 @@ class DataframeReport:
         if self.associations_html_compare:
             self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
         self._page_html = sv_html.generate_html_dataframe_page(self)
-
-        # Build the auto-open script for the iframe ONLY (not for standalone output)
-        if open_features is not None:
-            if isinstance(open_features, str):
-                open_features = [open_features]
-            # Validate and collect valid original feature names
-            valid_names = []
-            for fname in open_features:
-                if (self._target is not None and self._target["name"] == fname) or fname in self._features:
-                    valid_names.append(fname)
-            if valid_names:
-                import json
-                names_json = json.dumps(valid_names)
-                auto_open_script = (
-                    '<script>$(document).ready(function(){'
-                    'var names=' + names_json + ';'
-                    'var lastSnapped=null;'
-                    'for(var i=0;i<names.length;i++){'
-                    'var n=names[i];'
-                    'var s=$(\'[data-feature-name="\'+n+\'"]\').filter(\'.container-feature-summary,.container-feature-summary-target\');'
-                    'if(s.length>0){'
-                    'var sel=s.find(\'.selector\').first();'
-                    'var dId=sel.data("detail-div");'
-                    'var rId=sel.data("rollover-span");'
-                    '$("#"+dId).show();'
-                    '$("#"+rId).removeClass("bg-tab-summary-rollover").addClass("bg-tab-summary-rollover-locked").css("display","inline");'
-                    'lastSnapped=s.attr("id");'
-                    '}'
-                    '}'
-                    'if(lastSnapped){g_snapped=lastSnapped;}'
-                    '});</script>'
-                )
-                self._page_html = self._page_html.replace('</body>', auto_open_script + '</body>')
 
         width=w
         height=h
@@ -728,6 +607,12 @@ class DataframeReport:
         display(HTML(iframe))
 
         if filepath is not None:
+            # We cannot just write out the same HTML as the notebook, as that one has been processed so as to
+            # remove extraneous headings so it is nicely inserted into the notebook.
+            # Instead, just do something similar to the "show_html()" code, but without its less-relevant printouts etc.
+            # f = open(filepath, 'w', encoding="utf-8")
+            # f.write(self._page_html)
+            # f.close()
             scale = float(self.use_config_if_none(file_scale, "html_scale"))
             layout = self.use_config_if_none(file_layout, "html_layout")
             if layout not in ['widescreen', 'vertical']:
@@ -735,7 +620,6 @@ class DataframeReport:
             sv_html.load_layout_globals_from_config()
             self.page_layout = layout
             self.scale = scale
-            self._open_order_indices = []
             sv_html.set_summary_positions(self)
             sv_html.generate_html_detail(self)
             if self.associations_html_source:
