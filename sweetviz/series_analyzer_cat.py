@@ -1,9 +1,49 @@
 from sweetviz.config import config
-from sweetviz.sv_types import NumWithPercent, FeatureType, FeatureToProcess
+from sweetviz.sv_types import NumWithPercent, FeatureType, FeatureToProcess, OTHERS_GROUPED
 from sweetviz.graph_cat import GraphCat
 import sweetviz.sv_html as sv_html
 import sweetviz.utils as utils
-from sweetviz.sv_types import OTHERS_GROUPED
+
+
+RARE_CATEGORY_THRESHOLD_PCT = 1.0
+
+
+def do_stats_categorical(counts: dict, updated_dict: dict):
+    stats = dict()
+    value_counts = counts["value_counts_without_nan"]
+    num_values = counts["num_rows_with_data"]
+
+    stats["num_valid_categories"] = counts["distinct_count_without_nan"]
+
+    stats["top_categories"] = []
+    total = float(num_values)
+    rare_count = 0
+    mode_value = None
+    mode_percentage = 0.0
+    for idx, (cat_name, cat_count) in enumerate(value_counts.items()):
+        if cat_name == OTHERS_GROUPED:
+            continue
+        pct = (cat_count / total * 100.0) if total > 0 else 0.0
+        if idx == 0:
+            mode_value = cat_name
+            mode_percentage = pct
+        if pct < RARE_CATEGORY_THRESHOLD_PCT:
+            rare_count += 1
+        stats["top_categories"].append({
+            "name": cat_name,
+            "count": NumWithPercent(cat_count, num_values),
+        })
+
+    stats["mode_value"] = mode_value
+    stats["mode_percentage"] = mode_percentage
+    stats["rare_category_count"] = rare_count
+    stats["rare_threshold_pct"] = RARE_CATEGORY_THRESHOLD_PCT
+
+    max_graph_cats = config["Graphs"].getint("detail_graph_max_categories")
+    stats["has_others_grouped"] = stats["num_valid_categories"] > max_graph_cats
+
+    updated_dict["cat_stats"] = stats
+    return
 
 
 def do_detail_categorical(to_process: FeatureToProcess, updated_dict: dict):
@@ -137,6 +177,10 @@ def do_detail_categorical(to_process: FeatureToProcess, updated_dict: dict):
 
 def analyze(to_process: FeatureToProcess, feature_dict: dict):
     compare_dict = feature_dict["compare"]
+
+    do_stats_categorical(to_process.source_counts, feature_dict)
+    if compare_dict is not None:
+        do_stats_categorical(to_process.compare_counts, compare_dict)
 
     do_detail_categorical(to_process, feature_dict)
 
