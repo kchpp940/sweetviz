@@ -26,6 +26,7 @@ jinja2_env.filters["fmt_smart_range"] = sweetviz.sv_html_formatters.fmt_smart_ra
 jinja2_env.filters["fmt_div_icon_missing"] = sweetviz.sv_html_formatters.fmt_div_icon_missing
 jinja2_env.filters["fmt_div_color_override_missing"] = sweetviz.sv_html_formatters.fmt_div_color_override_missing
 jinja2_env.filters["to_safe_id"] = lambda name: re.sub(r'[^a-zA-Z0-9_-]', '_', str(name))
+jinja2_env.filters["escape_attr"] = lambda value: html.escape(str(value), quote=True)
 jinja2_env.globals["hello"] = "Superduper"
 
 def load_layout_globals_from_config():

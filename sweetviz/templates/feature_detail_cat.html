@@ -3,7 +3,7 @@
         style="top: {{ layout.summary_vertical_detail_pos + layout.summary_spacing * (feature_dict.order_index ) }}px"
      {% endif %}
      id="detail-{{ feature_dict.safe_name }}"
-     data-field-name="{{ feature_dict.name }}"
+     data-field-name="{{ feature_dict.name|escape_attr }}"
      data-safe-id="{{ feature_dict.safe_name }}"
      data-order-index="{{ feature_dict.order_index }}">
 <div class="container-feature-detail__offset">

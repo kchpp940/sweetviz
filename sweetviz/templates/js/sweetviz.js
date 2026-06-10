@@ -1,4 +1,5 @@
 let g_snapped = "";
+// let g_lastHovered = "";
 
 function getSafeId(element) {
     let safeId = $(element).data('safe-id');
@@ -8,19 +9,6 @@ function getSafeId(element) {
     let parent = $(element).closest('[data-safe-id]');
     if (parent.length > 0) {
         return parent.data('safe-id');
-    }
-    let elemId = $(element).attr('id');
-    if (elemId !== undefined) {
-        if (elemId.startsWith("summary-")) {
-            return elemId.substring(8);
-        }
-        if (elemId.startsWith("detail-")) {
-            return elemId.substring(7);
-        }
-        if (elemId.startsWith("rollover-")) {
-            return elemId.substring(9);
-        }
-        return elemId;
     }
     return "";
 }
@@ -37,14 +25,6 @@ function getFieldName(element) {
     return "";
 }
 
-function getSummaryElementBySafeId(safeId) {
-    return $('[data-safe-id="' + safeId + '"].container-feature-summary, [data-safe-id="' + safeId + '"].container-feature-summary-target');
-}
-
-function getDetailElementBySafeId(safeId) {
-    return $('#detail-' + safeId);
-}
-
 function hideAllDetails()
 {
     $(".container-feature-detail").hide();
@@ -55,88 +35,135 @@ function hideAllDetails()
 }
 
 
+// GLOBAL EVENTS
+// ---------------------------------------------------------------------------------------------------------------------------
+// EVENT: [ANYWHERE] RIGHT-CLICK REMOVES SELECTION
+// $(document).contextmenu(function() {
+//     if (g_snapped != "")
+//     {
+//         g_snapped = "";
+//         hideAllDetails();
+//     }
+//     if (g_lastHovered != "")
+//     {
+//         $(g_lastHovered).show();
+//         //alert("#"+g_lastHovered);
+//     }
+//     return false;
+// });
+
 $("span.bg-tab-summary-rollover").hide();
 hideAllDetails();
 
 $(document).ready(function() {
+// INITIALIZATION
+// --------------------------------------------------------
 hideAllDetails();
 $("span.bg-tab-summary-rollover").hide();
 
+// Make the detail column the same height, so the floating element has room
+//$("#col2").height($("#col1").height());
 $("#col1").height(g_height);
 $("#col2").height(g_height);
+//alert($("#col1").height());
 
 // SUMMARY AREA
 // --------------------------------------------------------
 // EVENT: SUMMARY ROLLOVER
+// $(".selector, .container-feature-summary-target").hover(
 $(".selector").hover(
 // ENTER function
 function(event) {
     if(g_snapped=="")
     {
-        let safeId = $(this).data('safe-id');
-        let detailDiv = $(this).data('detail-div');
-        let rolloverSpan = $(this).data('rollover-span');
-
+        // Rollover start!
         $(".container-feature-detail").hide();
         $("span.bg-tab-summary-rollover").hide();
-        $("#" + detailDiv).show();
-        $("#" + rolloverSpan).removeClass("bg-tab-summary-rollover-locked");
-        $("#" + rolloverSpan).addClass("bg-tab-summary-rollover");
-        $("#" + rolloverSpan).show();
+        $("#" + $(this).data("detail-div")).show();
+        $("#" + $(this).data("rollover-span")).removeClass("bg-tab-summary-rollover-locked");
+        $("#" + $(this).data("rollover-span")).addClass("bg-tab-summary-rollover");
+        $("#" + $(this).data("rollover-span")).show();
     }
+    // g_lastHovered = "#" + $(this).data("detail-div");
     },
 // EXIT function
 function(event) {
     if(g_snapped=="")
     {
+        // Rollover end!
         hideAllDetails();
+//FBFB        $("#" + $(this).data("detail-div")).hide();
     }
     }
 );
 // EVENT: SUMMARY CLICK
+// $(".container-feature-summary, .container-feature-summary-target").click(function(event) {
 $(".selector").click(function(event) {
+    // No matter what, we should deselect the associations buttons
     $("#button-summary-associations-source, #button-summary-associations-compare").removeClass("button-assoc-selected");
     $("#button-summary-associations-source, #button-summary-associations-compare").addClass("button-assoc");
 
-    let safeId = $(this).data('safe-id');
-    let summaryElement = $(this).parent();
-    let this_to_snap = summaryElement.attr('id');
-    let rolloverSpan = $(this).data('rollover-span');
+    let this_to_snap=$(this).parent().attr('id');
 
     if(g_snapped == this_to_snap)
     {
-        $("#" + rolloverSpan).removeClass("bg-tab-summary-rollover-locked");
-        $("#" + rolloverSpan).addClass("bg-tab-summary-rollover");
+        // "Unselect"
+        $("#" + $(this).data("rollover-span")).removeClass("bg-tab-summary-rollover-locked");
+        $("#" + $(this).data("rollover-span")).addClass("bg-tab-summary-rollover");
         g_snapped = "";
     }
     else if (g_snapped == "")
     {
-        $("#" + rolloverSpan).removeClass("bg-tab-summary-rollover");
-        $("#" + rolloverSpan).addClass("bg-tab-summary-rollover-locked");
-        g_snapped = this_to_snap;
+        // "Select"
+        $("#" + $(this).data("rollover-span")).removeClass("bg-tab-summary-rollover");
+        $("#" + $(this).data("rollover-span")).addClass("bg-tab-summary-rollover-locked");
+        g_snapped = $(this).parent().attr('id');
+        //$("#" + $(this).data("detail-div")).show();
+        //$(g_lastHovered).show();
+        // alert(this.parent().id);
     }
-    else if (g_snapped !== this_to_snap)
+    else if (g_snapped !== this_to_snap) // implied
     {
-        let snappedElement = $("#" + g_snapped);
-        let snappedSelector = snappedElement.children(".selector").first();
-        let snappedRollover = snappedSelector.data('rollover-span');
-        if (snappedRollover !== undefined) {
-            $("#" + snappedRollover).removeClass("bg-tab-summary-rollover-locked");
-            $("#" + snappedRollover).addClass("bg-tab-summary-rollover");
-        }
+        // "Select" while another was previously selected
+        $("#" + $("#"+g_snapped).children().data("rollover-span")).removeClass("bg-tab-summary-rollover-locked");
+        $("#" + $("#"+g_snapped).children().data("rollover-span")).addClass("bg-tab-summary-rollover");
 
-        let currentDetailDiv = $(this).data('detail-div');
         $(".container-feature-detail").hide();
         $("span.bg-tab-summary-rollover").hide();
-        $("#" + currentDetailDiv).show();
-
-        $("#" + rolloverSpan).removeClass("bg-tab-summary-rollover");
-        $("#" + rolloverSpan).addClass("bg-tab-summary-rollover-locked");
-        $("#" + rolloverSpan).css("display","inline");
-        g_snapped = this_to_snap;
+        $("#" + $(this).data("detail-div")).show();
+        
+        $("#" + $(this).data("rollover-span")).removeClass("bg-tab-summary-rollover");
+        $("#" + $(this).data("rollover-span")).addClass("bg-tab-summary-rollover-locked");
+        $("#" + $(this).data("rollover-span")).css("display","inline");
+        g_snapped = $(this).parent().attr('id');
     }
+/*
+    if (g_snapped != "")
+    {
+        $('html,body').animate(
+            {scrollTop: $("#" + g_snapped).offset().top},
+            'fast');
+
+    }
+
+ */
 }
 );
+/*
+$(window).scroll(function(e){
+  var $el = $('.container-feature-detail');
+    $el.css({'position': 'fixed', 'top': '0px'});
+
+});
+function fix_scroll() {
+  var s = parseFloat($(window).scrollTop()) / 0.6;
+  var fixedTitle = $('.container-feature-detail');
+  fixedTitle.css('position','absolute');
+  fixedTitle.css('top',s + 'px');
+}fix_scroll();
+
+$(window).on('scroll',fix_scroll);
+*/
 
 // ---------------------------------------------------------------------------------------------------------------------------
 // SPECIFIC BUTTONS
@@ -150,9 +177,11 @@ $("#button-summary-associations-source, #button-summary-associations-compare").h
         if(g_snapped=="")
         {
             hideAllDetails();
-            let detailDiv = $(this).data('detail-div');
-            $("#" + detailDiv).show();
+            $("#" + $(this).data("detail-div")).show();
+            // $("#df-assoc").show();
+            //$("#df-assoc").show();
         }
+        // g_lastHovered = "#df-assoc";
     },
     // EXIT function
     function()
@@ -166,10 +195,10 @@ $("#button-summary-associations-source, #button-summary-associations-compare").h
 // SUMMARY: ASSOCIATIONS -> CLICK
 // --------------------------------------------------------
 $("#button-summary-associations-source, #button-summary-associations-compare").click(function(event) {
+    // Quick hack: just remove the selected state to both buttons and restore if needed
     $("#button-summary-associations-source, #button-summary-associations-compare").removeClass("button-assoc-selected");
     $("#button-summary-associations-source, #button-summary-associations-compare").addClass("button-assoc");
-    let this_to_snap = $(this).attr('id');
-    let detailDiv = $(this).data('detail-div');
+    let this_to_snap=this.id;
     if(g_snapped == this_to_snap)
     {
         // DESELECT/HIDE ASSOC
@@ -180,30 +209,30 @@ $("#button-summary-associations-source, #button-summary-associations-compare").c
     {
         // SELECT/SHOW ASSOC (Hide other one if already shown)
         // --------------------------------------------------------
-        g_snapped = this_to_snap;
+        //$(".container-feature-detail").hide();
+        //alert("#" + this.id+" GS:"+g_snapped);
+        //$("#df-assoc").show();
+        g_snapped = this.id;
         $(this).addClass("button-assoc-selected");
     }
     else
     {
         // SWAP to OTHER ASSOC: DESELECT old, select new
         // --------------------------------------------------------
-        let oldSnappedElement = $("#" + g_snapped);
-        let oldRolloverSpan = oldSnappedElement.children().first().data('rollover-span');
-        if (oldRolloverSpan !== undefined) {
-            $("#" + oldRolloverSpan).removeClass("bg-tab-summary-rollover-locked");
-            $("#" + oldRolloverSpan).addClass("bg-tab-summary-rollover");
-        }
+        $("#" + $("#"+g_snapped).children().data("rollover-span")).removeClass("bg-tab-summary-rollover-locked");
+        $("#" + $("#"+g_snapped).children().data("rollover-span")).addClass("bg-tab-summary-rollover");
         hideAllDetails();
         $(this).addClass("button-assoc-selected");
-        g_snapped = this_to_snap;
-        $("#" + detailDiv).show();
+        g_snapped = this.id;
+        $("#" + $(this).data("detail-div")).show();
     }
+//    $(this).addClass("assoc_active");
 });
 
 
 // DETAIL GRAPH BUTTONS
 $(".button-bin").click(function() {
-    let which_id = $(this).attr('data-target');
+    which_id = $(this).attr('data-target');
     $("#"+which_id).attr('class', $(this).attr('data-new_class') + " pos-detail-num-graph");
 });
 

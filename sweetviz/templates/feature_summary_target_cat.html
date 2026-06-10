@@ -1,5 +1,5 @@
 <div class="container-feature-summary-target" id="summary-{{ feature_dict.safe_name }}"
-        data-field-name="{{ feature_dict.name }}"
+        data-field-name="{{ feature_dict.name|escape_attr }}"
         data-safe-id="{{ feature_dict.safe_name }}"
         data-order-index="{{ feature_dict.order_index }}"
         data-is-target="true"
