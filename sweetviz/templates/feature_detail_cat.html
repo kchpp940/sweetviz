@@ -13,7 +13,7 @@
         {% include 'include_missing.html' %}
     {% endif %}
 
-    <span class="detail_graph-f{{ feature_dict.order_index }}-{{ feature_dict.viz.detail_graphs[0].index_for_css }}
+    <span class="detail_graph-f{{ feature_dict.order_index }}-{{ feature_dict.detail_graphs[0].index_for_css }}
                 pos-detail-cat-graph" id="detail_graph-f{{ feature_dict.order_index }}"
     style="top: {{ detail_layout.graph_y }}px;"></span>
 
@@ -40,7 +40,7 @@
                 <div class="pair__header color-compare" style="position: absolute; left: {{ cols.compare }}px">
                     <!--{{ dataframe.compare_name }}-->
                 </div>
-                {% if dataframe._target is not none and dataframe._target.compare is not none: %}
+                {% if dataframe._target is not none and "compare" in dataframe._target: %}
                     <div class="pair__header color-compare-target"
                         style="position: absolute; left: {{ cols.compare_target }}px; line-height: 11px;
                         {{ "text-align: right;" if True or dataframe._target.type == FeatureType.TYPE_BOOL }}">
@@ -55,7 +55,7 @@
         </div>
 
         <!-- ROW CONTENT -->
-        {% for rowdata in detail_rows %}
+        {% for rowdata in feature_dict.detail.detail_count %}
             {% if rowdata.is_total is not none %}
                 <div class="breakdown-row text-value" style="width:553px">
                 </div>
@@ -84,7 +84,7 @@
                             <div class="pair-pos__perc">{{ rowdata.target_stats.perc|fmt_percent }}</div>
                         {% else %}
                         <div class="pair__header color-source-target" style="position: absolute; left: {{ cols.source_target }}px; text-align: right;">
-                            {{ rowdata.target_stats.number|fmt_smart_range(feature_dict.detail.cat.max_range) }}
+                            {{ rowdata.target_stats.number|fmt_smart_range(feature_dict.detail.max_range) }}
                     {% endif %}
                     </div>
                 {% endif %}
@@ -95,7 +95,7 @@
                             <div class="pair-pos__perc">{{ rowdata.target_stats_compare.perc|fmt_percent }}</div>
                     {% else %}
                         <div class="pair__header color-compare-target" style="position: absolute; left: {{ cols.compare_target }}px; text-align: right;">
-                            {{ rowdata.target_stats_compare.number|fmt_smart_range(feature_dict.detail.cat.max_range) }}
+                            {{ rowdata.target_stats_compare.number|fmt_smart_range(feature_dict.detail.max_range) }}
                     {% endif %}
                     </div>
                 {% endif %}

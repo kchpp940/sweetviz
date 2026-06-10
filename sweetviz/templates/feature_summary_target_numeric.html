@@ -16,9 +16,9 @@
     {% for item in group_1 %}
         <div class="row-numeric-summary {{ "row-separator-top" if item.name == "MIN" }} {{ "row-separator-bottom" if item.name == "MAX" }} ">
             <div class="text-label {{ "color-target-summary" if feature_dict.is_target }}" style="position:absolute">{{ item.name }}</div>
-            <div class="pos-summary-numeric-source text-value color-source">{{ item.value|fmt_smart_range(feature_dict.numeric_stats.range) }}</div>
+            <div class="pos-summary-numeric-source text-value color-source">{{ item.value|fmt_smart_range(feature_dict.stats.range) }}</div>
             {% if compare_dict is not none: %}
-                <div class="pos-summary-numeric-compare text-value color-compare">{{ item.compare_value|fmt_smart_range(feature_dict.numeric_stats.range) }}</div>
+                <div class="pos-summary-numeric-compare text-value color-compare">{{ item.compare_value|fmt_smart_range(feature_dict.stats.range) }}</div>
             {% endif %}
         </div>
     {% endfor %}
@@ -42,7 +42,7 @@
         MAX<br>
         95%<br>
         Q3<br>
-        {% if feature_dict.numeric_stats.mean > feature_dict.numeric_stats.perc50: %}
+        {% if feature_dict.stats.mean > feature_dict.stats.perc50: %}
             MEAN<br>
             MEDIAN<br>
         {% else: %}
@@ -54,35 +54,35 @@
         MIN<br>
     </div>
     <div class="text-value color-source pos-detail-num__top pos-detail-num-col1__source">
-        {{ feature_dict.numeric_stats.max|fmt_smart_range(feature_dict.numeric_stats.range) }}<br>
-        {{ feature_dict.numeric_stats.perc95|fmt_smart_range(feature_dict.numeric_stats.range) }}<br>
-        {{ feature_dict.numeric_stats.perc75|fmt_smart_range(feature_dict.numeric_stats.range) }}<br>
-        {% if feature_dict.numeric_stats.mean > feature_dict.numeric_stats.perc50: %}
-            {{ feature_dict.numeric_stats.mean|fmt_smart_range(feature_dict.numeric_stats.range) }}<br>
-            {{ feature_dict.numeric_stats.perc50|fmt_smart_range(feature_dict.numeric_stats.range) }}<br>
+        {{ feature_dict.stats.max|fmt_smart_range(feature_dict.stats.range) }}<br>
+        {{ feature_dict.stats.perc95|fmt_smart_range(feature_dict.stats.range) }}<br>
+        {{ feature_dict.stats.perc75|fmt_smart_range(feature_dict.stats.range) }}<br>
+        {% if feature_dict.stats.mean > feature_dict.stats.perc50: %}
+            {{ feature_dict.stats.mean|fmt_smart_range(feature_dict.stats.range) }}<br>
+            {{ feature_dict.stats.perc50|fmt_smart_range(feature_dict.stats.range) }}<br>
         {% else: %}
-            {{ feature_dict.numeric_stats.perc50|fmt_smart_range(feature_dict.numeric_stats.range) }}<br>
-            {{ feature_dict.numeric_stats.mean|fmt_smart_range(feature_dict.numeric_stats.range) }}<br>
+            {{ feature_dict.stats.perc50|fmt_smart_range(feature_dict.stats.range) }}<br>
+            {{ feature_dict.stats.mean|fmt_smart_range(feature_dict.stats.range) }}<br>
         {% endif %}
-        {{ feature_dict.numeric_stats.perc25|fmt_smart_range(feature_dict.numeric_stats.range) }}<br>
-        {{ feature_dict.numeric_stats.perc5|fmt_smart_range(feature_dict.numeric_stats.range) }}<br>
-        {{ feature_dict.numeric_stats.min|fmt_smart_range(feature_dict.numeric_stats.range) }}<br>
+        {{ feature_dict.stats.perc25|fmt_smart_range(feature_dict.stats.range) }}<br>
+        {{ feature_dict.stats.perc5|fmt_smart_range(feature_dict.stats.range) }}<br>
+        {{ feature_dict.stats.min|fmt_smart_range(feature_dict.stats.range) }}<br>
     </div>
     {% if compare_dict is not none: %}
         <div class="text-value color-compare pos-detail-num__top pos-detail-num-col1__compare">
-        {{ compare_dict.numeric_stats.max|fmt_smart_range(feature_dict.numeric_stats.range) }}<br>
-        {{ compare_dict.numeric_stats.perc95|fmt_smart_range(feature_dict.numeric_stats.range) }}<br>
-        {{ compare_dict.numeric_stats.perc75|fmt_smart_range(feature_dict.numeric_stats.range) }}<br>
-        {% if compare_dict.numeric_stats.mean > compare_dict.numeric_stats.perc50: %}
-            {{ compare_dict.numeric_stats.mean|fmt_smart_range(feature_dict.numeric_stats.range) }}<br>
-            {{ compare_dict.numeric_stats.perc50|fmt_smart_range(feature_dict.numeric_stats.range) }}<br>
+        {{ compare_dict.stats.max|fmt_smart_range(feature_dict.stats.range) }}<br>
+        {{ compare_dict.stats.perc95|fmt_smart_range(feature_dict.stats.range) }}<br>
+        {{ compare_dict.stats.perc75|fmt_smart_range(feature_dict.stats.range) }}<br>
+        {% if compare_dict.stats.mean > compare_dict.stats.perc50: %}
+            {{ compare_dict.stats.mean|fmt_smart_range(feature_dict.stats.range) }}<br>
+            {{ compare_dict.stats.perc50|fmt_smart_range(feature_dict.stats.range) }}<br>
         {% else: %}
-            {{ compare_dict.numeric_stats.perc50|fmt_smart_range(feature_dict.numeric_stats.range) }}<br>
-            {{ compare_dict.numeric_stats.mean|fmt_smart_range(feature_dict.numeric_stats.range) }}<br>
+            {{ compare_dict.stats.perc50|fmt_smart_range(feature_dict.stats.range) }}<br>
+            {{ compare_dict.stats.mean|fmt_smart_range(feature_dict.stats.range) }}<br>
         {% endif %}
-        {{ compare_dict.numeric_stats.perc25|fmt_smart_range(feature_dict.numeric_stats.range) }}<br>
-        {{ compare_dict.numeric_stats.perc5|fmt_smart_range(feature_dict.numeric_stats.range) }}<br>
-        {{ compare_dict.numeric_stats.min|fmt_smart_range(feature_dict.numeric_stats.range) }}<br>
+        {{ compare_dict.stats.perc25|fmt_smart_range(feature_dict.stats.range) }}<br>
+        {{ compare_dict.stats.perc5|fmt_smart_range(feature_dict.stats.range) }}<br>
+        {{ compare_dict.stats.min|fmt_smart_range(feature_dict.stats.range) }}<br>
         </div>
     {% endif %}
     <div class="text-label color-normal pos-detail-num__top pos-detail-num-col2__labels">
@@ -96,25 +96,25 @@
         SUM<br>
     </div>
     <div class="text-value color-source pos-detail-num__top pos-detail-num-col2__source">
-        {{ feature_dict.numeric_stats.range|fmt_smart }}<br>
-        {{ feature_dict.numeric_stats.iqr|fmt_smart }}<br>
-        {{ feature_dict.numeric_stats.std|fmt_smart }}<br>
-        {{ feature_dict.numeric_stats.variance|fmt_smart }}<br>
+        {{ feature_dict.stats.range|fmt_smart }}<br>
+        {{ feature_dict.stats.iqr|fmt_smart }}<br>
+        {{ feature_dict.stats.std|fmt_smart }}<br>
+        {{ feature_dict.stats.variance|fmt_smart }}<br>
         <br>
-        {{ feature_dict.numeric_stats.kurtosis|fmt_smart }}<br>
-        {{ feature_dict.numeric_stats.skewness|fmt_smart }}<br>
-        {{ feature_dict.numeric_stats.sum|fmt_smart }}<br>
+        {{ feature_dict.stats.kurtosis|fmt_smart }}<br>
+        {{ feature_dict.stats.skewness|fmt_smart }}<br>
+        {{ feature_dict.stats.sum|fmt_smart }}<br>
     </div>
     {% if compare_dict is not none: %}
         <div class="text-value color-compare pos-detail-num__top pos-detail-num-col2__compare">
-        {{ compare_dict.numeric_stats.range|fmt_smart }}<br>
-        {{ compare_dict.numeric_stats.iqr|fmt_smart }}<br>
-        {{ compare_dict.numeric_stats.std|fmt_smart }}<br>
-        {{ compare_dict.numeric_stats.variance|fmt_smart }}<br>
+        {{ compare_dict.stats.range|fmt_smart }}<br>
+        {{ compare_dict.stats.iqr|fmt_smart }}<br>
+        {{ compare_dict.stats.std|fmt_smart }}<br>
+        {{ compare_dict.stats.variance|fmt_smart }}<br>
         <br>
-        {{ compare_dict.numeric_stats.kurtosis|fmt_smart }}<br>
-        {{ compare_dict.numeric_stats.skewness|fmt_smart }}<br>
-        {{ compare_dict.numeric_stats.sum|fmt_smart }}<br>
+        {{ compare_dict.stats.kurtosis|fmt_smart }}<br>
+        {{ compare_dict.stats.skewness|fmt_smart }}<br>
+        {{ compare_dict.stats.sum|fmt_smart }}<br>
         </div>
     {% endif %}
 -->

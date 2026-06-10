@@ -1,57 +1,18 @@
 from sweetviz.config import config
-from sweetviz.sv_types import NumWithPercent, FeatureType, FeatureToProcess, OTHERS_GROUPED
+from sweetviz.sv_types import NumWithPercent, FeatureType, FeatureToProcess
 from sweetviz.graph_cat import GraphCat
 import sweetviz.sv_html as sv_html
 import sweetviz.utils as utils
-
-
-RARE_CATEGORY_THRESHOLD_PCT = 1.0
-
-
-def do_stats_categorical(counts: dict, updated_dict: dict):
-    stats = dict()
-    value_counts = counts["value_counts_without_nan"]
-    num_values = counts["num_rows_with_data"]
-
-    stats["num_valid_categories"] = counts["distinct_count_without_nan"]
-
-    stats["top_categories"] = []
-    total = float(num_values)
-    rare_count = 0
-    mode_value = None
-    mode_percentage = 0.0
-    for idx, (cat_name, cat_count) in enumerate(value_counts.items()):
-        if cat_name == OTHERS_GROUPED:
-            continue
-        pct = (cat_count / total * 100.0) if total > 0 else 0.0
-        if idx == 0:
-            mode_value = cat_name
-            mode_percentage = pct
-        if pct < RARE_CATEGORY_THRESHOLD_PCT:
-            rare_count += 1
-        stats["top_categories"].append({
-            "name": cat_name,
-            "count": NumWithPercent(cat_count, num_values),
-        })
-
-    stats["mode_value"] = mode_value
-    stats["mode_percentage"] = mode_percentage
-    stats["rare_category_count"] = rare_count
-    stats["rare_threshold_pct"] = RARE_CATEGORY_THRESHOLD_PCT
-
-    max_graph_cats = config["Graphs"].getint("detail_graph_max_categories")
-    stats["has_others_grouped"] = stats["num_valid_categories"] > max_graph_cats
-
-    updated_dict["cat_stats"] = stats
-    return
+from sweetviz.sv_types import OTHERS_GROUPED
 
 
 def do_detail_categorical(to_process: FeatureToProcess, updated_dict: dict):
-    detail = dict()
+    updated_dict["detail"] = dict()
+    detail = updated_dict["detail"]
 
     # Compute COUNT stats (i.e. below graph)
     # ----------------------------------------------------------------------------------------------
-    detail["detail_count"] = []
+    detail["full_count"] = []
 
     # To get percentages
     num_values = updated_dict["base_stats"]["num_values"].number
@@ -133,7 +94,7 @@ def do_detail_categorical(to_process: FeatureToProcess, updated_dict: dict):
                             # None will be correctly interpreted by our display, not nan
                             row["target_stats_compare"] = None
 
-        detail["detail_count"].append(row)
+        detail["full_count"].append(row)
     detail["max_range"] = max_abs_value
 
     # "ALL" row
@@ -170,23 +131,20 @@ def do_detail_categorical(to_process: FeatureToProcess, updated_dict: dict):
             elif to_process.predetermined_type_target == FeatureType.TYPE_NUM:
                 # TODO: OPTIMIZE: CACHE FROM GRAPH?
                 row["target_stats_compare"] = NumWithPercent(to_process.compare_target.mean(), 1.0)
-    detail["detail_count"].append(row)
-    updated_dict["detail"]["cat"] = detail
+    detail["full_count"].append(row)
     return
 
-
 def analyze(to_process: FeatureToProcess, feature_dict: dict):
-    compare_dict = feature_dict["compare"]
-
-    do_stats_categorical(to_process.source_counts, feature_dict)
-    if compare_dict is not None:
-        do_stats_categorical(to_process.compare_counts, compare_dict)
+    compare_dict = feature_dict.get("compare")
+    feature_dict["stats"] = dict()
+    if compare_dict:
+        compare_dict["stats"] = dict()
 
     do_detail_categorical(to_process, feature_dict)
 
-    feature_dict["viz"]["minigraph"] = GraphCat("mini", to_process)
-    feature_dict["viz"]["detail_graphs"] = []
-    feature_dict["viz"]["detail_graphs"].append(GraphCat("detail", to_process))
+    feature_dict["minigraph"] = GraphCat("mini", to_process)
+    feature_dict["detail_graphs"] = list()
+    feature_dict["detail_graphs"].append(GraphCat("detail", to_process))
 
     if to_process.is_target():
         feature_dict["html_summary"] = sv_html.generate_html_summary_target_cat(feature_dict, compare_dict)

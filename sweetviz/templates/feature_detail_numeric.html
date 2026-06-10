@@ -15,14 +15,14 @@
 
     <!-- BUTTONS -->
     <div class="pos-detail-num-buttons">
-        {% for detail_graph in feature_dict.viz.detail_graphs %}
+        {% for detail_graph in feature_dict.detail_graphs %}
             <button class="button-bin" data-target="detail_graph-f{{ feature_dict.order_index }}"
                 data-new_class="detail_graph-f{{ feature_dict.order_index }}-{{ detail_graph.index_for_css }}">{{ detail_graph.button_name }} </button>
         {% endfor %}
     </div>
 
     <!-- GRAPH -->
-    <span class="detail_graph-f{{ feature_dict.order_index }}-{{ feature_dict.viz.detail_graphs[0].index_for_css }}
+    <span class="detail_graph-f{{ feature_dict.order_index }}-{{ feature_dict.detail_graphs[0].index_for_css }}
         pos-detail-num-graph" id="detail_graph-f{{ feature_dict.order_index }}"></span>
 
     <!-- ASSOCIATIONS -->
@@ -66,7 +66,7 @@
         <div class="container-detail-assoc">
             <div class="text-large-bold">MOST FREQUENT VALUES</div>
             <hr>
-            {% for item in feature_dict.detail.numeric.frequent_values[:layout.num_detail_max_listed_values] %}
+            {% for item in feature_dict.detail.frequent_values[:layout.num_detail_max_listed_values] %}
                 <div class="assoc-row {{ loop.cycle('', 'row-colored') }}">
                     <div class="pos-num-detail-row__label text-label pos-detail-num-label">{{ item[0] }}</div>
                     <div class="pos-detail-num-source-pair color-source text-value">
@@ -90,7 +90,7 @@
         <div class="container-detail-assoc">
             <div class="text-large-bold"> SMALLEST VALUES</div>
             <hr>
-            {% for item in feature_dict.detail.numeric.min_values[:layout.num_detail_max_listed_values] %}
+            {% for item in feature_dict.detail.min_values[:layout.num_detail_max_listed_values] %}
                 <div class="assoc-row {{ loop.cycle('', 'row-colored') }}">
                     <div class="pos-num-detail-row__label text-label pos-detail-num-label">{{ item[0] }}</div>
                     <div class="pos-detail-num-source-pair color-source text-value">
@@ -114,7 +114,7 @@
         <div class="container-detail-assoc">
             <div class="text-large-bold">LARGEST VALUES</div>
             <hr>
-            {% for item in feature_dict.detail.numeric.max_values[:layout.num_detail_max_listed_values] %}
+            {% for item in feature_dict.detail.max_values[:layout.num_detail_max_listed_values] %}
                 <div class="assoc-row {{ loop.cycle('', 'row-colored') }}">
                     <div class="pos-num-detail-row__label text-label pos-detail-num-label">{{ item[0] }}</div>
                     <div class="pos-detail-num-source-pair color-source text-value">

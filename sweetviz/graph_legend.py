@@ -73,7 +73,7 @@ class GraphLegend(sweetviz.graph.Graph):
             text1_elem = plt.text(text1[0] * scale[0], text1[1] * scale[1], text_content, fontsize=8, color=sweetviz.graph.COLOR_TARGET_SOURCE,
                                   ha='right')
 
-            if dataframe_report.compare_name and dataframe_report._target["compare"] is not None:
+            if dataframe_report.compare_name and dataframe_report._target.get("compare"):
                 axs.add_line(
                     matplotlib.lines.Line2D(
                         to_fraction_seq([gfx_x_compare, gfx_x_compare + bar_size[0]], scale[0]),
