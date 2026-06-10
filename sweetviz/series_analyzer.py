@@ -115,6 +115,9 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess,
                 fill_out_missing_counts_in_other_series(to_process.source_counts, to_process.compare_counts)
         returned_feature_dict["compare"] = dict()
         compare_dict = returned_feature_dict["compare"]
+        compare_dict["name"] = feature_name
+        compare_dict["display_name"] = cfg.get_display_name(feature_name)
+        compare_dict["group"] = cfg.get_group_for_feature(feature_name)
         compare_dict["type"] = compare_type
 
     if to_process.compare is not None:
