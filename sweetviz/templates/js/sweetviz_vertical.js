@@ -74,17 +74,18 @@ $(".selector").hover(
 function(event) {
     // Rollover start!
     // $(".container-feature-detail").hide();
+    let safeId = getSafeId(this);
     $("span.bg-tab-summary-rollover").hide();
-    $("#" + $(this).data("rollover-span")).removeClass("bg-tab-summary-rollover-locked");
-    $("#" + $(this).data("rollover-span")).addClass("bg-tab-summary-rollover-vertical");
-    $("#" + $(this).data("rollover-span")).show();
-    g_lastHovered = "#" + $(this).data("detail-div");
+    $("#rollover-" + safeId).removeClass("bg-tab-summary-rollover-locked");
+    $("#rollover-" + safeId).addClass("bg-tab-summary-rollover-vertical");
+    $("#rollover-" + safeId).show();
+    g_lastHovered = "#detail-" + safeId;
     },
 // EXIT function
 function(event) {
     // Rollover end!
     // hideAllDetails();
-    //FBFB        $("#" + $(this).data("detail-div")).hide();
+    //FBFB        $("#detail-" + getSafeId(this)).hide();
     }
 );
 
@@ -95,11 +96,11 @@ $(".selector").click(function(event) {
     {
         // EXPAND
         // --------------------------------------------------------
-        $("#" + $(this).data("detail-div")).show();
+        let safeId = getSafeId(this);
+        $("#detail-" + safeId).show();
         $(this).parent().parent().data('expanded', 'true');
-        //alert($(this).parent().attr('id').substring(8) );
 
-        var feature_safe_name = getSafeId(this);
+        var feature_safe_name = safeId;
         var is_target = $(this).parent().data('is-target') === true;
         if ($('#cat-assoc-window-'+feature_safe_name).length) {
             // CATEGORICAL feature: use variable-height window
@@ -146,7 +147,8 @@ $(".selector").click(function(event) {
     {
         // CONTRACT
         // --------------------------------------------------------
-        $("#" + $(this).data("detail-div")).hide();
+        let safeIdContract = getSafeId(this);
+        $("#detail-" + safeIdContract).hide();
 
         // HACK: For SOME reason, a selection gets made when we change what is hidden, unselect it
         let sel = document.getSelection();
@@ -216,7 +218,8 @@ $(".selector").click(function(event) {
 
 // ASSOCIATIONS CLICK
 $("#button-summary-associations-source, #button-summary-associations-compare").click(function(event) {
-    let actual_div = "#" + $(this).data("detail-div");
+    let safeId = getSafeId(this);
+    let actual_div = "#" + safeId;
     // Quick hack: just remove the selected state to both buttons and restore if needed
     $("#button-summary-associations-source, #button-summary-associations-compare").removeClass("button-assoc-selected");
     $("#button-summary-associations-source, #button-summary-associations-compare").addClass("button-assoc");

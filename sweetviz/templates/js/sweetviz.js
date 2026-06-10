@@ -77,14 +77,15 @@ function(event) {
     if(g_snapped=="")
     {
         // Rollover start!
+        let safeId = getSafeId(this);
         $(".container-feature-detail").hide();
         $("span.bg-tab-summary-rollover").hide();
-        $("#" + $(this).data("detail-div")).show();
-        $("#" + $(this).data("rollover-span")).removeClass("bg-tab-summary-rollover-locked");
-        $("#" + $(this).data("rollover-span")).addClass("bg-tab-summary-rollover");
-        $("#" + $(this).data("rollover-span")).show();
+        $("#detail-" + safeId).show();
+        $("#rollover-" + safeId).removeClass("bg-tab-summary-rollover-locked");
+        $("#rollover-" + safeId).addClass("bg-tab-summary-rollover");
+        $("#rollover-" + safeId).show();
     }
-    // g_lastHovered = "#" + $(this).data("detail-div");
+    // g_lastHovered = "#detail-" + getSafeId(this);
     },
 // EXIT function
 function(event) {
@@ -92,7 +93,7 @@ function(event) {
     {
         // Rollover end!
         hideAllDetails();
-//FBFB        $("#" + $(this).data("detail-div")).hide();
+//FBFB        $("#detail-" + getSafeId(this)).hide();
     }
     }
 );
@@ -104,37 +105,39 @@ $(".selector").click(function(event) {
     $("#button-summary-associations-source, #button-summary-associations-compare").addClass("button-assoc");
 
     let this_to_snap=$(this).parent().attr('id');
+    let safeId = getSafeId(this);
 
     if(g_snapped == this_to_snap)
     {
         // "Unselect"
-        $("#" + $(this).data("rollover-span")).removeClass("bg-tab-summary-rollover-locked");
-        $("#" + $(this).data("rollover-span")).addClass("bg-tab-summary-rollover");
+        $("#rollover-" + safeId).removeClass("bg-tab-summary-rollover-locked");
+        $("#rollover-" + safeId).addClass("bg-tab-summary-rollover");
         g_snapped = "";
     }
     else if (g_snapped == "")
     {
         // "Select"
-        $("#" + $(this).data("rollover-span")).removeClass("bg-tab-summary-rollover");
-        $("#" + $(this).data("rollover-span")).addClass("bg-tab-summary-rollover-locked");
+        $("#rollover-" + safeId).removeClass("bg-tab-summary-rollover");
+        $("#rollover-" + safeId).addClass("bg-tab-summary-rollover-locked");
         g_snapped = $(this).parent().attr('id');
-        //$("#" + $(this).data("detail-div")).show();
+        //$("#detail-" + safeId).show();
         //$(g_lastHovered).show();
         // alert(this.parent().id);
     }
     else if (g_snapped !== this_to_snap) // implied
     {
         // "Select" while another was previously selected
-        $("#" + $("#"+g_snapped).children().data("rollover-span")).removeClass("bg-tab-summary-rollover-locked");
-        $("#" + $("#"+g_snapped).children().data("rollover-span")).addClass("bg-tab-summary-rollover");
+        let snappedSafeId = $("#"+g_snapped).data("safe-id");
+        $("#rollover-" + snappedSafeId).removeClass("bg-tab-summary-rollover-locked");
+        $("#rollover-" + snappedSafeId).addClass("bg-tab-summary-rollover");
 
         $(".container-feature-detail").hide();
         $("span.bg-tab-summary-rollover").hide();
-        $("#" + $(this).data("detail-div")).show();
+        $("#detail-" + safeId).show();
         
-        $("#" + $(this).data("rollover-span")).removeClass("bg-tab-summary-rollover");
-        $("#" + $(this).data("rollover-span")).addClass("bg-tab-summary-rollover-locked");
-        $("#" + $(this).data("rollover-span")).css("display","inline");
+        $("#rollover-" + safeId).removeClass("bg-tab-summary-rollover");
+        $("#rollover-" + safeId).addClass("bg-tab-summary-rollover-locked");
+        $("#rollover-" + safeId).css("display","inline");
         g_snapped = $(this).parent().attr('id');
     }
 /*
@@ -177,11 +180,11 @@ $("#button-summary-associations-source, #button-summary-associations-compare").h
         if(g_snapped=="")
         {
             hideAllDetails();
-            $("#" + $(this).data("detail-div")).show();
+            $("#" + getSafeId(this)).show();
             // $("#df-assoc").show();
             //$("#df-assoc").show();
         }
-        // g_lastHovered = "#df-assoc";
+        // g_lastHovered = "#" + getSafeId(this);
     },
     // EXIT function
     function()
@@ -199,6 +202,7 @@ $("#button-summary-associations-source, #button-summary-associations-compare").c
     $("#button-summary-associations-source, #button-summary-associations-compare").removeClass("button-assoc-selected");
     $("#button-summary-associations-source, #button-summary-associations-compare").addClass("button-assoc");
     let this_to_snap=this.id;
+    let safeId = getSafeId(this);
     if(g_snapped == this_to_snap)
     {
         // DESELECT/HIDE ASSOC
@@ -219,12 +223,13 @@ $("#button-summary-associations-source, #button-summary-associations-compare").c
     {
         // SWAP to OTHER ASSOC: DESELECT old, select new
         // --------------------------------------------------------
-        $("#" + $("#"+g_snapped).children().data("rollover-span")).removeClass("bg-tab-summary-rollover-locked");
-        $("#" + $("#"+g_snapped).children().data("rollover-span")).addClass("bg-tab-summary-rollover");
+        let snappedSafeId = $("#"+g_snapped).data("safe-id");
+        $("#rollover-" + snappedSafeId).removeClass("bg-tab-summary-rollover-locked");
+        $("#rollover-" + snappedSafeId).addClass("bg-tab-summary-rollover");
         hideAllDetails();
         $(this).addClass("button-assoc-selected");
         g_snapped = this.id;
-        $("#" + $(this).data("detail-div")).show();
+        $("#" + safeId).show();
     }
 //    $(this).addClass("assoc_active");
 });
