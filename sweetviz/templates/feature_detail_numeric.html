@@ -2,13 +2,16 @@
      {% if dataframe.page_layout == "vertical" %}
         style="top: {{ layout.summary_vertical_detail_pos + layout.summary_spacing * (feature_dict.order_index ) }}px"
      {% endif %}
-    id="detail-f{{ feature_dict.order_index }}" >
+    id="detail-{{ feature_dict.safe_name }}"
+    data-field-name="{{ feature_dict.name }}"
+    data-safe-id="{{ feature_dict.safe_name }}"
+    data-order-index="{{ feature_dict.order_index }}">
 <div class="container-feature-detail__offset">
     {% if dataframe.page_layout == "widescreen" %}
         <span class="bg-tab-detail-med"></span>
         <div class="pos-detail-tab-icon-text__offset">
             <div class="pos-tab-image ic-numeric"></div>
-            <span class="text-title-tab">{{ feature_dict.display_name or feature_dict.name }}</span>
+            <span class="text-title-tab">{{ feature_dict.display_name }}</span>
         </div>
         {% include 'include_missing.html' %}
     {% endif %}
@@ -16,18 +19,18 @@
     <!-- BUTTONS -->
     <div class="pos-detail-num-buttons">
         {% for detail_graph in feature_dict.detail_graphs %}
-            <button class="button-bin" data-target="detail_graph-f{{ feature_dict.order_index }}"
-                data-new_class="detail_graph-f{{ feature_dict.order_index }}-{{ detail_graph.index_for_css }}">{{ detail_graph.button_name }} </button>
+            <button class="button-bin" data-target="detail_graph-{{ feature_dict.safe_name }}"
+                data-new_class="detail_graph-{{ feature_dict.safe_name }}-{{ detail_graph.index_for_css }}">{{ detail_graph.button_name }} </button>
         {% endfor %}
     </div>
 
     <!-- GRAPH -->
-    <span class="detail_graph-f{{ feature_dict.order_index }}-{{ feature_dict.detail_graphs[0].index_for_css }}
-        pos-detail-num-graph" id="detail_graph-f{{ feature_dict.order_index }}"></span>
+    <span class="detail_graph-{{ feature_dict.safe_name }}-{{ feature_dict.detail_graphs[0].index_for_css }}
+        pos-detail-num-graph" id="detail_graph-{{ feature_dict.safe_name }}"></span>
 
     <!-- ASSOCIATIONS -->
 {% if numerical is not none %}
-    <div class="pos-detail-cat-assoc-1" id="cat-assoc-CN-f{{ feature_dict.order_index }}">
+    <div class="pos-detail-cat-assoc-1" id="cat-assoc-CN-{{ feature_dict.safe_name }}">
         <span class="bg-extra-column" {{ 'style="height: 588px"' if feature_dict.order_index == -1 and dataframe.page_layout == "vertical" }} <!-- expand if target in vertical layout -->
             ></span>
         <div class="container-detail-assoc">
@@ -35,7 +38,7 @@
             <div class="text-small-bold color-light" style="line-height: 10px">
                 (PEARSON, -1 to 1)
             </div>
-<!--             <div class="text-med-bold">{{ feature_dict.display_name or feature_dict.name }}</div>
+<!--             <div class="text-med-bold">{{ feature_dict.display_name }}</div>
             <div class="text-large-bold">CORRELATION RATIO WITH...</div>
 -->
             <hr>

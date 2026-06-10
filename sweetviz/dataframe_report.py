@@ -1,4 +1,4 @@
-from typing import Union, List, Tuple, Optional
+from typing import Union, List, Tuple
 import os
 import time
 import pandas as pd
@@ -16,7 +16,7 @@ from sweetviz.graph_legend import GraphLegend
 from sweetviz.config import config
 import sweetviz.comet_ml_logger as comet_ml_logger
 import sweetviz.sv_html as sv_html
-from sweetviz.feature_config import FeatureConfig, FeatureConfigContext, NormalizedFeatureConfig
+from sweetviz.feature_config import FeatureConfig
 import webbrowser
 from sweetviz.config import config
 
@@ -27,11 +27,13 @@ class DataframeReport:
                  compare: Union[pd.DataFrame, Tuple[pd.DataFrame, str]] = None,
                  pairwise_analysis: str = 'auto',
                  fc: FeatureConfig = None,
-                 verbosity: str = 'default'):
+                 verbosity: str = 'default'): # verbosity: default (full), full, progress_only, off
+        # Parse analysis parameter
         pairwise_analysis = pairwise_analysis.lower()
         if pairwise_analysis not in ["on", "auto", "off"]:
             raise ValueError('"pairwise_analysis" parameter should be one of: "on", "auto", "off"')
 
+        # Parse verbosity parameter
         if verbosity == "default":
             verbosity = config["General"]["default_verbosity"]
         if verbosity not in ["default", "full", "progress_only", "off"]:
@@ -47,73 +49,125 @@ class DataframeReport:
         self._target = None
         self.test_mode = False
         self.corr_warning = list()
+        if fc is None:
+            fc = FeatureConfig()
 
+        # Associations: _associations[FEATURE][GIVES INFORMATION ABOUT THIS FEATURE]
         self._associations = dict()
         self._associations_compare = dict()
         self._association_graphs = dict()
         self._association_graphs_compare = dict()
 
-        source_df, self.source_name = self._extract_df_and_name(source, "source")
+        # Handle source and compare dataframes and names
+        if type(source) == pd.DataFrame:
+            source_df = source
+            self.source_name = "DataFrame"
+        elif type(source) == list or type(source) == tuple:
+            if len(source) != 2:
+                raise ValueError('"source" parameter should either be a string or a list of 2 elements: [dataframe, "Name"].')
+            source_df = source[0]
+            self.source_name = source[1]
+        else:
+            raise ValueError('"source" parameter should either be a string or a list of 2 elements: [dataframe, "Name"].')
         if len(su.get_duplicate_cols(source_df)) > 0:
             raise ValueError('Duplicate column names detected in "source"; this is not supported.')
-        source_df = self._rename_index_column(source_df)
 
-        compare_df = None
-        if compare is not None:
-            compare_df, self.compare_name = self._extract_df_and_name(compare, "compare")
-            if len(su.get_duplicate_cols(compare_df)) > 0:
-                raise ValueError('Duplicate column names detected in "compare"; this is not supported.')
-            compare_df = self._rename_index_column(compare_df)
+        # NEW (12-14-2020): Rename indices that use the reserved name "index"
+        # From pandas-profiling:
+        # If the DataFrame contains a column or index named `index`, this will produce errors. We rename the {index,column} to be `df_index`.
+        if 'index' in source_df.columns:
+            source_df = source_df.rename(columns={"index": "df_index"})
+            if target_feature_name == 'index':
+                target_feature_name = 'df_index'
 
-        self._fc_context = FeatureConfigContext(
-            source_columns=list(source_df.columns),
-            compare_columns=list(compare_df.columns) if compare_df is not None else None,
-            target_feature_name=target_feature_name,
-            fc=fc
-        )
-        cfg: NormalizedFeatureConfig = self._fc_context.result
+        all_source_names = [cur_name for cur_name, cur_series in source_df.items()]
+        if compare is None:
+            compare_df = None
+            self.compare_name = None
+            all_compare_names = list()
+        elif type(compare) == pd.DataFrame:
+            compare_df = compare
+            if 'index' in compare_df.columns:
+                compare_df = compare_df.rename(columns={"index": "df_index"})
+            self.compare_name = "Compared"
+            all_compare_names = [cur_name for cur_name, cur_series in compare_df.items()]
+        elif type(compare) == list or type(compare) == tuple:
+            if len(compare) != 2:
+                raise ValueError('"compare" parameter should either be a string or a list of 2 elements: [dataframe, "Name"].')
+            compare_df = compare[0]
+            if 'index' in compare_df.columns:
+                compare_df = compare_df.rename(columns={"index": "df_index"})
+            self.compare_name = compare[1]
+            all_compare_names = [cur_name for cur_name, cur_series in compare_df.items()]
+        else:
+            raise ValueError('"compare" parameter should either be a string or a list of 2 elements: [dataframe, "Name"].')
 
-        if cfg.target_column:
-            self._check_target_no_nans(source_df, cfg.target_column, "SOURCE")
-            if compare_df is not None and cfg.target_column in compare_df.columns:
-                self._check_target_no_nans(compare_df, cfg.target_column, "COMPARED")
+        # Validate some params
+        if compare_df is not None and len(su.get_duplicate_cols(compare_df)) > 0:
+            raise ValueError('Duplicate column names detected in "compare"; this is not supported.')
 
+
+        if target_feature_name in fc.skip:
+            raise ValueError(f'"{target_feature_name}" was also specified as "skip". Target cannot be skipped.')
+
+        for key in fc.get_all_mentioned_features():
+            if key not in all_source_names:
+                raise ValueError(f'"{key}" was specified in "feature_config" but is not found in source dataframe (watch case-sensitivity?).')
+
+        # Find Features and Target (FILTER SKIPPED)
+        filtered_series_names_in_source = [cur_name for cur_name, cur_series in source_df.items()
+                                           if cur_name not in fc.skip]
+        for skipped in fc.skip:
+            if skipped not in all_source_names and skipped not in all_compare_names:
+                raise ValueError(f'"{skipped}" was marked as "skip" but is not in any provided dataframe (watch case-sensitivity?).')
+
+        # Progress bar setup
         ratio_progress_of_df_summary_vs_feature = 1.0
-        number_features = len(cfg.source_columns_filtered)
+        number_features = len(filtered_series_names_in_source)
         exponential_checks = number_features * number_features
         progress_chunks = ratio_progress_of_df_summary_vs_feature \
-                            + number_features + (0 if cfg.target_column is not None else 0)
+                            + number_features + (0 if target_feature_name is not None else 0)
 
         class DummyFile(object):
             def write(self, x):
-                pass
+                pass  # Do nothing
             def flush(self):
-                pass
+                pass  # Do nothing
 
         if self.verbosity_level in ('full', 'progress_only'):
             self.progress_bar = tqdm(total=progress_chunks, bar_format= \
                     '{desc:45}|{bar}| [{percentage:3.0f}%]   {elapsed} -> ({remaining} left)', \
                     ascii=False, dynamic_ncols=True, position=0, leave= True)
         else:
+            # No progress bar, use dummy file
             self.progress_bar = tqdm(total=progress_chunks, bar_format= \
                     '{desc:45}|{bar}| [{percentage:3.0f}%]   {elapsed} -> ({remaining} left)', \
                     ascii=False, dynamic_ncols=True, position=0, leave= True, file=DummyFile())
 
+        # Summarize dataframe
         self.progress_bar.set_description_str("[Summarizing dataframe]")
         self.summary_source = dict()
-        self.summarize_dataframe(source_df, self.source_name, self.summary_source, cfg)
+        self.summarize_dataframe(source_df, self.source_name, self.summary_source, fc.skip)
+        # UPDATE 2021-02-05: Count the target as an actual feature!!! It is!!!
+        # if target_feature_name:
+        #     self.summary_source["num_columns"] = self.summary_source["num_columns"] - 1
         if compare_df is not None:
             self.summary_compare = dict()
-            self.summarize_dataframe(compare_df, self.compare_name, self.summary_compare, cfg)
+            self.summarize_dataframe(compare_df, self.compare_name, self.summary_compare, fc.skip)
             cmp_not_in_src = \
-                [name for name in cfg.compare_columns if name not in cfg.source_columns]
+                [name for name in all_compare_names if name not in all_source_names]
             self.summary_compare["num_cmp_not_in_source"] = len(cmp_not_in_src)
+            # UPDATE 2021-02-05: Count the target has an actual feature!!! It is!!!
+            # if target_feature_name:
+            #     if target_feature_name in compare_df.columns:
+            #         self.summary_compare["num_columns"] = self.summary_compare["num_columns"] - 1
         else:
             self.summary_compare = None
         self.progress_bar.update(ratio_progress_of_df_summary_vs_feature)
 
         self.num_summaries = number_features
 
+        # Association check
         if pairwise_analysis == 'auto' and \
                 number_features > config["Processing"].getint("association_auto_threshold"):
             print(f"PAIRWISE CALCULATION LENGTH WARNING: There are {number_features} features in "
@@ -127,47 +181,79 @@ class DataframeReport:
             self.progress_bar.close()
             return
 
+        # Validate and process TARGET
         target_to_process = None
         target_type = None
-        if cfg.target_column:
-            self.progress_bar.set_description_str(f"Feature: {cfg.target_column} (TARGET)")
+        if target_feature_name:
+            # Make sure target exists
+            self.progress_bar.set_description_str(f"Feature: {target_feature_name} (TARGET)")
+            targets_found = [item for item in filtered_series_names_in_source
+                             if item == target_feature_name]
+            if len(targets_found) == 0:
+                self.progress_bar.close()
+                raise KeyError(f"Feature '{target_feature_name}' was "
+                               f"specified as TARGET, but is NOT FOUND in "
+                               f"the dataframe (watch case-sensitivity?).")
 
+            # Make sure target has no nan's
+            if source_df[targets_found[0]].isnull().values.any():
+                self.progress_bar.close()
+                raise ValueError(f"\nTarget feature '{targets_found[0]}' contains NaN (missing) values.\n"
+                               f"To avoid confusion in interpreting target distribution,\n"
+                               f"target features MUST NOT have any missing values at this time.\n")
+
+            # Find Target in compared, if present
             compare_target_series = None
-            if compare_df is not None and cfg.target_column in compare_df.columns:
-                compare_target_series = compare_df[cfg.target_column]
+            if compare_df is not None:
+                if target_feature_name in compare_df.columns:
+                    if compare_df[target_feature_name].isnull().values.any():
+                        self.progress_bar.close()
+                        raise ValueError(
+                            f"\nTarget feature '{target_feature_name}' in COMPARED data contains NaN (missing) values.\n"
+                            f"To avoid confusion in interpreting target distribution,\n"
+                            f"target features MUST NOT have any missing values at this time.\n")
+                    compare_target_series = compare_df[target_feature_name]
 
-            target_to_process = FeatureToProcess(
-                -1, source_df[cfg.target_column], compare_target_series,
-                None, None, None
-            )
-            self._target = sa.analyze_feature_to_dictionary(target_to_process, cfg)
+            # TARGET processed HERE with COMPARE if present
+            target_to_process = FeatureToProcess(-1, source_df[targets_found[0]], compare_target_series,
+                                                 None, None, fc.get_predetermined_type(targets_found[0]))
+            self._target = sa.analyze_feature_to_dictionary(target_to_process)
+            filtered_series_names_in_source.remove(targets_found[0])
             target_type = self._target["type"]
             self.progress_bar.update(1)
 
+        # Set final target series and sanitize targets (e.g. bool->truly bool)
         source_target_series = None
         compare_target_series = None
-        if cfg.target_column:
+        if target_feature_name:
+            if target_feature_name not in source_df.columns:
+                raise ValueError
             if self._target["type"] == sa.FeatureType.TYPE_BOOL:
-                source_target_series = self.get_sanitized_bool_series(source_df[cfg.target_column])
+                source_target_series = self.get_sanitized_bool_series(source_df[target_feature_name])
             else:
-                source_target_series = source_df[cfg.target_column]
+                source_target_series = source_df[target_feature_name]
 
-            if compare_df is not None and cfg.target_column in compare_df.columns:
-                if self._target["type"] == sa.FeatureType.TYPE_BOOL:
-                    compare_target_series = self.get_sanitized_bool_series(compare_df[cfg.target_column])
-                else:
-                    compare_target_series = compare_df[cfg.target_column]
+            if compare_df is not None:
+                if target_feature_name in compare_df.columns:
+                    if self._target["type"] == sa.FeatureType.TYPE_BOOL:
+                        compare_target_series = self.get_sanitized_bool_series(compare_df[
+                                                                                   target_feature_name])
+                    else:
+                        compare_target_series = compare_df[target_feature_name]
 
-        aligned_compare_set = set(cfg.compare_columns_aligned)
+        # Create list of features to process
         features_to_process = []
-        for cur_series_name, cur_order_index in zip(cfg.source_columns_filtered,
-                                                 range(0, len(cfg.source_columns_filtered))):
-            if cur_series_name in aligned_compare_set:
+        for cur_series_name, cur_order_index in zip(filtered_series_names_in_source,
+                                                 range(0, len(filtered_series_names_in_source))):
+            # TODO: BETTER HANDLING OF DIFFERENT COLUMNS IN SOURCE/COMPARE
+            if compare_df is not None and cur_series_name in \
+                    compare_df.columns:
                 this_feat = FeatureToProcess(cur_order_index,
                                              source_df[cur_series_name],
                                              compare_df[cur_series_name],
                                              source_target_series,
                                              compare_target_series,
+                                             fc.get_predetermined_type(cur_series_name),
                                              target_type)
             else:
                 this_feat = FeatureToProcess(cur_order_index,
@@ -175,19 +261,30 @@ class DataframeReport:
                                              None,
                                              source_target_series,
                                              None,
+                                             fc.get_predetermined_type(cur_series_name),
                                              target_type)
             features_to_process.append(this_feat)
 
-        self.run_id = hex(int(time.time()))[2:] + "_"
+
+        # Process columns -> features
+        self.run_id = hex(int(time.time()))[2:] + "_" # removes the decimals
+        # self.temp_folder = config["Files"].get("temp_folder")
+        # os.makedirs(os.path.normpath(self.temp_folder), exist_ok=True)
 
         for f in features_to_process:
+            # start = time.perf_counter()
             self.progress_bar.set_description_str(f"Feature: {f.source.name}")
-            self._features[f.source.name] = sa.analyze_feature_to_dictionary(f, cfg)
+            self._features[f.source.name] = sa.analyze_feature_to_dictionary(f)
             self.progress_bar.update(1)
+            # print(f"DONE FEATURE------> {f.source.name}"
+            #       f" {(time.perf_counter() - start):.2f}   {self._features[f.source.name]['type']}")
+        # self.progress_bar.set_description_str('[FEATURES DONE]')
+        # self.progress_bar.close()
 
-        self.summarize_category_types(source_df, self.summary_source, cfg)
+        # Wrap up summary
+        self.summarize_category_types(source_df, self.summary_source, fc.skip, self._target)
         if compare is not None:
-            self.summarize_category_types(compare_df, self.summary_compare, cfg)
+            self.summarize_category_types(compare_df, self.summary_compare, fc.skip, self._target)
         self.dataframe_summary_html = sv_html.generate_html_dataframe_summary(self)
 
         self.graph_legend = GraphLegend(self)
@@ -218,38 +315,6 @@ class DataframeReport:
             self.associations_html_compare = None
         self.progress_bar.close()
         return
-
-    @staticmethod
-    def _extract_df_and_name(param, param_name):
-        if type(param) == pd.DataFrame:
-            return param, "DataFrame" if param_name == "source" else "Compared"
-        elif type(param) == list or type(param) == tuple:
-            if len(param) != 2:
-                raise ValueError(
-                    f'"{param_name}" parameter should either be a string or a list '
-                    f'of 2 elements: [dataframe, "Name"].'
-                )
-            return param[0], param[1]
-        else:
-            raise ValueError(
-                f'"{param_name}" parameter should either be a string or a list '
-                f'of 2 elements: [dataframe, "Name"].'
-            )
-
-    @staticmethod
-    def _rename_index_column(df: pd.DataFrame) -> pd.DataFrame:
-        if 'index' in df.columns:
-            df = df.rename(columns={"index": "df_index"})
-        return df
-
-    @staticmethod
-    def _check_target_no_nans(df: pd.DataFrame, target_name: str, which_df: str):
-        if df[target_name].isnull().values.any():
-            raise ValueError(
-                f"\nTarget feature '{target_name}' in {which_df} data contains NaN (missing) values.\n"
-                f"To avoid confusion in interpreting target distribution,\n"
-                f"target features MUST NOT have any missing values at this time.\n"
-            )
 
     def verbose_print(self, *args, **kwargs):
         if self.verbosity_level == "full":
@@ -303,13 +368,11 @@ class DataframeReport:
                 return None
         return self._features[feature_name].get("type")
 
-    def summarize_dataframe(self, source: pd.DataFrame, name: str, target_dict: dict,
-                            cfg: NormalizedFeatureConfig):
+    def  summarize_dataframe(self, source: pd.DataFrame, name: str, target_dict: dict, skip: List[str]):
         target_dict["name"] = name
         target_dict["num_rows"] = len(source)
         target_dict["num_columns"] = len(source.columns)
-        target_dict["num_skipped_columns"] = len(source.columns) - len(
-            [x for x in source.columns if not cfg.is_skipped(x)])
+        target_dict["num_skipped_columns"] = len(source.columns) - len([x for x in source.columns if x not in skip])
 
         target_dict["memory_total"] = source.memory_usage(index=True, deep=True).sum()
         if target_dict["num_rows"] > 0:
@@ -319,29 +382,23 @@ class DataframeReport:
             target_dict["memory_single_row"] = 0
 
         target_dict["duplicates"] = NumWithPercent(sum(source.duplicated()), len(source))
-        target_dict["num_cmp_not_in_source"] = 0
+        target_dict["num_cmp_not_in_source"] = 0 # set later, as needed
 
-    def summarize_category_types(self, this_df: pd.DataFrame, dest_dict: dict,
-                                 cfg: NormalizedFeatureConfig):
-        dest_dict["num_cat"] = len([
-            x for x in self._features.values()
-            if (x["type"] == FeatureType.TYPE_CAT or x["type"] == FeatureType.TYPE_BOOL)
-            and not cfg.is_skipped(x["name"]) and x["name"] in this_df
-        ])
-        dest_dict["num_numerical"] = len([
-            x for x in self._features.values()
-            if x["type"] == FeatureType.TYPE_NUM
-            and not cfg.is_skipped(x["name"]) and x["name"] in this_df
-        ])
-        dest_dict["num_text"] = len([
-            x for x in self._features.values()
-            if x["type"] == FeatureType.TYPE_TEXT
-            and not cfg.is_skipped(x["name"]) and x["name"] in this_df
-        ])
-        if self._target is not None and self._target["name"] in this_df:
-            if self._target["type"] == FeatureType.TYPE_NUM:
+    def summarize_category_types(self, this_df: pd.DataFrame, dest_dict: dict, skip: List[str], \
+            source_target_dict):
+        dest_dict["num_cat"] = len([x for x in self._features.values()
+                                        if (x["type"] == FeatureType.TYPE_CAT or x["type"] == FeatureType.TYPE_BOOL)
+                                            and x["name"] not in skip and x["name"] in this_df])
+        dest_dict["num_numerical"] = len([x for x in self._features.values()
+                                                    if x["type"] == FeatureType.TYPE_NUM and x["name"] not in skip \
+                                                        and x["name"] in this_df])
+        dest_dict["num_text"] = len([x for x in self._features.values()
+                                               if x["type"] == FeatureType.TYPE_TEXT and x["name"] not in skip \
+                                                    and x["name"] in this_df])
+        if source_target_dict is not None and source_target_dict["name"] in this_df:
+            if source_target_dict["type"] == FeatureType.TYPE_NUM:
                 dest_dict["num_numerical"] = dest_dict["num_numerical"] + 1
-            elif self._target["type"] == FeatureType.TYPE_CAT or self._target["type"] == FeatureType.TYPE_BOOL:
+            elif source_target_dict["type"] == FeatureType.TYPE_CAT or source_target_dict["type"] == FeatureType.TYPE_BOOL:
                 dest_dict["num_cat"] = dest_dict["num_cat"] + 1
         return
 

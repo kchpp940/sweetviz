@@ -2,22 +2,25 @@
       {% if dataframe.page_layout == "vertical" %}
         style="top: {{ layout.summary_vertical_detail_pos + layout.summary_spacing * (feature_dict.order_index ) }}px"
      {% endif %}
-     id="detail-f{{ feature_dict.order_index }}">
+     id="detail-{{ feature_dict.safe_name }}"
+     data-field-name="{{ feature_dict.name }}"
+     data-safe-id="{{ feature_dict.safe_name }}"
+     data-order-index="{{ feature_dict.order_index }}">
 <div class="container-feature-detail__offset">
     {% if dataframe.page_layout == "widescreen" %}
         <span class="bg-tab-detail-med"></span>
         <div class="pos-detail-tab-icon-text__offset">
             <div class="pos-tab-image ic-cat"></div>
-            <span class="text-title-tab">{{ feature_dict.display_name or feature_dict.name }}</span>
+            <span class="text-title-tab">{{ feature_dict.display_name }}</span>
         </div>
         {% include 'include_missing.html' %}
     {% endif %}
 
-    <span class="detail_graph-f{{ feature_dict.order_index }}-{{ feature_dict.detail_graphs[0].index_for_css }}
-                pos-detail-cat-graph" id="detail_graph-f{{ feature_dict.order_index }}"
+    <span class="detail_graph-{{ feature_dict.safe_name }}-{{ feature_dict.detail_graphs[0].index_for_css }}
+                pos-detail-cat-graph" id="detail_graph-{{ feature_dict.safe_name }}"
     style="top: {{ detail_layout.graph_y }}px;"></span>
 
-    <div class="pos-detail-cat-breakdown {{ "color-target-summary" if (dataframe.page_layout == "vertical" and feature_dict.is_target) }}" id="detail_breakdown-f{{ feature_dict.order_index }}"
+    <div class="pos-detail-cat-breakdown {{ "color-target-summary" if (dataframe.page_layout == "vertical" and feature_dict.is_target) }}" id="detail_breakdown-{{ feature_dict.safe_name }}"
         style="top: {{ detail_layout.breakdown_y }}px;"> <!-- height: {{ detail_layout.breakdown_height }}px;"> WHY was this needed? Causes issue in vertical layout. -->
         <!-- HEADER ROW -->
         <div class="{{ detail_layout.breakdown_header_class }} text-value" style="width:553px">
@@ -30,9 +33,9 @@
                      style="position: absolute; left: {{ cols.source_target }}px; line-height: 11px;
                              {{ "text-align: right;" if True or dataframe._target.type == FeatureType.TYPE_BOOL }}">
                     {% if dataframe._target.type == FeatureType.TYPE_BOOL: %}
-                        {{ dataframe._target.name }}
+                        {{ dataframe._target.display_name }}
                     {% else %}
-                         {{ dataframe._target.name }}<br>(avg)
+                         {{ dataframe._target.display_name }}<br>(avg)
                     {% endif %}
                 </div>
             {% endif %}
@@ -45,9 +48,9 @@
                         style="position: absolute; left: {{ cols.compare_target }}px; line-height: 11px;
                         {{ "text-align: right;" if True or dataframe._target.type == FeatureType.TYPE_BOOL }}">
                     {% if dataframe._target.type == FeatureType.TYPE_BOOL: %}
-                        {{ dataframe._target.name }}
+                        {{ dataframe._target.display_name }}
                     {% else %}
-                         {{ dataframe._target.name }}<br>(avg)
+                         {{ dataframe._target.display_name }}<br>(avg)
                    {% endif %}
                     </div>
                 {% endif %}
@@ -101,34 +104,34 @@
                 {% endif %}
             </div>
         {% endfor %}
-        <div id="detail_cat_end-{{ feature_dict.order_index }}"></div>
+        <div id="detail_cat_end-{{ feature_dict.safe_name }}"></div>
     </div>
 
     <!-- ASSOCIATIONS -->
 {% if influencing is not none %}
-    <div class="pos-detail-cat-assoc-1" id="cat-assoc-CC-f{{ feature_dict.order_index }}">
+    <div class="pos-detail-cat-assoc-1" id="cat-assoc-CC-{{ feature_dict.safe_name }}">
         <!-- no background for target in vertical mode -->
       {% if not (dataframe.page_layout == "vertical" and feature_dict.is_target): %}
         <span class="bg-extra-column"></span>
      {% endif %}
-        <div class="container-detail-assoc {{ "color-target-summary" if (dataframe.page_layout == "vertical" and feature_dict.is_target) }}" id="cat-assoc-window-f{{ feature_dict.order_index }}">
+        <div class="container-detail-assoc {{ "color-target-summary" if (dataframe.page_layout == "vertical" and feature_dict.is_target) }}" id="cat-assoc-window-{{ feature_dict.safe_name }}">
             <!-- CAT-CAT -->
             <div class="text-small-bold color-light" style="text-align:right; line-height: 10px">
                 CATEGORICAL ASSOCIATIONS<br>
                 (UNCERTAINTY COEFFICIENT, 0 to 1)
             </div>
-            <div class="text-large-bold" style="line-height: 104%;">{{ feature_dict.display_name or feature_dict.name }}<br>
+            <div class="text-large-bold" style="line-height: 104%;">{{ feature_dict.display_name }}<br>
             PROVIDES INFORMATION ON...</div>
             <hr>
             {% for item in influencing %}
                 <div class="{{ 'assoc-row-target' if item[2] else 'assoc-row' }} {{ loop.cycle('', 'row-colored') }}" {{ 'style="font-weight: bold;"' if item[1] > general.association_min_to_bold }}>
-                    <div class="pos-assoc-row__label text-label">{{ item[0] }}<!--{{ dataframe._target.name }}--></div>
+                    <div class="pos-assoc-row__label text-label">{{ item[0] }}<!--{{ dataframe._target.display_name }}--></div>
                     <div class="pos-assoc-row__source text-label color-source">{{ item[1]|fmt_assoc }}</div>
                 </div>
             {% endfor %}
             <br>
             <div class="text-large-bold" style="line-height: 104%;">THESE FEATURES<br>GIVE INFORMATION<br>
-            ON {{ feature_dict.display_name or feature_dict.name }}:</div>
+            ON {{ feature_dict.display_name }}:</div>
             <hr>
             {% for item in influenced %}
                 <div class="{{ 'assoc-row-target' if item[2] else 'assoc-row' }} {{ loop.cycle('', 'row-colored') }}" {{ 'style="font-weight: bold;"' if item[1] > general.association_min_to_bold }}>
@@ -142,7 +145,7 @@
                 NUMERICAL ASSOCIATIONS<br>
                 (CORRELATION RATIO, 0 to 1)
             </div>
-            <div class="text-large-bold" style="line-height: 104%;">{{ feature_dict.display_name or feature_dict.name }}<br>
+            <div class="text-large-bold" style="line-height: 104%;">{{ feature_dict.display_name }}<br>
                     CORRELATION RATIO WITH...</div>
             <hr>
             {% for item in corr_ratio %}

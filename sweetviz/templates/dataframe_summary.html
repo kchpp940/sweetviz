@@ -1,4 +1,7 @@
-<div class="container-feature-summary" id="summary-df" data-detail-div="detail-df">
+<div class="container-feature-summary" id="summary-df"
+     data-field-name="dataframe_summary"
+     data-safe-id="summary-df"
+     data-detail-div="detail-df">
     <div class="pos-dataframe-summary text-label">
         <span class="top-header"></span>
         <div class="pos-dataframe-summary-title-source text-dataframe-title color-source">{{ dataframe.summary_source.name }}</div>
@@ -68,10 +71,14 @@
                 {% endif %}
             {% endif %}
             <button class="button-assoc color-source button-border-source size-df-summary-button pos-df-summary-button-assoc-source" id="button-summary-associations-source"
-                data-detail-div="df-assoc-source">ASSOCIATIONS</button >
+                data-detail-div="df-assoc-source"
+                data-safe-id="button-summary-associations-source"
+                data-associations-type="source">ASSOCIATIONS</button >
             {% if dataframe.summary_compare is not none %}
                 <button class="button-assoc color-compare button-border-compare size-df-summary-button pos-df-summary-button-assoc-compare" id="button-summary-associations-compare"
-                    data-detail-div="df-assoc-compare">ASSOCIATIONS</button >
+                    data-detail-div="df-assoc-compare"
+                    data-safe-id="button-summary-associations-compare"
+                    data-associations-type="compare">ASSOCIATIONS</button >
             {% endif %}
         </div>
     </div>

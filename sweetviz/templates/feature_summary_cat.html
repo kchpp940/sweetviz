@@ -1,16 +1,19 @@
-<div class="container-feature-summary" id="summary-f{{ feature_dict.order_index }}"
+<div class="container-feature-summary" id="summary-{{ feature_dict.safe_name }}"
+     data-field-name="{{ feature_dict.name }}"
+     data-safe-id="{{ feature_dict.safe_name }}"
+     data-order-index="{{ feature_dict.order_index }}"
      style="top: {{ layout.summary_spacing * (feature_dict.order_index + 0) }}px">
-    <div class="selector selector__body" data-detail-div="detail-f{{ feature_dict.order_index }}" data-rollover-span="rollover-f{{ feature_dict.order_index }}"></div>
-    <div class="selector selector__bottom" data-detail-div="detail-f{{ feature_dict.order_index }}" data-rollover-span="rollover-f{{ feature_dict.order_index }}"></div>
-    <div class="selector selector__top" data-detail-div="detail-f{{ feature_dict.order_index }}" data-rollover-span="rollover-f{{ feature_dict.order_index }}"></div>
+    <div class="selector selector__body" data-detail-div="detail-{{ feature_dict.safe_name }}" data-rollover-span="rollover-{{ feature_dict.safe_name }}" data-safe-id="{{ feature_dict.safe_name }}"></div>
+    <div class="selector selector__bottom" data-detail-div="detail-{{ feature_dict.safe_name }}" data-rollover-span="rollover-{{ feature_dict.safe_name }}" data-safe-id="{{ feature_dict.safe_name }}"></div>
+    <div class="selector selector__top" data-detail-div="detail-{{ feature_dict.safe_name }}" data-rollover-span="rollover-{{ feature_dict.safe_name }}" data-safe-id="{{ feature_dict.safe_name }}"></div>
     <span class="bg-tab-summary" style="z-index: {{ -20000 + (2*feature_dict.order_index) }}"></span>
-    <span class="bg-tab-summary-rollover" id="rollover-f{{ feature_dict.order_index }}" style="z-index: {{ -19999 + (2*feature_dict.order_index) }}"></span>
+    <span class="bg-tab-summary-rollover" id="rollover-{{ feature_dict.safe_name }}" style="z-index: {{ -19999 + (2*feature_dict.order_index) }}" data-safe-id="{{ feature_dict.safe_name }}"></span>
     <div class="{{ "summary-number" if feature_dict.order_index < 999 else "summary-number-vertical" }}"
         {{ "style='left:-5px'" if feature_dict.order_index < 999 and feature_dict.order_index >= 99 }}>
         {{ feature_dict.order_index + 1}}
     </div>
     <div class="pos-tab-image ic-cat"></div>
-    <span class="text-title-tab color-normal ">{{ feature_dict.display_name or feature_dict.name }}</span>
+    <span class="text-title-tab color-normal ">{{ feature_dict.display_name }}</span>
     {% include 'feature_summary_base_stats.html' %}
-    <span class="minigraph-f{{ feature_dict.order_index }} pos-minigraph-cat"></span>
+    <span class="minigraph-{{ feature_dict.safe_name }} pos-minigraph-cat"></span>
 </div>
