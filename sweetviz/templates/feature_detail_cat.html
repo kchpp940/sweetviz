@@ -1,4 +1,5 @@
 <div class="isHidden {{ 'container-feature-detail' if dataframe.page_layout == "widescreen" else 'container-feature-detail-vertical'}}"
+     data-feature-name="{{ feature_dict.name }}"
       {% if dataframe.page_layout == "vertical" %}
         style="top: {{ layout.summary_vertical_detail_pos + layout.summary_spacing * (feature_dict.order_index ) }}px"
      {% endif %}

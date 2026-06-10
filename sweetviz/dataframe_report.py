@@ -601,22 +601,7 @@ class DataframeReport:
         self._page_html = sv_html.generate_html_dataframe_page(self)
 
     def show_html(self, filepath='SWEETVIZ_REPORT.html', open_browser=True,
-                  layout='widescreen', scale=None,
-                  open_features: Union[str, List[str], Tuple[str]] = None):
-        """
-        Generate and save a standalone HTML report.
-
-        Args:
-            filepath: Output file path.
-            open_browser: If True, open the report in a web browser after saving.
-            layout: 'widescreen' (default) or 'vertical'.
-            scale: Float scaling factor. Defaults to the config file value (1.0).
-            open_features: A single original column name, or a list/tuple of
-                original column names, whose detail panels should be open by
-                default when the page loads. **Must use original column names,
-                not display aliases.** Feature names that are not found are
-                silently ignored.
-        """
+                  layout='widescreen', scale=None):
         scale = float(self.use_config_if_none(scale, "html_scale"))
         layout = self.use_config_if_none(layout, "html_layout")
         if layout not in ['widescreen', 'vertical']:
@@ -624,7 +609,7 @@ class DataframeReport:
         sv_html.load_layout_globals_from_config()
         self.page_layout = layout
         self.scale = scale
-        self._open_order_indices = self.resolve_open_features(open_features)
+        self._open_order_indices = []
         sv_html.set_summary_positions(self)
         sv_html.generate_html_detail(self)
         if self.associations_html_source:
@@ -672,8 +657,10 @@ class DataframeReport:
             file_layout: Layout for the optional file output (defaults to config).
             file_scale: Scale for the optional file output (defaults to config).
             open_features: A single original column name, or list/tuple of original
-                column names, whose detail panels should be open by default.
-                **Must use original column names, not display aliases.**
+                column names, whose detail panels should be open by default
+                inside the notebook iframe. **Must use original column names,
+                not display aliases. This option has no effect on the optional standalone
+                file output (use show_html() for standalone reports).
         """
         w = self.use_config_if_none(w, "notebook_width")
         h = self.use_config_if_none(h, "notebook_height")
@@ -685,7 +672,7 @@ class DataframeReport:
         sv_html.load_layout_globals_from_config()
         self.page_layout = layout
         self.scale = scale
-        self._open_order_indices = self.resolve_open_features(open_features)
+        self._open_order_indices = []
         sv_html.set_summary_positions(self)
         sv_html.generate_html_detail(self)
         if self.associations_html_source:
@@ -693,6 +680,39 @@ class DataframeReport:
         if self.associations_html_compare:
             self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
         self._page_html = sv_html.generate_html_dataframe_page(self)
+
+        # Build the auto-open script for the iframe ONLY (not for standalone output)
+        if open_features is not None:
+            if isinstance(open_features, str):
+                open_features = [open_features]
+            # Validate and collect valid original feature names
+            valid_names = []
+            for fname in open_features:
+                if (self._target is not None and self._target["name"] == fname) or fname in self._features:
+                    valid_names.append(fname)
+            if valid_names:
+                import json
+                names_json = json.dumps(valid_names)
+                auto_open_script = (
+                    '<script>$(document).ready(function(){'
+                    'var names=' + names_json + ';'
+                    'var lastSnapped=null;'
+                    'for(var i=0;i<names.length;i++){'
+                    'var n=names[i];'
+                    'var s=$(\'[data-feature-name="\'+n+\'"]\').filter(\'.container-feature-summary,.container-feature-summary-target\');'
+                    'if(s.length>0){'
+                    'var sel=s.find(\'.selector\').first();'
+                    'var dId=sel.data("detail-div");'
+                    'var rId=sel.data("rollover-span");'
+                    '$("#"+dId).show();'
+                    '$("#"+rId).removeClass("bg-tab-summary-rollover").addClass("bg-tab-summary-rollover-locked").css("display","inline");'
+                    'lastSnapped=s.attr("id");'
+                    '}'
+                    '}'
+                    'if(lastSnapped){g_snapped=lastSnapped;}'
+                    '});</script>'
+                )
+                self._page_html = self._page_html.replace('</body>', auto_open_script + '</body>')
 
         width=w
         height=h
@@ -708,12 +728,6 @@ class DataframeReport:
         display(HTML(iframe))
 
         if filepath is not None:
-            # We cannot just write out the same HTML as the notebook, as that one has been processed so as to
-            # remove extraneous headings so it is nicely inserted into the notebook.
-            # Instead, just do something similar to the "show_html()" code, but without its less-relevant printouts etc.
-            # f = open(filepath, 'w', encoding="utf-8")
-            # f.write(self._page_html)
-            # f.close()
             scale = float(self.use_config_if_none(file_scale, "html_scale"))
             layout = self.use_config_if_none(file_layout, "html_layout")
             if layout not in ['widescreen', 'vertical']:
@@ -721,7 +735,7 @@ class DataframeReport:
             sv_html.load_layout_globals_from_config()
             self.page_layout = layout
             self.scale = scale
-            self._open_order_indices = self.resolve_open_features(open_features)
+            self._open_order_indices = []
             sv_html.set_summary_positions(self)
             sv_html.generate_html_detail(self)
             if self.associations_html_source:

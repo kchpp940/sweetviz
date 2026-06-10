@@ -193,12 +193,14 @@ report.show_html(
 )
 
 # 2b) Or embed directly inside a Jupyter/Colab notebook
+#     NOTE: open_features only works in show_notebook() and uses ORIGINAL column names
 report.show_notebook(
     w="100%",
     h="Full",
     layout="vertical",
     scale=0.9,
-    filepath="titanic_notebook_report.html"   # optional: also save to file
+    filepath="titanic_notebook_report.html",   # optional: also save to file
+    open_features=["Age", "Fare"]              # ← original column names, ONLY in show_notebook()
 )
 ```
 
@@ -237,7 +239,8 @@ show_notebook(  w=None,
                 layout='widescreen',
                 filepath=None,
                 file_layout=None,
-                file_scale=None)
+                file_scale=None,
+                open_features=None)
 ```            
 **show_notebook(...)** is new as of 2.0 and will embed an IFRAME element showing the report right inside a notebook (e.g. Jupyter, Google Colab, etc.). 
 
@@ -249,6 +252,7 @@ Note that since notebooks are generally a more constrained visual environment, i
 - **filepath**: An OPTIONAL output HTML report.
 - **file_layout**: Layout for the OPTIONAL file output ONLY (same as `layout` for `show_html()`, above)
 - **file_scale**: Scale for the OPTIONAL file output ONLY (same as `scale` for `show_html()`, above)
+- **open_features**: A single string or list of **original** column names whose detail panels should be open by default inside the notebook iframe. **Only works in `show_notebook()`** — standalone HTML files use `show_html()` which does not accept this parameter. Always use the original column names, not display aliases. Feature titles still show your configured aliases.
 # Customizing defaults: the Config file
 The package contains an INI file for configuration. You can override any setting by providing your own then calling this before creating a report:
 ```

@@ -54,22 +54,6 @@
 <script>
     g_height = {{ dataframe.page_height }};
     g_scale = {{ dataframe.scale }};
-    g_open_order_indices = {{ dataframe._open_order_indices }};
-</script>
-<script>
-$(document).ready(function() {
-    for (var i = 0; i < g_open_order_indices.length; i++) {
-        var idx = g_open_order_indices[i];
-        $("#detail-f" + idx).show();
-        var rollover = $("#rollover-f" + idx);
-        rollover.removeClass("bg-tab-summary-rollover");
-        rollover.addClass("bg-tab-summary-rollover-locked");
-        rollover.css("display", "inline");
-    }
-    if (g_open_order_indices.length > 0) {
-        g_snapped = "summary-f" + g_open_order_indices[g_open_order_indices.length - 1];
-    }
-});
 </script>
 </head>
 
