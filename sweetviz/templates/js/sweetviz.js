@@ -1,4 +1,5 @@
 let g_snapped = "";
+// let g_lastHovered = "";
 
 function hideAllDetails()
 {
@@ -38,39 +39,9 @@ $("span.bg-tab-summary-rollover").hide();
 
 // Make the detail column the same height, so the floating element has room
 //$("#col2").height($("#col1").height());
-$("#col1").height(g_render_options.page_height);
-$("#col2").height(g_render_options.page_height);
+$("#col1").height(g_height);
+$("#col2").height(g_height);
 //alert($("#col1").height());
-
-// Apply open_features: open specified features by name
-// --------------------------------------------------------
-if (g_render_options.open_features && g_render_options.open_features.length > 0) {
-    var firstOpenSummaryId = null;
-    g_render_options.open_features.forEach(function(featureName) {
-        var $summary = $('.container-feature-summary[data-feature-name="' + featureName + '"], ' +
-                        '.container-feature-summary-target[data-feature-name="' + featureName + '"]');
-        if ($summary.length > 0) {
-            var $selector = $summary.children('.selector').first();
-            var detailDiv = $selector.data('detail-div');
-            var rolloverSpan = $selector.data('rollover-span');
-
-            if (detailDiv) {
-                $("#" + detailDiv).show();
-            }
-            if (rolloverSpan) {
-                $("#" + rolloverSpan).removeClass("bg-tab-summary-rollover");
-                $("#" + rolloverSpan).addClass("bg-tab-summary-rollover-locked");
-                $("#" + rolloverSpan).css("display", "inline");
-            }
-            if (!firstOpenSummaryId) {
-                firstOpenSummaryId = $summary.attr('id');
-            }
-        }
-    });
-    if (firstOpenSummaryId) {
-        g_snapped = firstOpenSummaryId;
-    }
-}
 
 // SUMMARY AREA
 // --------------------------------------------------------

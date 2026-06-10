@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 import html
 import re
@@ -5,7 +6,7 @@ from operator import itemgetter
 from jinja2 import Environment, PackageLoader
 import sweetviz.sv_html_formatters
 from sweetviz.config import config
-from sweetviz.sv_types import NumWithPercent, FeatureType, OTHERS_GROUPED, RenderOptions
+from sweetviz.sv_types import NumWithPercent, FeatureType, OTHERS_GROUPED
 from sweetviz.graph_associations import CORRELATION_ERROR
 from sweetviz.graph_associations import CORRELATION_IDENTICAL
 from functools import cmp_to_key
@@ -41,27 +42,6 @@ def load_layout_globals_from_config():
     jinja2_env.globals["general"] = general_globals
 
 
-def build_render_options_from_config(
-        layout: str = None,
-        scale: float = None,
-        config_section: str = "Output_Defaults",
-        layout_key: str = "html_layout",
-        scale_key: str = "html_scale") -> RenderOptions:
-    options = RenderOptions()
-    if layout is None:
-        options.layout = config[config_section][layout_key]
-    else:
-        options.layout = layout
-    if scale is None:
-        options.scale = float(config[config_section][scale_key])
-    else:
-        options.scale = float(scale)
-    options.show_logo = bool(config["Layout"].getint("show_logo"))
-    options.use_cjk_font = bool(config["General"].getint("use_cjk_font"))
-    options.association_min_to_bold = config["General"].getfloat("association_min_to_bold")
-    return options
-
-
 def set_summary_positions(dataframe_report):
     if dataframe_report._target is not None:
         dataframe_report._target["summary_pos"] = 0.0
@@ -89,27 +69,21 @@ def generate_html_detail(dataframe_report):
             feature["html_detail"] = generate_html_detail_text(feature, compare_dict, dataframe_report)
 
 
-def generate_html_dataframe_page(dataframe_report, render_options: RenderOptions):
-    render_options.validate()
-
+def generate_html_dataframe_page(dataframe_report):
     template = jinja2_env.get_template('dataframe_page.html')
-    render_options.page_height = 160 + (dataframe_report.num_summaries * (config["Layout"].getint("summary_height_per_element")))
-    if render_options.layout == "widescreen":
+    # Add in total page size (160 is hardcoded from the top of page-all-summaries in CSS)
+    # This could be programmatically set
+    dataframe_report.page_height = 160 + (dataframe_report.num_summaries * (config["Layout"].getint("summary_height_per_element")))
+    if dataframe_report.page_layout == "widescreen":
         padding_type = "full_page_padding_widescreen"
     else:
         padding_type = "full_page_padding_vertical"
     padding = config["Layout"].getint(padding_type)
-    render_options.page_height += padding
-
-    dataframe_report.page_layout = render_options.layout
-    dataframe_report.scale = render_options.scale
-    dataframe_report.page_height = render_options.page_height
-
-    output = template.render(
-        dataframe=dataframe_report,
-        render_options=render_options,
-        version=sweetviz.__version__
-    )
+    dataframe_report.page_height += padding
+    # scaling = dict()
+    # scaling["main_column"] = scale
+    # scaling= scale
+    output = template.render(dataframe=dataframe_report, version=sweetviz.__version__)
     return output
 
 
@@ -223,10 +197,9 @@ def generate_html_summary_text(feature_dict: dict, compare_dict: dict):
     # Filter final row list to display, add "other"
     # ------------------------------------
     full_list = feature_dict["detail"]["full_count"]
-    feature_dict["detail"]["summary_count"] = full_list[:max_text_rows]
-    summary_list = feature_dict["detail"]["summary_count"]
+    summary_list = [copy.deepcopy(elem) for elem in full_list[:max_text_rows]]
 
-    # Clipping text only for memory purposes (display will be handled by the browser)
+    # Clipping text only for display purposes (do NOT modify original data)
     max_text_display_length = config["Summary_Stats"].getint("text_max_string_len")
     for elem in summary_list:
         elem["name"] = elem["name"][:max_text_display_length]
@@ -251,6 +224,8 @@ def generate_html_summary_text(feature_dict: dict, compare_dict: dict):
             row["count_compare"] = None
         if row["count"].number > 0 or (row.get("count_compare") and row.get("count_compare").number > 0):
             summary_list.append(row)
+
+    feature_dict["detail"]["summary_count"] = summary_list
 
     output = template.render(feature_dict = feature_dict, compare_dict = compare_dict, \
                              cols=cols)
@@ -393,7 +368,7 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
             cur_x = cur_x + spacing
 
     max_rows = config["Detail_Stats"].getint("max_num_breakdown_categories")
-    feature_dict["detail"]["detail_count"] = feature_dict["detail"]["full_count"][:max_rows]
+    feature_dict["detail"]["detail_count"] = [copy.deepcopy(elem) for elem in feature_dict["detail"]["full_count"][:max_rows]]
 
     # Set up ASSOCIATION data
     # ------------------------------------
@@ -462,11 +437,10 @@ def generate_html_detail_text(feature_dict: dict, compare_dict: dict, dataframe_
     # Filter final row list to display, add "other"
     # ------------------------------------
     full_list = feature_dict["detail"]["full_count"]
-    feature_dict["detail"]["detail_count"] = full_list[:max_text_rows]
-    detail_list = feature_dict["detail"]["detail_count"]
+    detail_list = [copy.deepcopy(elem) for elem in full_list[:max_text_rows]]
 
-    # Clipping text only for memory purposes (display will be handled by the browser)
-    max_text_display_length = config["Summary_Stats"].getint("text_max_string_len")
+    # Clipping text only for display purposes (do NOT modify original data)
+    max_text_display_length = config["Detail_Stats"].getint("text_max_string_len")
     for elem in detail_list:
         elem["name"] = elem["name"][:max_text_display_length]
 
@@ -491,6 +465,8 @@ def generate_html_detail_text(feature_dict: dict, compare_dict: dict, dataframe_
             row["count_compare"] = None
         if row["count"].number > 0 or (row.get("count_compare") and row.get("count_compare").number > 0):
             detail_list.append(row)
+
+    feature_dict["detail"]["detail_count"] = detail_list
 
     output = template.render(feature_dict = feature_dict, compare_dict = compare_dict, \
                              dataframe = dataframe_report, cols=cols)
