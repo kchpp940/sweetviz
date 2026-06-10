@@ -25,12 +25,44 @@ class RenderOptions:
     association_min_to_bold: float = 0.1
 
     collapse_details: bool = False
+    open_features: list = field(default_factory=list)
     hide_associations: bool = False
 
     iframe_width: str = None
     iframe_height: str = None
 
     file_output: FileOutputOptions = field(default_factory=FileOutputOptions)
+
+    def to_dict(self) -> dict:
+        return {
+            'layout': self.layout,
+            'scale': self.scale,
+            'page_height': self.page_height,
+            'show_logo': self.show_logo,
+            'use_cjk_font': self.use_cjk_font,
+            'association_min_to_bold': self.association_min_to_bold,
+            'collapse_details': self.collapse_details,
+            'open_features': list(self.open_features) if self.open_features else [],
+            'hide_associations': self.hide_associations,
+        }
+
+    def to_js_object(self) -> str:
+        def _js_escape(s: str) -> str:
+            return s.replace('\\', '\\\\').replace('"', '\\"')
+
+        data = self.to_dict()
+        parts = []
+        for key, value in data.items():
+            if isinstance(value, bool):
+                parts.append(f'    {key}: {"true" if value else "false"}')
+            elif isinstance(value, str):
+                parts.append(f'    {key}: "{_js_escape(value)}"')
+            elif isinstance(value, list):
+                items = ', '.join(f'"{_js_escape(str(x))}"' for x in value)
+                parts.append(f'    {key}: [{items}]')
+            else:
+                parts.append(f'    {key}: {value}')
+        return '{\n' + ',\n'.join(parts) + '\n}'
 
     def validate(self):
         if self.layout not in ['widescreen', 'vertical']:
@@ -39,6 +71,9 @@ class RenderOptions:
         if self.scale <= 0:
             raise ValueError(
                 f"'scale' parameter must be positive, got {self.scale}")
+        if not isinstance(self.open_features, list):
+            raise ValueError(
+                f"'open_features' parameter must be a list of column names, got {type(self.open_features)}")
         if self.file_output.enabled:
             if self.file_output.filepath is None:
                 raise ValueError("file_output.filepath must be set when file_output.enabled is True")

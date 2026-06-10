@@ -549,8 +549,8 @@ class DataframeReport:
             self,
             layout: str = None,
             scale: float = None,
-            collapse: bool = False,
-            open_features: bool = None,
+            collapse_details: bool = False,
+            open_features: list = None,
             hide_associations: bool = False) -> RenderOptions:
         options = self._build_base_render_options(
             layout=layout,
@@ -558,10 +558,9 @@ class DataframeReport:
             layout_key="notebook_layout",
             scale_key="notebook_scale",
         )
+        options.collapse_details = collapse_details
         if open_features is not None:
-            options.collapse_details = not open_features
-        else:
-            options.collapse_details = collapse
+            options.open_features = list(open_features)
         options.hide_associations = hide_associations
         return options
 
@@ -636,8 +635,8 @@ class DataframeReport:
                       h=None,
                       scale=None,
                       layout=None,
-                      collapse: bool = False,
-                      open_features: bool = None,
+                      collapse_details: bool = False,
+                      open_features: list = None,
                       hide_associations: bool = False,
                       filepath=None,
                       file_layout=None,
@@ -646,13 +645,13 @@ class DataframeReport:
             raise ValueError(f"'layout' parameter must be either 'widescreen' or 'vertical'")
         if file_layout not in [None, 'widescreen', 'vertical']:
             raise ValueError(f"'file_layout' parameter must be either 'widescreen' or 'vertical'")
-        if collapse is True and open_features is True:
-            raise ValueError("Cannot set both 'collapse=True' and 'open_features=True'")
+        if open_features is not None and not isinstance(open_features, list):
+            raise ValueError(f"'open_features' parameter must be a list of column names, got {type(open_features)}")
 
         notebook_options = self._build_notebook_render_options(
             layout=layout,
             scale=scale,
-            collapse=collapse,
+            collapse_details=collapse_details,
             open_features=open_features,
             hide_associations=hide_associations,
         )
