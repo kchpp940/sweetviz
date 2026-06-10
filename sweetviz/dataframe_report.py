@@ -536,6 +536,44 @@ class DataframeReport:
         options.association_min_to_bold = config["General"].getfloat("association_min_to_bold")
         return options
 
+    def _build_show_html_options(self, layout: str = None, scale: float = None) -> RenderOptions:
+        options = self._build_base_render_options(
+            layout=layout,
+            scale=scale,
+            layout_key="html_layout",
+            scale_key="html_scale",
+        )
+        return options
+
+    def _build_notebook_render_options(
+            self,
+            layout: str = None,
+            scale: float = None,
+            collapse: bool = False,
+            open_features: bool = None,
+            hide_associations: bool = False) -> RenderOptions:
+        options = self._build_base_render_options(
+            layout=layout,
+            scale=scale,
+            layout_key="notebook_layout",
+            scale_key="notebook_scale",
+        )
+        if open_features is not None:
+            options.collapse_details = not open_features
+        else:
+            options.collapse_details = collapse
+        options.hide_associations = hide_associations
+        return options
+
+    def _build_file_render_options(self, layout: str = None, scale: float = None) -> RenderOptions:
+        options = self._build_base_render_options(
+            layout=layout,
+            scale=scale,
+            layout_key="html_layout",
+            scale_key="html_scale",
+        )
+        return options
+
     def _render_html(self, render_options: RenderOptions) -> str:
         render_options.validate()
         sv_html.load_layout_globals_from_config()
@@ -579,10 +617,7 @@ class DataframeReport:
         if layout == 'widescreen':
             layout = None
 
-        render_options = self._build_base_render_options(
-            layout=layout,
-            scale=scale,
-        )
+        render_options = self._build_show_html_options(layout=layout, scale=scale)
         render_options.validate()
         self._page_html = self._render_html(render_options)
 
@@ -596,50 +631,60 @@ class DataframeReport:
         self._print_corr_warning()
         self._try_comet_logging()
 
-    def show_notebook(self, w=None, h=None, scale=None, layout=None, filepath=None, file_layout=None, file_scale=None):
+    def show_notebook(self,
+                      w=None,
+                      h=None,
+                      scale=None,
+                      layout=None,
+                      collapse: bool = False,
+                      open_features: bool = None,
+                      hide_associations: bool = False,
+                      filepath=None,
+                      file_layout=None,
+                      file_scale=None):
         if layout not in [None, 'widescreen', 'vertical']:
             raise ValueError(f"'layout' parameter must be either 'widescreen' or 'vertical'")
+        if file_layout not in [None, 'widescreen', 'vertical']:
+            raise ValueError(f"'file_layout' parameter must be either 'widescreen' or 'vertical'")
+        if collapse is True and open_features is True:
+            raise ValueError("Cannot set both 'collapse=True' and 'open_features=True'")
 
-        render_options = self._build_base_render_options(
+        notebook_options = self._build_notebook_render_options(
             layout=layout,
             scale=scale,
-            layout_key="notebook_layout",
-            scale_key="notebook_scale",
+            collapse=collapse,
+            open_features=open_features,
+            hide_associations=hide_associations,
         )
-        render_options.iframe_width = self.use_config_if_none(w, "notebook_width")
-        render_options.iframe_height = self.use_config_if_none(h, "notebook_height")
+        notebook_options.iframe_width = self.use_config_if_none(w, "notebook_width")
+        notebook_options.iframe_height = self.use_config_if_none(h, "notebook_height")
+        notebook_options.validate()
 
+        file_options = None
         if filepath is not None:
-            if file_layout not in [None, 'widescreen', 'vertical']:
-                raise ValueError(f"'layout' parameter for file output must be either 'widescreen' or 'vertical'")
-            render_options.file_output.enabled = True
-            render_options.file_output.filepath = filepath
-            render_options.file_output.layout = self.use_config_if_none(file_layout, "html_layout")
-            render_options.file_output.scale = float(self.use_config_if_none(file_scale, "html_scale"))
+            file_options = self._build_file_render_options(
+                layout=file_layout,
+                scale=file_scale,
+            )
+            file_options.validate()
 
-        render_options.validate()
-        self._page_html = self._render_html(render_options)
+        self._page_html = self._render_html(notebook_options)
 
-        iframe_height = render_options.iframe_height
+        iframe_height = notebook_options.iframe_height
         if str(iframe_height).lower() == "full":
             iframe_height = self.page_height
 
         import html as html_module
         escaped_html = html_module.escape(self._page_html)
-        iframe = f' <iframe width="{render_options.iframe_width}" height="{iframe_height}" srcdoc="{escaped_html}" frameborder="0" allowfullscreen></iframe>'
+        iframe = f' <iframe width="{notebook_options.iframe_width}" height="{iframe_height}" srcdoc="{escaped_html}" frameborder="0" allowfullscreen></iframe>'
         from IPython.display import display
         from IPython.display import HTML
         display(HTML(iframe))
 
-        if render_options.file_output.enabled:
-            file_render_options = self._build_base_render_options(
-                layout=render_options.file_output.layout,
-                scale=render_options.file_output.scale,
-            )
-            file_render_options.validate()
-            file_html = self._render_html(file_render_options)
-            self._write_html_file(file_html, render_options.file_output.filepath)
-            self.verbose_print(f"Report '{render_options.file_output.filepath}' was saved to storage.")
+        if file_options is not None:
+            file_html = self._render_html(file_options)
+            self._write_html_file(file_html, filepath)
+            self.verbose_print(f"Report '{filepath}' was saved to storage.")
 
         self._print_corr_warning()
         self._try_comet_logging()
