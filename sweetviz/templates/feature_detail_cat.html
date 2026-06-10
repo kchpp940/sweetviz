@@ -8,7 +8,7 @@
         <span class="bg-tab-detail-med"></span>
         <div class="pos-detail-tab-icon-text__offset">
             <div class="pos-tab-image ic-cat"></div>
-            <span class="text-title-tab">{{ feature_dict.name }}</span>
+            <span class="text-title-tab">{{ feature_dict.display_name or feature_dict.name }}</span>
         </div>
         {% include 'include_missing.html' %}
     {% endif %}
@@ -117,7 +117,7 @@
                 CATEGORICAL ASSOCIATIONS<br>
                 (UNCERTAINTY COEFFICIENT, 0 to 1)
             </div>
-            <div class="text-large-bold" style="line-height: 104%;">{{ feature_dict.name }}<br>
+            <div class="text-large-bold" style="line-height: 104%;">{{ feature_dict.display_name or feature_dict.name }}<br>
             PROVIDES INFORMATION ON...</div>
             <hr>
             {% for item in influencing %}
@@ -128,7 +128,7 @@
             {% endfor %}
             <br>
             <div class="text-large-bold" style="line-height: 104%;">THESE FEATURES<br>GIVE INFORMATION<br>
-            ON {{ feature_dict.name }}:</div>
+            ON {{ feature_dict.display_name or feature_dict.name }}:</div>
             <hr>
             {% for item in influenced %}
                 <div class="{{ 'assoc-row-target' if item[2] else 'assoc-row' }} {{ loop.cycle('', 'row-colored') }}" {{ 'style="font-weight: bold;"' if item[1] > general.association_min_to_bold }}>
@@ -142,7 +142,7 @@
                 NUMERICAL ASSOCIATIONS<br>
                 (CORRELATION RATIO, 0 to 1)
             </div>
-            <div class="text-large-bold" style="line-height: 104%;">{{ feature_dict.name }}<br>
+            <div class="text-large-bold" style="line-height: 104%;">{{ feature_dict.display_name or feature_dict.name }}<br>
                     CORRELATION RATIO WITH...</div>
             <hr>
             {% for item in corr_ratio %}

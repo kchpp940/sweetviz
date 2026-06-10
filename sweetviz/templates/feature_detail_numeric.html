@@ -8,7 +8,7 @@
         <span class="bg-tab-detail-med"></span>
         <div class="pos-detail-tab-icon-text__offset">
             <div class="pos-tab-image ic-numeric"></div>
-            <span class="text-title-tab">{{ feature_dict.name }}</span>
+            <span class="text-title-tab">{{ feature_dict.display_name or feature_dict.name }}</span>
         </div>
         {% include 'include_missing.html' %}
     {% endif %}
@@ -35,7 +35,7 @@
             <div class="text-small-bold color-light" style="line-height: 10px">
                 (PEARSON, -1 to 1)
             </div>
-<!--             <div class="text-med-bold">{{ feature_dict.name }}</div>
+<!--             <div class="text-med-bold">{{ feature_dict.display_name or feature_dict.name }}</div>
             <div class="text-large-bold">CORRELATION RATIO WITH...</div>
 -->
             <hr>

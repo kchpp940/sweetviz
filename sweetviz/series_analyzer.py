@@ -4,6 +4,7 @@ from sweetviz.type_detection import determine_feature_type
 import sweetviz.series_analyzer_numeric
 import sweetviz.series_analyzer_cat
 import sweetviz.series_analyzer_text
+from sweetviz.feature_config import NormalizedFeatureConfig
 
 
 def get_counts(series: pd.Series) -> dict:
@@ -76,10 +77,8 @@ def add_series_base_stats_to_dict(series: pd.Series, counts: dict, updated_dict:
 
 
 # This generates everything EXCEPT the "detail pane"
-def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
-    # start = time.perf_counter()
-
-    # Validation: Make sure the targets are the same length as the series
+def analyze_feature_to_dictionary(to_process: FeatureToProcess,
+                                  cfg: NormalizedFeatureConfig) -> dict:
     if to_process.source_target is not None and to_process.source is not None:
         if len(to_process.source_target) != len(to_process.source):
             raise ValueError
@@ -87,19 +86,22 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
         if len(to_process.compare_target) != len(to_process.compare):
             raise ValueError
 
-    # Initialize some dictionary values
+    feature_name = to_process.source.name
+
     returned_feature_dict = dict()
-    returned_feature_dict["name"] = to_process.source.name
+    returned_feature_dict["name"] = feature_name
     returned_feature_dict["order_index"] = to_process.order
     returned_feature_dict["is_target"] = True if to_process.order == -1 else False
+    returned_feature_dict["display_name"] = cfg.get_display_name(feature_name)
+    returned_feature_dict["group"] = cfg.get_group_for_feature(feature_name)
 
-    # Determine SOURCE feature type
+    predetermined_type = cfg.get_predetermined_type(feature_name)
+
     to_process.source_counts = get_counts(to_process.source)
     returned_feature_dict["type"] = determine_feature_type(to_process.source, to_process.source_counts,
-                                                           to_process.predetermined_type, "SOURCE")
+                                                           predetermined_type, "SOURCE")
     source_type = returned_feature_dict["type"]
 
-    # Determine COMPARED feature type & initialize
     compare_dict = None
     if to_process.compare is not None:
         to_process.compare_counts = get_counts(to_process.compare)
@@ -108,7 +110,6 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
                                               returned_feature_dict["type"], "COMPARED")
         if compare_type != FeatureType.TYPE_ALL_NAN and \
             source_type != FeatureType.TYPE_ALL_NAN:
-            # Explicitly show missing categories on each set
             if compare_type == FeatureType.TYPE_CAT or compare_type == FeatureType.TYPE_BOOL:
                 fill_out_missing_counts_in_other_series(to_process.compare_counts, to_process.source_counts)
                 fill_out_missing_counts_in_other_series(to_process.source_counts, to_process.compare_counts)
@@ -116,9 +117,7 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
         compare_dict = returned_feature_dict["compare"]
         compare_dict["type"] = compare_type
 
-    # Settle all-NaN series, depending on source versus compared
     if to_process.compare is not None:
-        # Settle all-Nan WITH COMPARE: Must consider all cases between source and compare
         if compare_type == FeatureType.TYPE_ALL_NAN and source_type == FeatureType.TYPE_ALL_NAN:
             returned_feature_dict["type"] = FeatureType.TYPE_TEXT
             compare_dict["type"] = FeatureType.TYPE_TEXT
@@ -127,16 +126,13 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
         elif source_type == FeatureType.TYPE_ALL_NAN:
             returned_feature_dict["type"] = compare_type
     else:
-        # Settle all-Nan WITHOUT COMPARE ( trivial: consider as TEXT )
         if source_type == FeatureType.TYPE_ALL_NAN:
             returned_feature_dict["type"] = FeatureType.TYPE_TEXT
 
-    # Establish base stats
     add_series_base_stats_to_dict(to_process.source, to_process.source_counts, returned_feature_dict)
     if to_process.compare is not None:
         add_series_base_stats_to_dict(to_process.compare, to_process.compare_counts, compare_dict)
 
-    # Perform full analysis on source/compare/target
     if returned_feature_dict["type"] == FeatureType.TYPE_NUM:
         sweetviz.series_analyzer_numeric.analyze(to_process, returned_feature_dict)
     elif returned_feature_dict["type"] == FeatureType.TYPE_CAT:
@@ -147,8 +143,5 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
         sweetviz.series_analyzer_text.analyze(to_process, returned_feature_dict)
     else:
         raise ValueError
-
-    # print(f"{to_process.source.name} PROCESSED ------> "
-    #       f" {time.perf_counter() - start}")
 
     return returned_feature_dict

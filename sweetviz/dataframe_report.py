@@ -101,10 +101,10 @@ class DataframeReport:
 
         self.progress_bar.set_description_str("[Summarizing dataframe]")
         self.summary_source = dict()
-        self.summarize_dataframe(source_df, self.source_name, self.summary_source, cfg.skip_columns)
+        self.summarize_dataframe(source_df, self.source_name, self.summary_source, cfg)
         if compare_df is not None:
             self.summary_compare = dict()
-            self.summarize_dataframe(compare_df, self.compare_name, self.summary_compare, cfg.skip_columns)
+            self.summarize_dataframe(compare_df, self.compare_name, self.summary_compare, cfg)
             cmp_not_in_src = \
                 [name for name in cfg.compare_columns if name not in cfg.source_columns]
             self.summary_compare["num_cmp_not_in_source"] = len(cmp_not_in_src)
@@ -138,9 +138,9 @@ class DataframeReport:
 
             target_to_process = FeatureToProcess(
                 -1, source_df[cfg.target_column], compare_target_series,
-                None, None, cfg.get_predetermined_type(cfg.target_column)
+                None, None, None
             )
-            self._target = sa.analyze_feature_to_dictionary(target_to_process)
+            self._target = sa.analyze_feature_to_dictionary(target_to_process, cfg)
             target_type = self._target["type"]
             self.progress_bar.update(1)
 
@@ -168,7 +168,6 @@ class DataframeReport:
                                              compare_df[cur_series_name],
                                              source_target_series,
                                              compare_target_series,
-                                             cfg.get_predetermined_type(cur_series_name),
                                              target_type)
             else:
                 this_feat = FeatureToProcess(cur_order_index,
@@ -176,7 +175,6 @@ class DataframeReport:
                                              None,
                                              source_target_series,
                                              None,
-                                             cfg.get_predetermined_type(cur_series_name),
                                              target_type)
             features_to_process.append(this_feat)
 
@@ -184,12 +182,12 @@ class DataframeReport:
 
         for f in features_to_process:
             self.progress_bar.set_description_str(f"Feature: {f.source.name}")
-            self._features[f.source.name] = sa.analyze_feature_to_dictionary(f)
+            self._features[f.source.name] = sa.analyze_feature_to_dictionary(f, cfg)
             self.progress_bar.update(1)
 
-        self.summarize_category_types(source_df, self.summary_source, cfg.skip_columns, self._target)
+        self.summarize_category_types(source_df, self.summary_source, cfg)
         if compare is not None:
-            self.summarize_category_types(compare_df, self.summary_compare, cfg.skip_columns, self._target)
+            self.summarize_category_types(compare_df, self.summary_compare, cfg)
         self.dataframe_summary_html = sv_html.generate_html_dataframe_summary(self)
 
         self.graph_legend = GraphLegend(self)
@@ -305,11 +303,13 @@ class DataframeReport:
                 return None
         return self._features[feature_name].get("type")
 
-    def  summarize_dataframe(self, source: pd.DataFrame, name: str, target_dict: dict, skip: List[str]):
+    def summarize_dataframe(self, source: pd.DataFrame, name: str, target_dict: dict,
+                            cfg: NormalizedFeatureConfig):
         target_dict["name"] = name
         target_dict["num_rows"] = len(source)
         target_dict["num_columns"] = len(source.columns)
-        target_dict["num_skipped_columns"] = len(source.columns) - len([x for x in source.columns if x not in skip])
+        target_dict["num_skipped_columns"] = len(source.columns) - len(
+            [x for x in source.columns if not cfg.is_skipped(x)])
 
         target_dict["memory_total"] = source.memory_usage(index=True, deep=True).sum()
         if target_dict["num_rows"] > 0:
@@ -319,23 +319,29 @@ class DataframeReport:
             target_dict["memory_single_row"] = 0
 
         target_dict["duplicates"] = NumWithPercent(sum(source.duplicated()), len(source))
-        target_dict["num_cmp_not_in_source"] = 0 # set later, as needed
+        target_dict["num_cmp_not_in_source"] = 0
 
-    def summarize_category_types(self, this_df: pd.DataFrame, dest_dict: dict, skip: List[str], \
-            source_target_dict):
-        dest_dict["num_cat"] = len([x for x in self._features.values()
-                                        if (x["type"] == FeatureType.TYPE_CAT or x["type"] == FeatureType.TYPE_BOOL)
-                                            and x["name"] not in skip and x["name"] in this_df])
-        dest_dict["num_numerical"] = len([x for x in self._features.values()
-                                                    if x["type"] == FeatureType.TYPE_NUM and x["name"] not in skip \
-                                                        and x["name"] in this_df])
-        dest_dict["num_text"] = len([x for x in self._features.values()
-                                               if x["type"] == FeatureType.TYPE_TEXT and x["name"] not in skip \
-                                                    and x["name"] in this_df])
-        if source_target_dict is not None and source_target_dict["name"] in this_df:
-            if source_target_dict["type"] == FeatureType.TYPE_NUM:
+    def summarize_category_types(self, this_df: pd.DataFrame, dest_dict: dict,
+                                 cfg: NormalizedFeatureConfig):
+        dest_dict["num_cat"] = len([
+            x for x in self._features.values()
+            if (x["type"] == FeatureType.TYPE_CAT or x["type"] == FeatureType.TYPE_BOOL)
+            and not cfg.is_skipped(x["name"]) and x["name"] in this_df
+        ])
+        dest_dict["num_numerical"] = len([
+            x for x in self._features.values()
+            if x["type"] == FeatureType.TYPE_NUM
+            and not cfg.is_skipped(x["name"]) and x["name"] in this_df
+        ])
+        dest_dict["num_text"] = len([
+            x for x in self._features.values()
+            if x["type"] == FeatureType.TYPE_TEXT
+            and not cfg.is_skipped(x["name"]) and x["name"] in this_df
+        ])
+        if self._target is not None and self._target["name"] in this_df:
+            if self._target["type"] == FeatureType.TYPE_NUM:
                 dest_dict["num_numerical"] = dest_dict["num_numerical"] + 1
-            elif source_target_dict["type"] == FeatureType.TYPE_CAT or source_target_dict["type"] == FeatureType.TYPE_BOOL:
+            elif self._target["type"] == FeatureType.TYPE_CAT or self._target["type"] == FeatureType.TYPE_BOOL:
                 dest_dict["num_cat"] = dest_dict["num_cat"] + 1
         return
 

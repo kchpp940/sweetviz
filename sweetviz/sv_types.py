@@ -43,11 +43,9 @@ class NumWithPercent:
 
 class FeatureToProcess:
     def __init__(self, order: int, source: pd.Series, compare=None, source_target=None,
-                 compare_target=None, predetermined_type: FeatureType = None,
-                 predetermined_type_target: FeatureType = None):
+                 compare_target=None, predetermined_type_target: FeatureType = None):
         self.order = order
 
-        # Cleanup names
         source.name = str(source.name)
         if compare is not None:
             compare.name = str(compare.name)
@@ -64,12 +62,6 @@ class FeatureToProcess:
         self.compare_counts = None
         self.compare_target = compare_target
 
-        if predetermined_type:
-            self.predetermined_type = predetermined_type
-        else:
-            self.predetermined_type = FeatureType.TYPE_UNKNOWN
-
-        # Validate TARGET type
         if predetermined_type_target:
             if predetermined_type_target not in (FeatureType.TYPE_BOOL,
                                                  FeatureType.TYPE_NUM):

@@ -10,7 +10,7 @@
         {{ feature_dict.order_index + 1}}
     </div>
     <div class="pos-tab-image ic-numeric"></div>
-    <span class="text-title-tab color-normal">{{ feature_dict.name }}</span>
+    <span class="text-title-tab color-normal">{{ feature_dict.display_name or feature_dict.name }}</span>
 
     {% include 'feature_summary_base_stats.html' %}
 
