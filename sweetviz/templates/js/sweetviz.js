@@ -1,29 +1,12 @@
 let g_snapped = "";
 // let g_lastHovered = "";
 
-function getSafeId(element) {
-    let safeId = $(element).data('safe-id');
-    if (safeId !== undefined && safeId !== "") {
-        return safeId;
-    }
-    let parent = $(element).closest('[data-safe-id]');
-    if (parent.length > 0) {
-        return parent.data('safe-id');
-    }
-    return "";
-}
-
-function getFieldName(element) {
-    let fieldName = $(element).data('field-name');
-    if (fieldName !== undefined) {
-        return fieldName;
-    }
-    let parent = $(element).closest('[data-field-name]');
-    if (parent.length > 0) {
-        return parent.data('field-name');
-    }
-    return "";
-}
+let g_render_options = typeof g_render_options !== 'undefined' ? g_render_options : {
+    layout: "widescreen",
+    scale: 1.0,
+    page_height: 0,
+    show_logo: true
+};
 
 function hideAllDetails()
 {
@@ -63,8 +46,9 @@ $("span.bg-tab-summary-rollover").hide();
 
 // Make the detail column the same height, so the floating element has room
 //$("#col2").height($("#col1").height());
-$("#col1").height(g_height);
-$("#col2").height(g_height);
+let pageHeight = (typeof g_height !== 'undefined') ? g_height : g_render_options.page_height;
+$("#col1").height(pageHeight);
+$("#col2").height(pageHeight);
 //alert($("#col1").height());
 
 // SUMMARY AREA
@@ -77,15 +61,14 @@ function(event) {
     if(g_snapped=="")
     {
         // Rollover start!
-        let safeId = getSafeId(this);
         $(".container-feature-detail").hide();
         $("span.bg-tab-summary-rollover").hide();
-        $("#detail-" + safeId).show();
-        $("#rollover-" + safeId).removeClass("bg-tab-summary-rollover-locked");
-        $("#rollover-" + safeId).addClass("bg-tab-summary-rollover");
-        $("#rollover-" + safeId).show();
+        $("#" + $(this).data("detail-div")).show();
+        $("#" + $(this).data("rollover-span")).removeClass("bg-tab-summary-rollover-locked");
+        $("#" + $(this).data("rollover-span")).addClass("bg-tab-summary-rollover");
+        $("#" + $(this).data("rollover-span")).show();
     }
-    // g_lastHovered = "#detail-" + getSafeId(this);
+    // g_lastHovered = "#" + $(this).data("detail-div");
     },
 // EXIT function
 function(event) {
@@ -93,7 +76,7 @@ function(event) {
     {
         // Rollover end!
         hideAllDetails();
-//FBFB        $("#detail-" + getSafeId(this)).hide();
+//FBFB        $("#" + $(this).data("detail-div")).hide();
     }
     }
 );
@@ -104,40 +87,39 @@ $(".selector").click(function(event) {
     $("#button-summary-associations-source, #button-summary-associations-compare").removeClass("button-assoc-selected");
     $("#button-summary-associations-source, #button-summary-associations-compare").addClass("button-assoc");
 
+    // alert($(this).parent().attr('id'));
     let this_to_snap=$(this).parent().attr('id');
-    let safeId = getSafeId(this);
 
     if(g_snapped == this_to_snap)
     {
         // "Unselect"
-        $("#rollover-" + safeId).removeClass("bg-tab-summary-rollover-locked");
-        $("#rollover-" + safeId).addClass("bg-tab-summary-rollover");
+        $("#" + $(this).data("rollover-span")).removeClass("bg-tab-summary-rollover-locked");
+        $("#" + $(this).data("rollover-span")).addClass("bg-tab-summary-rollover");
         g_snapped = "";
     }
     else if (g_snapped == "")
     {
         // "Select"
-        $("#rollover-" + safeId).removeClass("bg-tab-summary-rollover");
-        $("#rollover-" + safeId).addClass("bg-tab-summary-rollover-locked");
+        $("#" + $(this).data("rollover-span")).removeClass("bg-tab-summary-rollover");
+        $("#" + $(this).data("rollover-span")).addClass("bg-tab-summary-rollover-locked");
         g_snapped = $(this).parent().attr('id');
-        //$("#detail-" + safeId).show();
+        //$("#" + $(this).data("detail-div")).show();
         //$(g_lastHovered).show();
         // alert(this.parent().id);
     }
     else if (g_snapped !== this_to_snap) // implied
     {
         // "Select" while another was previously selected
-        let snappedSafeId = $("#"+g_snapped).data("safe-id");
-        $("#rollover-" + snappedSafeId).removeClass("bg-tab-summary-rollover-locked");
-        $("#rollover-" + snappedSafeId).addClass("bg-tab-summary-rollover");
+        $("#" + $("#"+g_snapped).children().data("rollover-span")).removeClass("bg-tab-summary-rollover-locked");
+        $("#" + $("#"+g_snapped).children().data("rollover-span")).addClass("bg-tab-summary-rollover");
 
         $(".container-feature-detail").hide();
         $("span.bg-tab-summary-rollover").hide();
-        $("#detail-" + safeId).show();
+        $("#" + $(this).data("detail-div")).show();
         
-        $("#rollover-" + safeId).removeClass("bg-tab-summary-rollover");
-        $("#rollover-" + safeId).addClass("bg-tab-summary-rollover-locked");
-        $("#rollover-" + safeId).css("display","inline");
+        $("#" + $(this).data("rollover-span")).removeClass("bg-tab-summary-rollover");
+        $("#" + $(this).data("rollover-span")).addClass("bg-tab-summary-rollover-locked");
+        $("#" + $(this).data("rollover-span")).css("display","inline");
         g_snapped = $(this).parent().attr('id');
     }
 /*
@@ -180,11 +162,11 @@ $("#button-summary-associations-source, #button-summary-associations-compare").h
         if(g_snapped=="")
         {
             hideAllDetails();
-            $("#" + $(this).data("target-panel-id")).show();
+            $("#" + $(this).data("detail-div")).show();
             // $("#df-assoc").show();
             //$("#df-assoc").show();
         }
-        // g_lastHovered = "#" + $(this).data("target-panel-id");
+        // g_lastHovered = "#df-assoc";
     },
     // EXIT function
     function()
@@ -202,7 +184,6 @@ $("#button-summary-associations-source, #button-summary-associations-compare").c
     $("#button-summary-associations-source, #button-summary-associations-compare").removeClass("button-assoc-selected");
     $("#button-summary-associations-source, #button-summary-associations-compare").addClass("button-assoc");
     let this_to_snap=this.id;
-    let targetPanelId = $(this).data("target-panel-id");
     if(g_snapped == this_to_snap)
     {
         // DESELECT/HIDE ASSOC
@@ -223,13 +204,12 @@ $("#button-summary-associations-source, #button-summary-associations-compare").c
     {
         // SWAP to OTHER ASSOC: DESELECT old, select new
         // --------------------------------------------------------
-        let snappedSafeId = $("#"+g_snapped).data("safe-id");
-        $("#rollover-" + snappedSafeId).removeClass("bg-tab-summary-rollover-locked");
-        $("#rollover-" + snappedSafeId).addClass("bg-tab-summary-rollover");
+        $("#" + $("#"+g_snapped).children().data("rollover-span")).removeClass("bg-tab-summary-rollover-locked");
+        $("#" + $("#"+g_snapped).children().data("rollover-span")).addClass("bg-tab-summary-rollover");
         hideAllDetails();
         $(this).addClass("button-assoc-selected");
         g_snapped = this.id;
-        $("#" + targetPanelId).show();
+        $("#" + $(this).data("detail-div")).show();
     }
 //    $(this).addClass("assoc_active");
 });

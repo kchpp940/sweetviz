@@ -11,35 +11,6 @@ def to_safe_id(name: str) -> str:
     return re.sub(r'[^a-zA-Z0-9_-]', '_', str(name))
 
 
-class SafeIdGenerator:
-    def __init__(self):
-        self._name_to_safe = dict()
-        self._safe_counts = dict()
-
-    def generate(self, name: str) -> str:
-        if name in self._name_to_safe:
-            return self._name_to_safe[name]
-
-        base_safe = to_safe_id(str(name))
-        if base_safe not in self._safe_counts:
-            self._safe_counts[base_safe] = 0
-            safe_id = base_safe
-        else:
-            self._safe_counts[base_safe] += 1
-            safe_id = f"{base_safe}__{self._safe_counts[base_safe]}"
-
-        self._name_to_safe[name] = safe_id
-        return safe_id
-
-    def get(self, name: str) -> str:
-        return self._name_to_safe.get(name, to_safe_id(str(name)))
-
-    def generate_all(self, names):
-        for name in names:
-            self.generate(name)
-        return self._name_to_safe.copy()
-
-
 def get_counts(series: pd.Series) -> dict:
     # The value_counts() function is used to get a Series containing counts of unique values.
     value_counts_with_nan = series.value_counts(dropna=False)
@@ -125,10 +96,7 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
     returned_feature_dict = dict()
     returned_feature_dict["name"] = to_process.source.name
     returned_feature_dict["display_name"] = to_process.source.name
-    if to_process.safe_name is not None:
-        returned_feature_dict["safe_name"] = to_process.safe_name
-    else:
-        returned_feature_dict["safe_name"] = to_safe_id(to_process.source.name)
+    returned_feature_dict["safe_name"] = to_safe_id(to_process.source.name)
     returned_feature_dict["order_index"] = to_process.order
     returned_feature_dict["is_target"] = True if to_process.order == -1 else False
 

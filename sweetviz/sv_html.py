@@ -5,7 +5,7 @@ from operator import itemgetter
 from jinja2 import Environment, PackageLoader
 import sweetviz.sv_html_formatters
 from sweetviz.config import config
-from sweetviz.sv_types import NumWithPercent, FeatureType, OTHERS_GROUPED
+from sweetviz.sv_types import NumWithPercent, FeatureType, OTHERS_GROUPED, RenderOptions
 from sweetviz.graph_associations import CORRELATION_ERROR
 from sweetviz.graph_associations import CORRELATION_IDENTICAL
 from functools import cmp_to_key
@@ -26,7 +26,6 @@ jinja2_env.filters["fmt_smart_range"] = sweetviz.sv_html_formatters.fmt_smart_ra
 jinja2_env.filters["fmt_div_icon_missing"] = sweetviz.sv_html_formatters.fmt_div_icon_missing
 jinja2_env.filters["fmt_div_color_override_missing"] = sweetviz.sv_html_formatters.fmt_div_color_override_missing
 jinja2_env.filters["to_safe_id"] = lambda name: re.sub(r'[^a-zA-Z0-9_-]', '_', str(name))
-jinja2_env.filters["escape_attr"] = lambda value: html.escape(str(value), quote=True)
 jinja2_env.globals["hello"] = "Superduper"
 
 def load_layout_globals_from_config():
@@ -40,6 +39,22 @@ def load_layout_globals_from_config():
     general_globals['association_min_to_bold'] = config["General"].getfloat("association_min_to_bold")
     jinja2_env.globals["layout"] = layout_globals
     jinja2_env.globals["general"] = general_globals
+
+
+def build_render_options_from_config(layout: str = None, scale: float = None) -> RenderOptions:
+    options = RenderOptions()
+    if layout is None:
+        options.layout = config["Output_Defaults"]["html_layout"]
+    else:
+        options.layout = layout
+    if scale is None:
+        options.scale = float(config["Output_Defaults"]["html_scale"])
+    else:
+        options.scale = float(scale)
+    options.show_logo = bool(config["Layout"].getint("show_logo"))
+    options.use_cjk_font = bool(config["General"].getint("use_cjk_font"))
+    options.association_min_to_bold = config["General"].getfloat("association_min_to_bold")
+    return options
 
 
 def set_summary_positions(dataframe_report):
@@ -69,21 +84,32 @@ def generate_html_detail(dataframe_report):
             feature["html_detail"] = generate_html_detail_text(feature, compare_dict, dataframe_report)
 
 
-def generate_html_dataframe_page(dataframe_report):
+def generate_html_dataframe_page(dataframe_report, render_options: RenderOptions = None):
+    if render_options is None:
+        render_options = RenderOptions(
+            layout=getattr(dataframe_report, 'page_layout', 'widescreen'),
+            scale=getattr(dataframe_report, 'scale', 1.0),
+        )
+    render_options.validate()
+
     template = jinja2_env.get_template('dataframe_page.html')
-    # Add in total page size (160 is hardcoded from the top of page-all-summaries in CSS)
-    # This could be programmatically set
-    dataframe_report.page_height = 160 + (dataframe_report.num_summaries * (config["Layout"].getint("summary_height_per_element")))
-    if dataframe_report.page_layout == "widescreen":
+    render_options.page_height = 160 + (dataframe_report.num_summaries * (config["Layout"].getint("summary_height_per_element")))
+    if render_options.layout == "widescreen":
         padding_type = "full_page_padding_widescreen"
     else:
         padding_type = "full_page_padding_vertical"
     padding = config["Layout"].getint(padding_type)
-    dataframe_report.page_height += padding
-    # scaling = dict()
-    # scaling["main_column"] = scale
-    # scaling= scale
-    output = template.render(dataframe=dataframe_report, version=sweetviz.__version__)
+    render_options.page_height += padding
+
+    dataframe_report.page_layout = render_options.layout
+    dataframe_report.scale = render_options.scale
+    dataframe_report.page_height = render_options.page_height
+
+    output = template.render(
+        dataframe=dataframe_report,
+        render_options=render_options,
+        version=sweetviz.__version__
+    )
     return output
 
 

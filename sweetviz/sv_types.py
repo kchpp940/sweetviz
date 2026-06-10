@@ -1,9 +1,28 @@
 from enum import Enum, unique
+from dataclasses import dataclass, field
 import pandas as pd
 
 
 # Adding spaces to avoid collisions: this should NEVER be in a dataset :)
 OTHERS_GROUPED = "     (Other)"
+
+
+@dataclass
+class RenderOptions:
+    layout: str = "widescreen"
+    scale: float = 1.0
+    page_height: int = 0
+    show_logo: bool = True
+    use_cjk_font: bool = False
+    association_min_to_bold: float = 0.1
+
+    def validate(self):
+        if self.layout not in ['widescreen', 'vertical']:
+            raise ValueError(
+                f"'layout' parameter must be either 'widescreen' or 'vertical', got '{self.layout}'")
+        if self.scale <= 0:
+            raise ValueError(
+                f"'scale' parameter must be positive, got {self.scale}")
 
 @unique
 class FeatureType(Enum):
@@ -44,8 +63,7 @@ class NumWithPercent:
 class FeatureToProcess:
     def __init__(self, order: int, source: pd.Series, compare=None, source_target=None,
                  compare_target=None, predetermined_type: FeatureType = None,
-                 predetermined_type_target: FeatureType = None,
-                 safe_name: str = None):
+                 predetermined_type_target: FeatureType = None):
         self.order = order
 
         # Cleanup names
@@ -60,7 +78,6 @@ class FeatureToProcess:
         self.source = source
         self.source_counts = None
         self.source_target  = source_target
-        self.safe_name = safe_name
 
         self.compare = compare
         self.compare_counts = None

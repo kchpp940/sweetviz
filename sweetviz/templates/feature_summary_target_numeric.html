@@ -1,15 +1,14 @@
 <div class="container-feature-summary-target"
      id="summary-{{ feature_dict.safe_name }}"
-     data-field-name="{{ feature_dict.name|escape_attr }}"
-     data-safe-id="{{ feature_dict.safe_name }}"
-     data-order-index="{{ feature_dict.order_index }}"
+     data-feature-name="{{ feature_dict.name }}"
+     data-feature-safe-name="{{ feature_dict.safe_name }}"
      data-is-target="true"
         style="top: 0px">
-    <div class="selector selector__body" data-safe-id="{{ feature_dict.safe_name }}"></div>
-    <div class="selector selector__bottom" data-safe-id="{{ feature_dict.safe_name }}"></div>
-    <div class="selector selector__top" data-safe-id="{{ feature_dict.safe_name }}"></div>
-    <span id="summary-target-bg" class="bg-tab-summary-target" style="z-index: {{ -20000 + (2*feature_dict.order_index) }}" data-safe-id="{{ feature_dict.safe_name }}"></span>
-    <span class="bg-tab-summary-rollover" id="rollover-{{ feature_dict.safe_name }}" style="z-index: {{ -19999 + (2*feature_dict.order_index) }}" data-safe-id="{{ feature_dict.safe_name }}"></span>
+    <div class="selector selector__body" data-detail-div="detail-{{ feature_dict.safe_name }}" data-rollover-span="rollover-{{ feature_dict.safe_name }}"></div>
+    <div class="selector selector__bottom" data-detail-div="detail-{{ feature_dict.safe_name }}" data-rollover-span="rollover-{{ feature_dict.safe_name }}"></div>
+    <div class="selector selector__top" data-detail-div="detail-{{ feature_dict.safe_name }}" data-rollover-span="rollover-{{ feature_dict.safe_name }}"></div>
+    <span id="summary-target-bg" class="bg-tab-summary-target" style="z-index: {{ -20000 + (2*feature_dict.order_index) }}"></span>
+    <span class="bg-tab-summary-rollover" id="rollover-{{ feature_dict.safe_name }}" style="z-index: {{ -19999 + (2*feature_dict.order_index) }}"></span>
     <span class="text-title-tab color-normal {{ "color-target-summary" if feature_dict.is_target }}">{{ feature_dict.display_name }}</span>
     <div class="pos-tab-image ic-numeric-light"></div>
     <span class="minigraph-target pos-minigraph-numeric"></span>

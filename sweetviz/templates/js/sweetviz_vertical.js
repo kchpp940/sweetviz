@@ -1,29 +1,12 @@
 let g_snapped = "";
 let g_lastHovered = "";
 
-function getSafeId(element) {
-    let safeId = $(element).data('safe-id');
-    if (safeId !== undefined && safeId !== "") {
-        return safeId;
-    }
-    let parent = $(element).closest('[data-safe-id]');
-    if (parent.length > 0) {
-        return parent.data('safe-id');
-    }
-    return "";
-}
-
-function getFieldName(element) {
-    let fieldName = $(element).data('field-name');
-    if (fieldName !== undefined) {
-        return fieldName;
-    }
-    let parent = $(element).closest('[data-field-name]');
-    if (parent.length > 0) {
-        return parent.data('field-name');
-    }
-    return "";
-}
+let g_render_options = typeof g_render_options !== 'undefined' ? g_render_options : {
+    layout: "vertical",
+    scale: 1.0,
+    page_height: 0,
+    show_logo: true
+};
 
 function hideAllDetails()
 {
@@ -61,8 +44,10 @@ $("span.bg-tab-summary-rollover").hide();
 
 // Make the detail column the same height, so the floating element has room
 //$("#col2").height($("#col1").height());
-$("#col1").height(g_height);
-$("#col2").height(g_height);
+let pageHeight = (typeof g_height !== 'undefined') ? g_height : g_render_options.page_height;
+let scale = (typeof g_scale !== 'undefined') ? g_scale : g_render_options.scale;
+$("#col1").height(pageHeight);
+$("#col2").height(pageHeight);
 //alert($("#col1").height());
 
 // SUMMARY AREA
@@ -74,18 +59,17 @@ $(".selector").hover(
 function(event) {
     // Rollover start!
     // $(".container-feature-detail").hide();
-    let safeId = getSafeId(this);
     $("span.bg-tab-summary-rollover").hide();
-    $("#rollover-" + safeId).removeClass("bg-tab-summary-rollover-locked");
-    $("#rollover-" + safeId).addClass("bg-tab-summary-rollover-vertical");
-    $("#rollover-" + safeId).show();
-    g_lastHovered = "#detail-" + safeId;
+    $("#" + $(this).data("rollover-span")).removeClass("bg-tab-summary-rollover-locked");
+    $("#" + $(this).data("rollover-span")).addClass("bg-tab-summary-rollover-vertical");
+    $("#" + $(this).data("rollover-span")).show();
+    g_lastHovered = "#" + $(this).data("detail-div");
     },
 // EXIT function
 function(event) {
     // Rollover end!
     // hideAllDetails();
-    //FBFB        $("#detail-" + getSafeId(this)).hide();
+    //FBFB        $("#" + $(this).data("detail-div")).hide();
     }
 );
 
@@ -96,17 +80,17 @@ $(".selector").click(function(event) {
     {
         // EXPAND
         // --------------------------------------------------------
-        let safeId = getSafeId(this);
-        $("#detail-" + safeId).show();
+        $("#" + $(this).data("detail-div")).show();
         $(this).parent().parent().data('expanded', 'true');
+        //alert($(this).parent().attr('id').substring(8) );
 
-        var feature_safe_name = safeId;
-        var is_target = $(this).parent().data('is-target') === true;
+        var feature_safe_name = $(this).parent().data('feature-safe-name');
+        var is_target = $(this).parent().data('is-target') === 'true';
         if ($('#cat-assoc-window-'+feature_safe_name).length) {
             // CATEGORICAL feature: use variable-height window
             var $el = $('#detail_breakdown-' + feature_safe_name);  //record the elem so you don't crawl the DOM everytime
             // HACK: BUG IN BROWSERS? DIVING BY SCALE HERE...
-            var bottom = ($el.position().top / g_scale) + $el.outerHeight(true); // passing "true" will also include the top and bottom margin
+            var bottom = ($el.position().top / scale) + $el.outerHeight(true); // passing "true" will also include the top and bottom margin
             var desiredBottomBreakdown = bottom + 157;
 
             $el = $('#cat-assoc-window-' + feature_safe_name);  //record the elem so you don't crawl the DOM everytime
@@ -147,8 +131,7 @@ $(".selector").click(function(event) {
     {
         // CONTRACT
         // --------------------------------------------------------
-        let safeIdContract = getSafeId(this);
-        $("#detail-" + safeIdContract).hide();
+        $("#" + $(this).data("detail-div")).hide();
 
         // HACK: For SOME reason, a selection gets made when we change what is hidden, unselect it
         let sel = document.getSelection();
@@ -157,8 +140,7 @@ $(".selector").click(function(event) {
         $(this).parent().parent().data('expanded', 'false');
         $(this).parent().parent().css('height', '161px');
 
-        var is_target_contract = $(this).parent().data('is-target') === true;
-        if (is_target_contract)
+        if ($(this).parent().data('is-target') === 'true')
         {
             $(this).parent().find(".bg-tab-summary-target").removeClass("bg-tab-summary-target-full");
             $(this).parent().find(".bg-tab-summary-target").addClass("bg-tab-summary-target");
@@ -218,8 +200,7 @@ $(".selector").click(function(event) {
 
 // ASSOCIATIONS CLICK
 $("#button-summary-associations-source, #button-summary-associations-compare").click(function(event) {
-    let targetPanelId = $(this).data("target-panel-id");
-    let actual_div = "#" + targetPanelId;
+    let actual_div = "#" + $(this).data("detail-div");
     // Quick hack: just remove the selected state to both buttons and restore if needed
     $("#button-summary-associations-source, #button-summary-associations-compare").removeClass("button-assoc-selected");
     $("#button-summary-associations-source, #button-summary-associations-compare").addClass("button-assoc");

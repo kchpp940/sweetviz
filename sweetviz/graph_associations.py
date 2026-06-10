@@ -89,13 +89,6 @@ class GraphAssoc(sweetviz.graph.Graph):
     def __init__(self, dataframe_report, which_graph: str, association_data):
         self.set_style(["graph_base.mplstyle"])
 
-        name_to_display = dict()
-        for feature in dataframe_report._features:
-            fdata = dataframe_report[feature]
-            name_to_display[fdata["name"]] = fdata["display_name"]
-        if dataframe_report._target is not None:
-            name_to_display[dataframe_report._target["name"]] = dataframe_report._target["display_name"]
-
         # Set categories to use first (some may be unused but no need to optimize this)
         categoricals = [dataframe_report[feature]["name"] for feature in dataframe_report._features \
                         if dataframe_report[feature]["type"] in [FeatureType.TYPE_CAT,
@@ -212,7 +205,7 @@ class GraphAssoc(sweetviz.graph.Graph):
 
         # Finalize Graph
         #plt.subplots_adjust(bottom=0.15, right=0.85, top=0.97, left=0.15)
-        f = corrplot(graph_data, dataframe_report, name_to_display)
+        f = corrplot(graph_data, dataframe_report)
         self.graph_base64 = self.get_encoded_base64(f)
         plt.close(f)
         return
@@ -302,33 +295,28 @@ def heatmap(y, x, figure_size, **kwargs):
             # return int(size_scale)
             # return val_position * int(size_scale)
 
-    name_to_display = kwargs.get('name_to_display', dict())
-
-    def to_display(raw_name):
-        return name_to_display.get(raw_name, raw_name)
-
     def do_wrapping(label, length):
         return wrap_custom(label, ["_", "-"], length)
         # return '\n'.join(wrap(label, 15))
     wrap_x = 12 # at top/bottom
     wrap_y = 13
     if 'x_order' in kwargs:
-        x_names_raw = [t for t in kwargs['x_order']]
+        x_names = [t for t in kwargs['x_order']]
     else:
-        x_names_raw = [t for t in sorted(set([v for v in x]))]
-    x_tick_labels = [do_wrapping(to_display(label), wrap_x) for label in x_names_raw]
-    x_names_internal = [do_wrapping(label, wrap_x) for label in x_names_raw]
+        x_names = [t for t in sorted(set([v for v in x]))]
+    # Wrap to help avoid overflow
+    x_names = [do_wrapping(label, wrap_x) for label in x_names]
 
-    x_to_num = {p[1]:p[0] for p in enumerate(x_names_internal)}
+    x_to_num = {p[1]:p[0] for p in enumerate(x_names)}
 
     if 'y_order' in kwargs:
-        y_names_raw = [t for t in kwargs['y_order']]
+        y_names = [t for t in kwargs['y_order']]
     else:
-        y_names_raw = [t for t in sorted(set([v for v in y]))]
-    y_tick_labels = [do_wrapping(to_display(label), wrap_y) for label in y_names_raw]
-    y_names_internal = [do_wrapping(label, wrap_y) for label in y_names_raw]
+        y_names = [t for t in sorted(set([v for v in y]))]
+    # Wrap to help avoid overflow
+    y_names = [do_wrapping(label, wrap_y) for label in y_names]
 
-    y_to_num = {p[1]:p[0] for p in enumerate(y_names_internal)}
+    y_to_num = {p[1]:p[0] for p in enumerate(y_names)}
 
     figure, axs = plt.subplots(1, 1, figsize=figure_size)
 
@@ -344,9 +332,9 @@ def heatmap(y, x, figure_size, **kwargs):
 
     ax.tick_params(labelbottom='on', labeltop='on')
     ax.set_xticks([v for k,v in x_to_num.items()])
-    ax.set_xticklabels(x_tick_labels, rotation=90, horizontalalignment='center', linespacing=0.8)
+    ax.set_xticklabels([k for k in x_to_num], rotation=90, horizontalalignment='center', linespacing=0.8)
     ax.set_yticks([v for k,v in y_to_num.items()])
-    ax.set_yticklabels(y_tick_labels, linespacing=0.85)
+    ax.set_yticklabels([k for k in y_to_num], linespacing=0.85)
 
     ax.grid(False, 'major')
     ax.grid(True, 'minor')
@@ -446,7 +434,7 @@ def filter_best_corr(correlation_dataframe):
                 top_values[f] = val
     ordered = {k: v for k, v in sorted(top_values.items(), key=lambda item: item[1])}
 
-def corrplot(correlation_dataframe, dataframe_report, name_to_display, size_scale=100, marker='s'):
+def corrplot(correlation_dataframe, dataframe_report, size_scale=100, marker='s'):
     #              PassengerId  Survived    Pclass  ...     SibSp     Parch      Fare
     # PassengerId     1.000000 -0.005007 -0.035144  ... -0.057527 -0.001652  0.012658
     # Survived       -0.005007  1.000000 -0.338481  ... -0.035322  0.081629  0.257307
@@ -488,7 +476,6 @@ def corrplot(correlation_dataframe, dataframe_report, name_to_display, size_scal
         x_order=correlation_dataframe.columns,
         y_order=correlation_dataframe.columns[::-1],
         size_scale=config["Associations"].getfloat("association_graph_size_scale"),
-        dataframe_report = dataframe_report,
-        name_to_display = name_to_display
+        dataframe_report = dataframe_report
     )
 
