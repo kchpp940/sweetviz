@@ -8,6 +8,14 @@ OTHERS_GROUPED = "     (Other)"
 
 
 @dataclass
+class FileOutputOptions:
+    enabled: bool = False
+    filepath: str = None
+    layout: str = "widescreen"
+    scale: float = 1.0
+
+
+@dataclass
 class RenderOptions:
     layout: str = "widescreen"
     scale: float = 1.0
@@ -16,6 +24,14 @@ class RenderOptions:
     use_cjk_font: bool = False
     association_min_to_bold: float = 0.1
 
+    collapse_details: bool = False
+    hide_associations: bool = False
+
+    iframe_width: str = None
+    iframe_height: str = None
+
+    file_output: FileOutputOptions = field(default_factory=FileOutputOptions)
+
     def validate(self):
         if self.layout not in ['widescreen', 'vertical']:
             raise ValueError(
@@ -23,6 +39,15 @@ class RenderOptions:
         if self.scale <= 0:
             raise ValueError(
                 f"'scale' parameter must be positive, got {self.scale}")
+        if self.file_output.enabled:
+            if self.file_output.filepath is None:
+                raise ValueError("file_output.filepath must be set when file_output.enabled is True")
+            if self.file_output.layout not in ['widescreen', 'vertical']:
+                raise ValueError(
+                    f"file_output.layout must be either 'widescreen' or 'vertical', got '{self.file_output.layout}'")
+            if self.file_output.scale <= 0:
+                raise ValueError(
+                    f"file_output.scale must be positive, got {self.file_output.scale}")
 
 @unique
 class FeatureType(Enum):

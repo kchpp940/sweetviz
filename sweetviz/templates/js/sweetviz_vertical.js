@@ -1,13 +1,6 @@
 let g_snapped = "";
 let g_lastHovered = "";
 
-let g_render_options = typeof g_render_options !== 'undefined' ? g_render_options : {
-    layout: "vertical",
-    scale: 1.0,
-    page_height: 0,
-    show_logo: true
-};
-
 function hideAllDetails()
 {
     $(".container-feature-detail").hide();
@@ -44,10 +37,8 @@ $("span.bg-tab-summary-rollover").hide();
 
 // Make the detail column the same height, so the floating element has room
 //$("#col2").height($("#col1").height());
-let pageHeight = (typeof g_height !== 'undefined') ? g_height : g_render_options.page_height;
-let scale = (typeof g_scale !== 'undefined') ? g_scale : g_render_options.scale;
-$("#col1").height(pageHeight);
-$("#col2").height(pageHeight);
+$("#col1").height(g_render_options.page_height);
+$("#col2").height(g_render_options.page_height);
 //alert($("#col1").height());
 
 // SUMMARY AREA
@@ -90,7 +81,7 @@ $(".selector").click(function(event) {
             // CATEGORICAL feature: use variable-height window
             var $el = $('#detail_breakdown-' + feature_safe_name);  //record the elem so you don't crawl the DOM everytime
             // HACK: BUG IN BROWSERS? DIVING BY SCALE HERE...
-            var bottom = ($el.position().top / scale) + $el.outerHeight(true); // passing "true" will also include the top and bottom margin
+            var bottom = ($el.position().top / g_render_options.scale) + $el.outerHeight(true); // passing "true" will also include the top and bottom margin
             var desiredBottomBreakdown = bottom + 157;
 
             $el = $('#cat-assoc-window-' + feature_safe_name);  //record the elem so you don't crawl the DOM everytime

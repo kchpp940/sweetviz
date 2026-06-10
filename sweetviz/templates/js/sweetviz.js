@@ -1,12 +1,4 @@
 let g_snapped = "";
-// let g_lastHovered = "";
-
-let g_render_options = typeof g_render_options !== 'undefined' ? g_render_options : {
-    layout: "widescreen",
-    scale: 1.0,
-    page_height: 0,
-    show_logo: true
-};
 
 function hideAllDetails()
 {
@@ -46,9 +38,8 @@ $("span.bg-tab-summary-rollover").hide();
 
 // Make the detail column the same height, so the floating element has room
 //$("#col2").height($("#col1").height());
-let pageHeight = (typeof g_height !== 'undefined') ? g_height : g_render_options.page_height;
-$("#col1").height(pageHeight);
-$("#col2").height(pageHeight);
+$("#col1").height(g_render_options.page_height);
+$("#col2").height(g_render_options.page_height);
 //alert($("#col1").height());
 
 // SUMMARY AREA

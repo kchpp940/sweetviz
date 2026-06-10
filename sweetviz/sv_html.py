@@ -41,14 +41,19 @@ def load_layout_globals_from_config():
     jinja2_env.globals["general"] = general_globals
 
 
-def build_render_options_from_config(layout: str = None, scale: float = None) -> RenderOptions:
+def build_render_options_from_config(
+        layout: str = None,
+        scale: float = None,
+        config_section: str = "Output_Defaults",
+        layout_key: str = "html_layout",
+        scale_key: str = "html_scale") -> RenderOptions:
     options = RenderOptions()
     if layout is None:
-        options.layout = config["Output_Defaults"]["html_layout"]
+        options.layout = config[config_section][layout_key]
     else:
         options.layout = layout
     if scale is None:
-        options.scale = float(config["Output_Defaults"]["html_scale"])
+        options.scale = float(config[config_section][scale_key])
     else:
         options.scale = float(scale)
     options.show_logo = bool(config["Layout"].getint("show_logo"))
@@ -84,12 +89,7 @@ def generate_html_detail(dataframe_report):
             feature["html_detail"] = generate_html_detail_text(feature, compare_dict, dataframe_report)
 
 
-def generate_html_dataframe_page(dataframe_report, render_options: RenderOptions = None):
-    if render_options is None:
-        render_options = RenderOptions(
-            layout=getattr(dataframe_report, 'page_layout', 'widescreen'),
-            scale=getattr(dataframe_report, 'scale', 1.0),
-        )
+def generate_html_dataframe_page(dataframe_report, render_options: RenderOptions):
     render_options.validate()
 
     template = jinja2_env.get_template('dataframe_page.html')
