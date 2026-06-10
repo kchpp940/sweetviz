@@ -1,5 +1,6 @@
 from enum import Enum, unique
 from dataclasses import dataclass, field
+import json
 import pandas as pd
 
 
@@ -46,23 +47,12 @@ class RenderOptions:
             'hide_associations': self.hide_associations,
         }
 
-    def to_js_object(self) -> str:
-        def _js_escape(s: str) -> str:
-            return s.replace('\\', '\\\\').replace('"', '\\"')
-
+    def to_json(self, for_script_tag: bool = True) -> str:
         data = self.to_dict()
-        parts = []
-        for key, value in data.items():
-            if isinstance(value, bool):
-                parts.append(f'    {key}: {"true" if value else "false"}')
-            elif isinstance(value, str):
-                parts.append(f'    {key}: "{_js_escape(value)}"')
-            elif isinstance(value, list):
-                items = ', '.join(f'"{_js_escape(str(x))}"' for x in value)
-                parts.append(f'    {key}: [{items}]')
-            else:
-                parts.append(f'    {key}: {value}')
-        return '{\n' + ',\n'.join(parts) + '\n}'
+        json_str = json.dumps(data, ensure_ascii=False)
+        if for_script_tag:
+            json_str = json_str.replace('</', '<\\/')
+        return json_str
 
     def validate(self):
         if self.layout not in ['widescreen', 'vertical']:

@@ -41,6 +41,86 @@ $("#col1").height(g_render_options.page_height);
 $("#col2").height(g_render_options.page_height);
 //alert($("#col1").height());
 
+// Apply collapse_details default and open_features
+// --------------------------------------------------------
+function expandFeatureBySelector($selector) {
+    var $summary = $selector.parent();
+    var $container = $summary.parent();
+
+    if ($container.data('expanded') === 'true') return;
+
+    var detailDiv = $selector.data('detail-div');
+    $("#" + detailDiv).show();
+    $container.data('expanded', 'true');
+
+    var feature_safe_name = $summary.data('feature-safe-name');
+    var is_target = $summary.data('is-target') === 'true';
+
+    if ($('#cat-assoc-window-'+feature_safe_name).length) {
+        var $el = $('#detail_breakdown-' + feature_safe_name);
+        var bottom = ($el.position().top / g_render_options.scale) + $el.outerHeight(true);
+        var desiredBottomBreakdown = bottom + 157;
+
+        $el = $('#cat-assoc-window-' + feature_safe_name);
+        var bottomAssoc = $el.position().top + $el.outerHeight(true);
+        var desiredBottomAssoc = bottomAssoc + 166;
+
+        var finalHeight = Math.max(desiredBottomBreakdown, desiredBottomAssoc);
+        if (is_target) {
+            $summary.css('height', String((finalHeight + 50)) + 'px');
+            $summary.css("overflow", "hidden");
+        }
+        $container.css('height', String(finalHeight) + 'px');
+    } else {
+        $container.css('height', '1030px');
+    }
+
+    if (is_target) {
+        $summary.find(".bg-tab-summary-target").addClass("bg-tab-summary-target-full");
+        $summary.find(".bg-tab-summary-target").removeClass("bg-tab-summary-target");
+    }
+
+    var sel = document.getSelection();
+    sel.removeAllRanges();
+}
+
+function collapseFeatureBySelector($selector) {
+    var $summary = $selector.parent();
+    var $container = $summary.parent();
+
+    if ($container.data('expanded') !== 'true') return;
+
+    var detailDiv = $selector.data('detail-div');
+    $("#" + detailDiv).hide();
+    $container.data('expanded', 'false');
+    $container.css('height', '161px');
+
+    if ($summary.data('is-target') === 'true') {
+        $summary.find(".bg-tab-summary-target").removeClass("bg-tab-summary-target-full");
+        $summary.find(".bg-tab-summary-target").addClass("bg-tab-summary-target");
+    }
+
+    var sel = document.getSelection();
+    sel.removeAllRanges();
+}
+
+if (g_render_options.collapse_details) {
+    $(".container-feature-summary .selector, .container-feature-summary-target .selector").each(function() {
+        collapseFeatureBySelector($(this));
+    });
+}
+
+if (g_render_options.open_features && g_render_options.open_features.length > 0) {
+    g_render_options.open_features.forEach(function(featureName) {
+        var $summary = $('.container-feature-summary[data-feature-name="' + featureName + '"], ' +
+                        '.container-feature-summary-target[data-feature-name="' + featureName + '"]');
+        if ($summary.length > 0) {
+            var $selector = $summary.children('.selector').first();
+            expandFeatureBySelector($selector);
+        }
+    });
+}
+
 // SUMMARY AREA
 // --------------------------------------------------------
 // EVENT: SUMMARY ROLLOVER

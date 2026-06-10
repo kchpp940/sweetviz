@@ -53,7 +53,7 @@
         span.graph-legend { content: url(data:image/png;base64,{{ dataframe.graph_legend.graph_base64.decode('ascii') }});}
     </style>
 <script>
-    g_render_options = {{ render_options.to_js_object() | safe }};
+    g_render_options = {{ render_options.to_json() | safe }};
 </script>
 </head>
 
@@ -93,46 +93,40 @@
             {% if dataframe._target is not none: %}
                 <div class="pos-feature-summary" style="top: {{ dataframe._target.summary_pos }}px">
                     {{ dataframe._target.html_summary }}
-                    <!-- This DETAIL WINDOW (VERTICAL ONLY) -->
-                    {% if render_options.layout == 'vertical' and not render_options.collapse_details: %}
-                        {{ dataframe._target.html_detail }}
-                    {% endif %}
                 </div>
             {% endif %}
             <!-- FEATURE Summaries -->
             {% for item in dataframe._features.values() %}
                 <div class="pos-feature-summary" style="top: {{ item.summary_pos }}px">
                     {{ item.html_summary }}
-                    <!-- This DETAIL WINDOW (VERTICAL ONLY) -->
-                    {% if render_options.layout == 'vertical' and not render_options.collapse_details: %}
-                        {{ item.html_detail }}
-                    {% endif %}
                 </div>
            {% endfor %}
         </div>
     </div>
 
-    <!-- ALL DETAIL WINDOWS (WIDESCREEN ONLY) -->
-    {% if render_options.layout == 'widescreen' and not render_options.collapse_details: %}
+    <!-- DETAIL WINDOWS -->
+    {% if render_options.layout == 'widescreen': %}
         <div class="page-column-detail" id="col2">
-            {% if dataframe._target is not none: %}
-                {{ dataframe._target.html_detail }}
-            {% endif %}
             {% if dataframe.associations_html_source is not none and not render_options.hide_associations: %}
                 {{ dataframe.associations_html_source }}
             {% endif %}
             {% if dataframe.associations_html_compare is not none and not render_options.hide_associations: %}
                 {{ dataframe.associations_html_compare }}
             {% endif %}
-            <!-- TARGET Detail -->
             {% if dataframe._target is not none: %}
                 {{ dataframe._target.html_detail }}
             {% endif %}
-            <!-- FEATURE Details -->
             {% for item in dataframe._features.values() %}
                 {{ item.html_detail }}
             {% endfor %}
         </div>
+    {% else %}
+        {% if dataframe._target is not none: %}
+            {{ dataframe._target.html_detail }}
+        {% endif %}
+        {% for item in dataframe._features.values() %}
+            {{ item.html_detail }}
+        {% endfor %}
     {% endif %}
 </div>
 </body>
