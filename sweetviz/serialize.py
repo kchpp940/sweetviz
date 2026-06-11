@@ -1,13 +1,28 @@
 import json
 import math
 import numbers
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
 
+from sweetviz.sv_types import NumWithPercent, FeatureType
+
+
+def _nwp_to_dict(obj: NumWithPercent):
+    if obj is None:
+        return None
+    return {
+        "number": _convert_value(obj.number),
+        "percentage": _convert_value(obj.perc),
+    }
+
 
 def _convert_value(val: Any) -> Any:
+    if isinstance(val, NumWithPercent):
+        return _nwp_to_dict(val)
+    if isinstance(val, FeatureType):
+        return val.value
     if isinstance(val, (np.integer,)):
         return int(val)
     if isinstance(val, (np.floating,)):
@@ -30,6 +45,11 @@ def _convert_value(val: Any) -> Any:
         return f
     if isinstance(val, str):
         return val
+    if isinstance(val, bytes):
+        try:
+            return val.decode('utf-8')
+        except (UnicodeDecodeError, AttributeError):
+            return None
     if isinstance(val, dict):
         return {k: _convert_value(v) for k, v in val.items()}
     if isinstance(val, (list, tuple)):

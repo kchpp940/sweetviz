@@ -1,133 +1,20 @@
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_common-1.5.1b20260503-nspkg.pth:
+                                             |          | [  0%]   00:00 -> (? left)[Summarizing dataframe]                      |          | [  0%]   00:00 -> (? left)Feature: a                                   |███▎      | [ 33%]   00:00 -> (00:00 left)Feature: a                                   |██████▋   | [ 67%]   00:00 -> (00:00 left)Feature: b                                   |██████▋   | [ 67%]   00:00 -> (00:00 left)Feature: b                                   |██████████| [100%]   00:00 -> (00:00 left)Feature: b                                   |██████████| [100%]   00:00 -> (00:00 left)
+=== Test 1: Basic report data ===
+get_report_data keys: ['metadata', 'source_summary', 'features']
+features: ['a', 'b']
 
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
+=== Test 2: JSON export ===
+JSON keys: ['metadata', 'source_summary', 'features']
+feature a keys: ['name', 'display_name', 'safe_name', 'order_index', 'is_target', 'type', 'stats', 'base_stats', 'detail', 'minigraph', 'detail_graphs', 'html_summary']
+feature a type: NUMERIC
+num_values number type: <class 'int'>
+num_values number value: 100
 
-Remainder of file ignored
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_core-1.5.1b20260503-nspkg.pth:
+=== Test 3: Compare + drift ===
+                                             |          | [  0%]   00:00 -> (? left)[Summarizing dataframe]                      |          | [  0%]   00:00 -> (? left)Feature: x                                   |███▎      | [ 33%]   00:00 -> (00:00 left)Feature: x                                   |██████▋   | [ 67%]   00:00 -> (00:00 left)Feature: y                                   |██████▋   | [ 67%]   00:00 -> (00:00 left)Feature: y                                   |██████████| [100%]   00:00 -> (00:00 left)
+compare_name: Compare
+drift_summary keys: ['num_features', 'average_score', 'max_score', 'severity_counts', 'top_features']
+drift max_score: 80.0
+feature x drift score: 30.0
 
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_features-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_tabular-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-DataFrame created
-                                             |          | [  0%]   00:00 -> (? left)[Summarizing dataframe]                      |          | [  0%]   00:00 -> (? left)Feature: num_col                             |██        | [ 20%]   00:00 -> (00:00 left)Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_common-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_core-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_features-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_tabular-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Feature: num_col                             |████      | [ 40%]   00:00 -> (00:01 left)Feature: cat_col                             |████      | [ 40%]   00:00 -> (00:01 left)Feature: cat_col                             |██████    | [ 60%]   00:00 -> (00:00 left)Feature: text_col                            |██████    | [ 60%]   00:00 -> (00:00 left)Feature: text_col                            |████████  | [ 80%]   00:01 -> (00:00 left)Feature: bool_col                            |████████  | [ 80%]   00:01 -> (00:00 left)Feature: bool_col                            |██████████| [100%]   00:01 -> (00:00 left)Feature: bool_col                            |          | [  0%]   00:00 -> (? left)    [Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 3/3] Generating associations graph     |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)
-Report generated
-
---- num_col (type: TYPE_NUMERIC) ---
-  All top-level keys present: OK
-  All detail sub-keys present: OK
-  All viz sub-keys present: OK
-  numeric_stats populated: OK
-  detail.numeric populated: OK (frequent_values: 30)
-  Non-applicable fields are None: OK
-
---- cat_col (type: TYPE_CATEGORICAL) ---
-  All top-level keys present: OK
-  All detail sub-keys present: OK
-  All viz sub-keys present: OK
-  detail.cat populated: OK (full_count: 4)
-  Non-applicable fields are None: OK
-
---- text_col (type: TYPE_CATEGORICAL) ---
-  All top-level keys present: OK
-  All detail sub-keys present: OK
-  All viz sub-keys present: OK
-  detail.cat populated: OK (full_count: 4)
-  Non-applicable fields are None: OK
-
---- bool_col (type: TYPE_BOOL) ---
-  All top-level keys present: OK
-  All detail sub-keys present: OK
-  All viz sub-keys present: OK
-  detail.cat populated: OK (full_count: 3)
-  Non-applicable fields are None: OK
-
-=== Test 2: Compare mode ===
-                                             |          | [  0%]   00:00 -> (? left)[Summarizing dataframe]                      |          | [  0%]   00:00 -> (? left)Feature: num_a                               |███▎      | [ 33%]   00:00 -> (00:00 left)Feature: num_a                               |██████▋   | [ 67%]   00:00 -> (00:00 left)Feature: cat_b                               |██████▋   | [ 67%]   00:00 -> (00:00 left)Feature: cat_b                               |██████████| [100%]   00:00 -> (00:00 left)Feature: cat_b                               |          | [  0%]   00:00 -> (? left)    [Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 3/3] Generating associations graph     |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)
-Compare report generated
-
---- num_a ---
-  compare sub-structure present: OK
-  compare.detail sub-keys present: OK
-
---- cat_b ---
-  compare sub-structure present: OK
-  compare.detail sub-keys present: OK
-
-=== Test 3: Target mode ===
-                                             |          | [  0%]   00:00 -> (? left)[Summarizing dataframe]                      |          | [  0%]   00:00 -> (? left)Feature: target_num (TARGET)                 |██▌       | [ 25%]   00:00 -> (00:00 left)Feature: target_num (TARGET)                 |█████     | [ 50%]   00:00 -> (00:00 left)Feature: feat_num                            |█████     | [ 50%]   00:00 -> (00:00 left)Feature: feat_num                            |███████▌  | [ 75%]   00:01 -> (00:00 left)Feature: feat_cat                            |███████▌  | [ 75%]   00:01 -> (00:00 left)Feature: feat_cat                            |██████████| [100%]   00:01 -> (00:00 left)Feature: feat_cat                            |          | [  0%]   00:00 -> (? left)    [Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 3/3] Generating associations graph     |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)
-Target report generated
-  Target present: target_num
-
-=== Test 4: HTML output ===
-Report /var/folders/5n/5fk0gy756kj43rvymptfpp1r0000gn/T/tmpqcnkz2an.html was generated.
-  Widescreen HTML generated: OK (561414 bytes)
-Report /var/folders/5n/5fk0gy756kj43rvymptfpp1r0000gn/T/tmpqcnkz2an.html was generated.
-  Vertical HTML generated: OK (560420 bytes)
-Report /var/folders/5n/5fk0gy756kj43rvymptfpp1r0000gn/T/tmpqcnkz2an.html was generated.
-  Compare HTML generated: OK (555947 bytes)
-Report /var/folders/5n/5fk0gy756kj43rvymptfpp1r0000gn/T/tmpqcnkz2an.html was generated.
-  Target HTML generated: OK (708471 bytes)
-
-=== All tests passed! ===
+All tests passed!

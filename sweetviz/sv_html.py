@@ -43,10 +43,10 @@ def load_layout_globals_from_config():
 
 
 def set_summary_positions(dataframe_report):
-    if dataframe_report._target is not None:
-        dataframe_report._target["summary_pos"] = 0.0
-    for feature in dataframe_report._features.values():
-        render_index = feature["order_index"] if dataframe_report._target is None else \
+    if dataframe_report.target is not None:
+        dataframe_report.target["summary_pos"] = 0.0
+    for feature in dataframe_report.features.values():
+        render_index = feature["order_index"] if dataframe_report.target is None else \
             (feature["order_index"] + 1)
         feature["summary_pos"] = render_index * config["Layout"].getint("summary_spacing")
         feature["summary_pos"] = 0.0
@@ -54,9 +54,9 @@ def set_summary_positions(dataframe_report):
 
 def generate_html_detail(dataframe_report):
     # Need to generate final data for numeric and categorical
-    all_detail = list(dataframe_report._features.values())
-    if dataframe_report._target is not None:
-        all_detail.append(dataframe_report._target)
+    all_detail = list(dataframe_report.features.values())
+    if dataframe_report.target is not None:
+        all_detail.append(dataframe_report.target)
 
     for feature in (all_detail):
         compare_dict = feature.get("compare")
@@ -284,13 +284,13 @@ def generate_html_detail_numeric(feature_dict: dict, compare_dict: dict, datafra
     # Set up ASSOCIATION data
     # ------------------------------------
     feature_name = feature_dict["name"]
-    if dataframe_report._associations is not None:
-        numerical = dataframe_report._associations[feature_name]
+    if dataframe_report.associations is not None:
+        numerical = dataframe_report.associations[feature_name]
         # Filter by datatype NUMERICAL
         numerical = {k: v for k, v in numerical.items() \
                        if dataframe_report.get_type(k) == FeatureType.TYPE_NUM and k != feature_name}
 
-        categorical = dataframe_report._associations[feature_name]
+        categorical = dataframe_report.associations[feature_name]
         # Filter by datatype CATEGORICAL
         categorical = {k: v for k, v in categorical.items() \
                       if dataframe_report.get_type(k) == FeatureType.TYPE_BOOL or
@@ -302,9 +302,9 @@ def generate_html_detail_numeric(feature_dict: dict, compare_dict: dict, datafra
         categorical = sorted(categorical.items(), key=itemgetter(1), reverse=True)[:max_num]
 
         # Set who's the target, for highlighting
-        if dataframe_report._target is not None:
-            numerical = add_is_target_or_not(numerical, dataframe_report._target["name"])
-            categorical = add_is_target_or_not(categorical, dataframe_report._target["name"])
+        if dataframe_report.target is not None:
+            numerical = add_is_target_or_not(numerical, dataframe_report.target["name"])
+            categorical = add_is_target_or_not(categorical, dataframe_report.target["name"])
     else:
         max_num = None
         numerical = None
@@ -363,7 +363,7 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
         cur_x = cur_x + config["Layout"].getint("cat_detail_col_target_extra_spacing")
         cols["source_target"] = cur_x
         cur_x = cur_x + spacing
-        if "compare" in dataframe_report._target:
+        if "compare" in dataframe_report.target:
             cols["compare_target"] = cur_x
             cur_x = cur_x + spacing
 
@@ -373,9 +373,9 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
     # Set up ASSOCIATION data
     # ------------------------------------
     feature_name = feature_dict["name"]
-    if dataframe_report._associations is not None:
+    if dataframe_report.associations is not None:
         # Filter by datatype CATEGORICAL
-        influencing = dataframe_report._associations[feature_name]
+        influencing = dataframe_report.associations[feature_name]
         influencing = { k: v for k, v in influencing.items() \
                         if (dataframe_report.get_type(k) == FeatureType.TYPE_BOOL or
                             dataframe_report.get_type(k) == FeatureType.TYPE_CAT) and
@@ -389,7 +389,7 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
                             k != feature_name }
 
         # NUM-CAT
-        corr_ratio = dataframe_report._associations[feature_name]
+        corr_ratio = dataframe_report.associations[feature_name]
         corr_ratio = { k: v for k, v in corr_ratio.items() \
                         if dataframe_report.get_type(k) == FeatureType.TYPE_NUM and
                             k != feature_name }
@@ -401,10 +401,10 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
         corr_ratio = sorted(corr_ratio.items(), key=itemgetter(1), reverse=True)[:max_num]
 
         # Set who's the target, for highlighting
-        if dataframe_report._target is not None:
-            influencing = add_is_target_or_not(influencing, dataframe_report._target["name"])
-            influenced = add_is_target_or_not(influenced, dataframe_report._target["name"])
-            corr_ratio = add_is_target_or_not(corr_ratio, dataframe_report._target["name"])
+        if dataframe_report.target is not None:
+            influencing = add_is_target_or_not(influencing, dataframe_report.target["name"])
+            influenced = add_is_target_or_not(influenced, dataframe_report.target["name"])
+            corr_ratio = add_is_target_or_not(corr_ratio, dataframe_report.target["name"])
     else:
         influencing = None
         influenced = None
