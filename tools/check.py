@@ -155,76 +155,227 @@ def check_pytest_pre_release():
 
 
 # ---------------------------------------------------------------------------
-# 3. Build verification: wheel + sdist, verify contents
+# 3. Build verification: wheel + sdist, verify contents via real unpacking
 # ---------------------------------------------------------------------------
 
-WHEEL_MUST_HAVE = [
-    "sweetviz/__init__.py",
-    "sweetviz/_pre_release.py",
-    "sweetviz/_metadata.py",
-    "sweetviz/sv_public.py",
-    "sweetviz/dataframe_report.py",
-    "sweetviz/serialize.py",
-    "sweetviz/sweetviz_defaults.ini",
-    "sweetviz/templates/dataframe_page.html",
-    "sweetviz/templates/js/jquery-3.7.1.min.js",
-    "sweetviz/templates/js/sweetviz.js",
-    "sweetviz/templates/js/sweetviz_vertical.js",
-    "sweetviz/fonts/Roboto-Medium.ttf",
-    "sweetviz/fonts/NotoSansCJK-Medium.ttc",
-    "sweetviz/mpl_styles/graph_base.mplstyle",
-    "sweetviz/mpl_styles/graph_target.mplstyle",
+WHEEL_FILES_REQUIRED = [
+    "__init__.py",
+    "_pre_release.py",
+    "sv_public.py",
+    "dataframe_report.py",
+    "serialize.py",
+    "feature_config.py",
+    "config.py",
+    "sv_html.py",
+    "sv_types.py",
+    "type_detection.py",
+    "utils.py",
+    "graph.py",
+    "graph_numeric.py",
+    "graph_cat.py",
+    "graph_associations.py",
+    "graph_legend.py",
+    "series_analyzer.py",
+    "series_analyzer_numeric.py",
+    "series_analyzer_cat.py",
+    "series_analyzer_text.py",
+    "sv_html_formatters.py",
+    "sv_math.py",
+    "comet_ml_logger.py",
+    "from_profiling_pandas.py",
+    "from_dython.py",
+    "update_jquery.py",
+    "sweetviz_defaults.ini",
+    "templates/dataframe_page.html",
+    "templates/dataframe_summary.html",
+    "templates/dataframe_associations.html",
+    "templates/feature_summary_numeric.html",
+    "templates/feature_summary_cat.html",
+    "templates/feature_summary_text.html",
+    "templates/feature_summary_target_numeric.html",
+    "templates/feature_summary_target_cat.html",
+    "templates/feature_summary_base_stats.html",
+    "templates/feature_detail_numeric.html",
+    "templates/feature_detail_cat.html",
+    "templates/feature_detail_text.html",
+    "templates/include_missing.html",
+    "templates/sweetviz.css",
+    "templates/sv_assets.css",
+    "templates/js/jquery-3.7.1.min.js",
+    "templates/js/sweetviz.js",
+    "templates/js/sweetviz_vertical.js",
+    "fonts/Roboto-Medium.ttf",
+    "fonts/NotoSansCJK-Medium.ttc",
+    "fonts/LICENSE_OFL.txt",
+    "mpl_styles/graph_base.mplstyle",
+    "mpl_styles/graph_target.mplstyle",
 ]
 
-SDIST_MUST_HAVE = [
+WHEEL_FILES_REQUIRED = ["sweetviz/" + p for p in WHEEL_FILES_REQUIRED]
+
+WHEEL_NONEMPTY_FILES = [
+    p for p in WHEEL_FILES_REQUIRED
+    if p.endswith((".html", ".css", ".js", ".ini", ".ttf", ".ttc", ".mplstyle"))
+]
+
+WHEEL_BINARIES_MIN_BYTES = {
+    "sweetviz/fonts/Roboto-Medium.ttf": 100_000,
+    "sweetviz/fonts/NotoSansCJK-Medium.ttc": 5_000_000,
+    "sweetviz/templates/js/jquery-3.7.1.min.js": 50_000,
+}
+
+SDIST_FILES_REQUIRED = [
     "pyproject.toml",
+    "setup.py",
     "MANIFEST.in",
     "LICENSE",
     "README.md",
+    "tools/check.py",
+    "tools/build_hooks.py",
+    "scripts/pre_release_checks.py",
+    "tests/__init__.py",
+    "tests/pre_release/__init__.py",
+    "tests/pre_release/test_pre_release.py",
     "sweetviz/__init__.py",
+    "sweetviz/_pre_release.py",
     "sweetviz/sweetviz_defaults.ini",
+    "sweetviz/templates/dataframe_page.html",
+    "sweetviz/templates/sweetviz.css",
+    "sweetviz/templates/js/sweetviz.js",
+    "sweetviz/fonts/Roboto-Medium.ttf",
+    "sweetviz/mpl_styles/graph_base.mplstyle",
 ]
 
 
-def check_build_wheel_contents():
+def _build_wheel():
     result = _run([sys.executable, "-m", "build", "--wheel", "--outdir", "dist"])
     if result.returncode != 0:
         raise RuntimeError(f"wheel build failed.\n{result.stderr[-800:]}")
-
     wheels = list((ROOT / "dist").glob("sweetviz-*.whl"))
     if not wheels:
         raise RuntimeError("No wheel built in dist/")
-    wheel = max(wheels, key=lambda p: p.stat().st_mtime)
-
-    with zipfile.ZipFile(wheel) as zf:
-        names = set(zf.namelist())
-
-    missing = [p for p in WHEEL_MUST_HAVE if p not in names]
-    if missing:
-        raise RuntimeError(f"Wheel missing files: {missing}")
-    return f"Wheel {wheel.name} has {len(WHEEL_MUST_HAVE)} required files"
+    return max(wheels, key=lambda p: p.stat().st_mtime)
 
 
-def check_build_sdist_contents():
+def _build_sdist():
     result = _run([sys.executable, "-m", "build", "--sdist", "--outdir", "dist"])
     if result.returncode != 0:
         raise RuntimeError(f"sdist build failed.\n{result.stderr[-800:]}")
-
     sdists = list((ROOT / "dist").glob("sweetviz-*.tar.gz"))
     if not sdists:
         raise RuntimeError("No sdist built in dist/")
+    return max(sdists, key=lambda p: p.stat().st_mtime)
 
-    import tarfile
-    sdist = max(sdists, key=lambda p: p.stat().st_mtime)
-    with tarfile.open(sdist, "r:gz") as tf:
-        names = set()
-        for m in tf.getmembers():
-            names.add("/".join(m.name.split("/")[1:]))
 
-    missing = [p for p in SDIST_MUST_HAVE if p not in names]
+def _parse_entry_points(ep_text: str) -> dict:
+    """Parse entry_points.txt into a dict: {group: {name: module.attr}}."""
+    groups: dict = {}
+    current = None
+    for line in ep_text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            current = line[1:-1].strip()
+            groups[current] = {}
+            continue
+        if "=" in line and current is not None:
+            name, value = line.split("=", 1)
+            groups[current][name.strip()] = value.strip()
+    return groups
+
+
+def check_build_wheel_contents():
+    import tarfile as _tf  # noqa: F401
+
+    wheel = _build_wheel()
+
+    with zipfile.ZipFile(wheel) as zf:
+        names = set(zf.namelist())
+        info_map = {zi.filename: zi for zi in zf.infolist()}
+
+    missing = [p for p in WHEEL_FILES_REQUIRED if p not in names]
     if missing:
-        raise RuntimeError(f"sdist missing files: {missing}")
-    return f"sdist {sdist.name} has {len(SDIST_MUST_HAVE)} required files"
+        raise RuntimeError(f"Wheel missing {len(missing)} files: {missing}")
+
+    empty = [p for p in WHEEL_NONEMPTY_FILES if info_map[p].file_size == 0]
+    if empty:
+        raise RuntimeError(f"Wheel contains zero-byte resource files: {empty}")
+
+    too_small = []
+    for path, min_bytes in WHEEL_BINARIES_MIN_BYTES.items():
+        size = info_map[path].file_size
+        if size < min_bytes:
+            too_small.append(f"{path} ({size} < {min_bytes})")
+    if too_small:
+        raise RuntimeError(f"Wheel binary files suspiciously small: {too_small}")
+
+    dist_info_candidates = [
+        n for n in names if "/".join(n.split("/")[:1]).endswith(".dist-info")
+    ]
+    if not dist_info_candidates:
+        dist_info_candidates = [
+            n for n in names if ".dist-info/" in n or n.endswith(".dist-info")
+        ]
+    if not dist_info_candidates:
+        raise RuntimeError(
+            f"Wheel missing .dist-info directory. Sample names: {sorted(names)[:20]}"
+        )
+    dist_info_prefix = dist_info_candidates[0].split(".dist-info")[0] + ".dist-info/"
+    entry_points_path = dist_info_prefix + "entry_points.txt"
+    if entry_points_path not in names:
+        raise RuntimeError("Wheel missing .dist-info/entry_points.txt")
+
+    with zipfile.ZipFile(wheel) as zf:
+        ep_text = zf.read(entry_points_path).decode("utf-8")
+    entry_points = _parse_entry_points(ep_text)
+    if "console_scripts" not in entry_points:
+        raise RuntimeError("Wheel entry_points missing [console_scripts] group")
+    if "sweetviz-check" not in entry_points["console_scripts"]:
+        raise RuntimeError("Wheel missing 'sweetviz-check' console_scripts entry point")
+    target = entry_points["console_scripts"]["sweetviz-check"]
+    if "sweetviz._pre_release:main" not in target:
+        raise RuntimeError(
+            f"sweetviz-check entry point points to wrong target: {target}"
+        )
+
+    return (
+        f"Wheel {wheel.name}: {len(WHEEL_FILES_REQUIRED)} files present, "
+        f"{len(WHEEL_NONEMPTY_FILES)} non-empty resources verified, "
+        f"sweetviz-check entry point -> {target}"
+    )
+
+
+def check_build_sdist_contents():
+    import tarfile
+
+    sdist = _build_sdist()
+
+    with tarfile.open(sdist, "r:gz") as tf:
+        members = tf.getmembers()
+        names = set()
+        name_to_member = {}
+        for m in members:
+            rel = "/".join(m.name.split("/")[1:])
+            names.add(rel)
+            name_to_member[rel] = m
+
+    missing = [p for p in SDIST_FILES_REQUIRED if p not in names]
+    if missing:
+        raise RuntimeError(f"sdist missing {len(missing)} files: {missing}")
+
+    sdist_nonempty = [
+        p for p in SDIST_FILES_REQUIRED
+        if p.endswith((".html", ".css", ".js", ".ini", ".ttf", ".ttc", ".mplstyle"))
+    ]
+    empty = [p for p in sdist_nonempty if name_to_member[p].size == 0]
+    if empty:
+        raise RuntimeError(f"sdist contains zero-byte resource files: {empty}")
+
+    return (
+        f"sdist {sdist.name}: {len(SDIST_FILES_REQUIRED)} files present, "
+        f"{len(sdist_nonempty)} non-empty resources verified"
+    )
 
 
 def check_wheel_install_and_import():
@@ -239,13 +390,57 @@ def check_wheel_install_and_import():
         "import sweetviz;"
         "print('VERSION', sweetviz.__version__);"
         "print('ANALYZE', callable(sweetviz.analyze));"
+        "print('DATAFRAMEREPORT', callable(sweetviz.DataframeReport));"
         "report = sweetviz.analyze(__import__('pandas').DataFrame({'a': [1,2,3]}));"
         "print('REPORT', type(report).__name__);"
+        "import shutil;"
+        "svc = shutil.which('sweetviz-check');"
+        "print('SVCLI', bool(svc));"
     )
     result = _run([sys.executable, "-c", script, str(wheel)])
     if result.returncode != 0:
         raise RuntimeError(f"Wheel install+import failed.\n{result.stdout[-1000:]}\n{result.stderr[-1000:]}")
-    return "Wheel installs cleanly and sweetviz.analyze runs"
+
+    stdout = result.stdout
+    checks = {
+        "import sweetviz": "VERSION" in stdout,
+        "sweetviz.analyze callable": "ANALYZE True" in stdout,
+        "sweetviz.DataframeReport callable": "DATAFRAMEREPORT True" in stdout,
+        "analyze() produces DataframeReport": "REPORT DataframeReport" in stdout,
+        "sweetviz-check CLI installed on PATH": "SVCLI True" in stdout,
+    }
+    failed = [k for k, v in checks.items() if not v]
+    if failed:
+        raise RuntimeError(
+            f"Wheel install smoke-test failures: {failed}.\n"
+            f"STDOUT:\n{result.stdout[-1500:]}"
+        )
+
+    script_cli = (
+        "import subprocess, sys;"
+        "r = subprocess.run(['sweetviz-check'], capture_output=True, text=True, timeout=120);"
+        "print('RC', r.returncode);"
+        "sys.stdout.write(r.stdout[-500:]);"
+        "sys.stderr.write(r.stderr[-500:]);"
+        "sys.exit(r.returncode);"
+    )
+    result_cli = _run([sys.executable, "-c", script_cli])
+    if result_cli.returncode != 0:
+        raise RuntimeError(
+            f"sweetviz-check CLI execution failed (rc={result_cli.returncode}).\n"
+            f"STDOUT:\n{result_cli.stdout[-1500:]}\n"
+            f"STDERR:\n{result_cli.stderr[-1500:]}"
+        )
+    if "All pre-release checks passed" not in result_cli.stdout:
+        raise RuntimeError(
+            "sweetviz-check CLI did not print success banner:\n"
+            f"{result_cli.stdout[-1000:]}"
+        )
+
+    return (
+        "Wheel installs cleanly; import works; analyze() runs; "
+        "sweetviz-check CLI on PATH executes and all 24 checks pass"
+    )
 
 
 # ---------------------------------------------------------------------------

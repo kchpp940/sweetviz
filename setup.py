@@ -2,10 +2,16 @@
 Setuptools setup script — registers lightweight build hooks.
 
 Hooks run during `python -m build`, `pip install .`, and `pip install -e .`:
-  * Always: lightweight packaging checks (file manifest, MANIFEST rules,
-    pyproject.toml deps completeness & version pins). No runtime deps.
+  * Always (via build_py and sdist): lightweight packaging checks
+    (file manifest, MANIFEST rules, pyproject.toml deps completeness
+    & version pins). Zero runtime dependencies.
   * SWEETVIZ_ENFORCE_PRERELEASE=1: additionally run the full 24-check
     pre-release suite (requires sweetviz + all runtime deps installed).
+
+The bdist_wheel command is NOT hooked directly here — setuptools versions
+differ on where it lives and some build isolation environments lack it.
+Wheel artifact integrity is verified after build by `tools/check.py build`
+(which unpacks the .whl and checks every file / entry point).
 
 Environment:
   SWEETVIZ_SKIP_BUILD_HOOK=1   — bypass the hook entirely.
@@ -45,22 +51,9 @@ class PrereleaseSdist(_sdist):
     pass
 
 
-try:
-    from setuptools.command.bdist_wheel import bdist_wheel as _bdist_wheel
-
-    @_inject_hook
-    class PrereleaseBdistWheel(_bdist_wheel):
-        pass
-except ImportError:
-    PrereleaseBdistWheel = None
-
-
-cmdclass = {
-    "build_py": PrereleaseBuildPy,
-    "sdist": PrereleaseSdist,
-}
-if PrereleaseBdistWheel is not None:
-    cmdclass["bdist_wheel"] = PrereleaseBdistWheel
-
-
-setup(cmdclass=cmdclass)
+setup(
+    cmdclass={
+        "build_py": PrereleaseBuildPy,
+        "sdist": PrereleaseSdist,
+    },
+)
