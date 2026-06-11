@@ -1,37 +1,0 @@
-=== Test 1: Basic analyze JSON export ===
-                                             |          | [  0%]   00:00 -> (? left)[Summarizing dataframe]                      |          | [  0%]   00:00 -> (? left)Feature: numeric_col                         |██        | [ 20%]   00:00 -> (00:00 left)Feature: numeric_col                         |████      | [ 40%]   00:00 -> (00:00 left)Feature: category_col                        |████      | [ 40%]   00:00 -> (00:00 left)Feature: bool_col                            |██████    | [ 60%]   00:00 -> (00:00 left)Feature: bool_col                            |████████  | [ 80%]   00:00 -> (00:00 left)Feature: text_col                            |████████  | [ 80%]   00:00 -> (00:00 left)Feature: text_col                            |██████████| [100%]   00:00 -> (00:00 left)Feature: text_col                            |          | [  0%]   00:00 -> (? left)    [Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 3/3] Generating associations graph     |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)
-metadata keys: ['schema_version', 'generated_at', 'source_name', 'compare_name', 'sweetviz_version']
-schema_version: 1.0
-source_name: DataFrame
-source_summary num_rows: 1000
-display_name (numeric_col): 数值列
-display_name (category_col): 类别列
-display_name (bool_col): bool_col
-features count: 4
-Test 1 PASSED
-
-=== Test 2: Compare JSON export with drift ===
-                                             |          | [  0%]   00:00 -> (? left)[Summarizing dataframe]                      |          | [  0%]   00:00 -> (? left)Feature: numeric_col                         |██        | [ 20%]   00:00 -> (00:00 left)Feature: numeric_col                         |████      | [ 40%]   00:00 -> (00:00 left)Feature: category_col                        |████      | [ 40%]   00:00 -> (00:00 left)Feature: bool_col                            |██████    | [ 60%]   00:00 -> (00:00 left)Feature: bool_col                            |████████  | [ 80%]   00:00 -> (00:00 left)Feature: text_col                            |████████  | [ 80%]   00:00 -> (00:00 left)Feature: text_col                            |          | [  0%]   00:00 -> (? left)    [Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 3/3] Generating associations graph     |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)
-source_name: Source
-compare_name: Compare
-compare_summary present: True
-drift_summary present: True
-drift avg_score: 67.5
-drift max_score: 80.0
-numeric drift score: 42.6
-numeric drift severity: high
-category drift score: 80.0
-Test 2 PASSED
-
-=== Test 3: JSON independence from HTML generation ===
-Report /Users/pkcha/sweetviz/_test_refactor_report.html was generated.
-JSON before and after HTML generation are IDENTICAL
-Test 3 PASSED
-
-=== Test 4: Associations matrix in JSON ===
-                                             |          | [  0%]   00:00 -> (? left)[Summarizing dataframe]                      |          | [  0%]   00:00 -> (? left)Feature: numeric_col                         |██        | [ 20%]   00:00 -> (00:00 left)Feature: numeric_col                         |████      | [ 40%]   00:00 -> (00:00 left)Feature: category_col                        |████      | [ 40%]   00:00 -> (00:00 left)Feature: bool_col                            |██████    | [ 60%]   00:00 -> (00:00 left)Feature: bool_col                            |████████  | [ 80%]   00:00 -> (00:00 left)Feature: text_col                            |████████  | [ 80%]   00:00 -> (00:00 left)Feature: text_col                            |          | [  0%]   00:00 -> (? left)    [Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 3/3] Generating associations graph     |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)
-associations present: True
-associations keys: ['bool_col', 'category_col', 'numeric_col', 'text_col']
-Test 4 PASSED
-
-ALL TESTS PASSED!

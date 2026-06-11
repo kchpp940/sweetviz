@@ -1,118 +1,0 @@
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_common-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_core-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_features-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_tabular-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-=== Test 1: Basic analyze + schema integrity ===
-                                             |          | [  0%]   00:00 -> (? left)[Summarizing dataframe]                      |          | [  0%]   00:00 -> (? left)Feature: num_col                             |██        | [ 20%]   00:00 -> (00:00 left)Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_common-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_core-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_features-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_tabular-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Feature: num_col                             |████      | [ 40%]   00:00 -> (00:00 left)Feature: cat_col                             |████      | [ 40%]   00:00 -> (00:00 left)Feature: bool_col                            |██████    | [ 60%]   00:00 -> (00:00 left)Feature: bool_col                            |████████  | [ 80%]   00:00 -> (00:00 left)Feature: text_col                            |████████  | [ 80%]   00:00 -> (00:00 left)Feature: text_col                            |          | [  0%]   00:00 -> (? left)    [Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 3/3] Generating associations graph     |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)
-Schema structure check:
-  All top-level + sub keys present: OK
-Type-specific stats:
-  text_stats populated: num_empty=1, num_whitespace_only=2, length_min=0, length_max=16
-  Type-appropriate stats populated: OK
-cat_stats:
-  num_valid_categories=4
-  mode=Alpha (47.92%)
-  top_categories: 4 items
-    - Alpha: 46 (47.92%)
-    - Beta: 29 (30.21%)
-    - Delta: 11 (11.46%)
-    - Gamma: 10 (10.42%)
-  cat_stats: OK
-
-=== Test 2: No in-place mutation of feature_dict during HTML generation ===
-Report /var/folders/5n/5fk0gy756kj43rvymptfpp1r0000gn/T/tmp2bi7domm.html was generated.
-Report /var/folders/5n/5fk0gy756kj43rvymptfpp1r0000gn/T/tmp2bi7domm.html was generated.
-  HTML generated: widescreen=589128 bytes, vertical=588139 bytes
-  No in-place mutation detected: OK
-
-=== Test 3: Compare mode + serialization ===
-                                             |          | [  0%]   00:00 -> (? left)[Summarizing dataframe]                      |          | [  0%]   00:00 -> (? left)Feature: cat_a                               |███▎      | [ 33%]   00:00 -> (00:00 left)Feature: num_b                               |██████▋   | [ 67%]   00:00 -> (00:00 left)Feature: num_b                               |██████████| [100%]   00:00 -> (00:00 left)Feature: num_b                               |          | [  0%]   00:00 -> (? left)    [Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 3/3] Generating associations graph     |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)
-  compare sub-structure: source cats=3, compare cats=4
-  compare sub-structure types correct: OK
-
-=== Test 4: to_dict() / get_metadata() / to_json() serialization ===
-  to_dict() keys: ['name', 'compare_name', 'num_features', 'target', 'features']
-  serialized cat_a keys: ['name', 'order_index', 'is_target', 'numeric_stats', 'cat_stats', 'text_stats', 'detail', 'compare', 'viz', 'html_summary', 'html_detail', 'summary_pos', 'type', 'base_stats']
-  cat_stats serialized: mode=X, first top_cat count={'number': 239, 'percentage': 47.8}
-  compare sub-structure serialized: OK
-  viz serialized (non-JSON types stripped): OK
-  get_metadata() aliases to_dict(): OK
-  to_json() produces valid JSON: OK (43153 chars)
-
-=== Test 5: Target mode with serialization ===
-                                             |          | [  0%]   00:00 -> (? left)[Summarizing dataframe]                      |          | [  0%]   00:00 -> (? left)Feature: target_num (TARGET)                 |██▌       | [ 25%]   00:00 -> (00:00 left)Feature: target_num (TARGET)                 |█████     | [ 50%]   00:00 -> (00:00 left)Feature: feat_num                            |█████     | [ 50%]   00:00 -> (00:00 left)Feature: feat_num                            |███████▌  | [ 75%]   00:00 -> (00:00 left)Feature: feat_cat                            |███████▌  | [ 75%]   00:00 -> (00:00 left)Feature: feat_cat                            |          | [  0%]   00:00 -> (? left)    [Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 3/3] Generating associations graph     |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)
-  target serialized: target_num (NUMERIC)
-  target numeric_stats keys: ['max', 'mean', 'perc95', 'perc75', 'perc50', 'perc25', 'perc5', 'min', 'range', 'iqr', 'std', 'variance', 'kurtosis', 'skewness', 'sum', 'cv']
-Report /var/folders/5n/5fk0gy756kj43rvymptfpp1r0000gn/T/tmpvi2l905u.html was generated.
-Report /var/folders/5n/5fk0gy756kj43rvymptfpp1r0000gn/T/tmpvi2l905u.html was generated.
-  Target + Compare HTML output: OK
-
-=== ALL TESTS PASSED ===

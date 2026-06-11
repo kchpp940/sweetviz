@@ -35,30 +35,19 @@ def compare_intra(source_df: pd.DataFrame,
                   feat_cfg: FeatureConfig = None,
                   pairwise_analysis: str = 'auto',
                   verbosity: str = 'default'):
-    from sweetviz.diagnostics import SweetvizInputError
     if len(source_df) != len(condition_series):
-        raise SweetvizInputError(
-            'compare_intra() 要求 source_df 和 condition_series 长度相同',
-            resolution='请确保两个输入的行数一致'
-        )
+        raise ValueError('compare_intra() expects source_df and '
+                         'condition_series to be the same length')
     if condition_series.dtypes != bool:
-        raise SweetvizInputError(
-            'compare_intra() 要求 condition_series 为布尔类型',
-            resolution='请将 condition_series 转换为布尔类型 (bool)'
-        )
+        raise ValueError('compare_intra() requires condition_series '
+                         'to be boolean length')
 
     data_true = source_df[condition_series]
     data_false = source_df[condition_series == False]
     if len(data_false) == 0:
-        raise SweetvizInputError(
-            'compare_intra(): FALSE 数据集为空，无法进行比较',
-            resolution='请确保 condition_series 中至少有一些 False 值'
-        )
+        raise ValueError('compare_intra(): FALSE dataset is empty, nothing to compare!')
     if len(data_true) == 0:
-        raise SweetvizInputError(
-            'compare_intra(): TRUE 数据集为空，无法进行比较',
-            resolution='请确保 condition_series 中至少有一些 True 值'
-        )
+        raise ValueError('compare_intra(): TRUE dataset is empty, nothing to compare!')
     report = sweetviz.DataframeReport([data_true, names[0]], target_feat,
                                       [data_false, names[1]],
                                       pairwise_analysis, feat_cfg,

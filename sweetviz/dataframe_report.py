@@ -18,13 +18,6 @@ from sweetviz.config import config
 import sweetviz.comet_ml_logger as comet_ml_logger
 import sweetviz.sv_html as sv_html
 from sweetviz.feature_config import FeatureConfig
-from sweetviz.diagnostics import (
-    SweetvizError, SweetvizInputError, SweetvizConfigError,
-    SweetvizProcessingError, SweetvizResourceError,
-    ErrorCategory, warn, info, debug,
-    create_diagnostic_manager, DiagnosticManager,
-    wrap_exception, get_warnings
-)
 import webbrowser
 from sweetviz.config import config
 
@@ -39,14 +32,14 @@ class DataframeReport:
         # Parse analysis parameter
         pairwise_analysis = pairwise_analysis.lower()
         if pairwise_analysis not in ["on", "auto", "off"]:
-            raise SweetvizConfigError(
-                f'pairwise_analysis 参数值无效: "{pairwise_analysis}"',
-                resolution='请使用以下值之一: "on", "auto", "off"'
-            )
+            raise ValueError('"pairwise_analysis" parameter should be one of: "on", "auto", "off"')
 
-        # Parse verbosity parameter (每个报告持有独立的诊断上下文，不影响全局)
-        self._diag: DiagnosticManager = create_diagnostic_manager(verbosity)
-        self.verbosity_level = self._diag.get_verbosity()
+        # Parse verbosity parameter
+        if verbosity == "default":
+            verbosity = config["General"]["default_verbosity"]
+        if verbosity not in ["default", "full", "progress_only", "off"]:
+            raise ValueError('"verbosity" parameter should be one of: "default", "full", "progress_only", "off"')
+        self.verbosity_level = verbosity
 
         sv_html.load_layout_globals_from_config()
 
@@ -73,23 +66,13 @@ class DataframeReport:
             self.source_name = "DataFrame"
         elif type(source) == list or type(source) == tuple:
             if len(source) != 2:
-                raise SweetvizInputError(
-                    'source 参数格式错误',
-                    resolution='source 参数应为 DataFrame 或包含两个元素的列表/元组: [dataframe, "名称"]'
-                )
+                raise ValueError('"source" parameter should either be a string or a list of 2 elements: [dataframe, "Name"].')
             source_df = source[0]
             self.source_name = source[1]
         else:
-            raise SweetvizInputError(
-                'source 参数类型错误',
-                resolution='source 参数应为 DataFrame 或包含两个元素的列表/元组: [dataframe, "名称"]'
-            )
+            raise ValueError('"source" parameter should either be a string or a list of 2 elements: [dataframe, "Name"].')
         if len(su.get_duplicate_cols(source_df)) > 0:
-            dup_cols = list(su.get_duplicate_cols(source_df).index)
-            raise SweetvizInputError(
-                f'源数据中检测到重复列名: {dup_cols}',
-                resolution='请移除或重命名重复的列名，Sweetviz 不支持重复列名'
-            )
+            raise ValueError('Duplicate column names detected in "source"; this is not supported.')
 
         # NEW (12-14-2020): Rename indices that use the reserved name "index"
         # From pandas-profiling:
@@ -112,51 +95,33 @@ class DataframeReport:
             all_compare_names = [cur_name for cur_name, cur_series in compare_df.items()]
         elif type(compare) == list or type(compare) == tuple:
             if len(compare) != 2:
-                raise SweetvizInputError(
-                    'compare 参数格式错误',
-                    resolution='compare 参数应为 DataFrame 或包含两个元素的列表/元组: [dataframe, "名称"]'
-                )
+                raise ValueError('"compare" parameter should either be a string or a list of 2 elements: [dataframe, "Name"].')
             compare_df = compare[0]
             if 'index' in compare_df.columns:
                 compare_df = compare_df.rename(columns={"index": "df_index"})
             self.compare_name = compare[1]
             all_compare_names = [cur_name for cur_name, cur_series in compare_df.items()]
         else:
-            raise SweetvizInputError(
-                'compare 参数类型错误',
-                resolution='compare 参数应为 DataFrame 或包含两个元素的列表/元组: [dataframe, "名称"]'
-            )
+            raise ValueError('"compare" parameter should either be a string or a list of 2 elements: [dataframe, "Name"].')
 
         # Validate some params
         if compare_df is not None and len(su.get_duplicate_cols(compare_df)) > 0:
-            dup_cols = list(su.get_duplicate_cols(compare_df).index)
-            raise SweetvizInputError(
-                f'对比数据中检测到重复列名: {dup_cols}',
-                resolution='请移除或重命名重复的列名，Sweetviz 不支持重复列名'
-            )
+            raise ValueError('Duplicate column names detected in "compare"; this is not supported.')
+
 
         if target_feature_name in fc.skip:
-            raise SweetvizConfigError(
-                f'目标列 "{target_feature_name}" 同时被标记为 "skip"',
-                resolution='目标列不能被跳过，请从 skip 列表中移除该列，或更换目标列'
-            )
+            raise ValueError(f'"{target_feature_name}" was also specified as "skip". Target cannot be skipped.')
 
         for key in fc.get_all_mentioned_features():
             if key not in all_source_names:
-                raise SweetvizConfigError(
-                    f'feature_config 中指定的列 "{key}" 在源数据中不存在',
-                    resolution='请检查列名的大小写是否正确，或确认该列确实存在于源数据中'
-                )
+                raise ValueError(f'"{key}" was specified in "feature_config" but is not found in source dataframe (watch case-sensitivity?).')
 
         # Find Features and Target (FILTER SKIPPED)
         filtered_series_names_in_source = [cur_name for cur_name, cur_series in source_df.items()
                                            if cur_name not in fc.skip]
         for skipped in fc.skip:
             if skipped not in all_source_names and skipped not in all_compare_names:
-                raise SweetvizConfigError(
-                    f'被标记为 "skip" 的列 "{skipped}" 不存在于任何提供的数据中',
-                    resolution='请检查列名的大小写是否正确，或从 skip 列表中移除该列'
-                )
+                raise ValueError(f'"{skipped}" was marked as "skip" but is not in any provided dataframe (watch case-sensitivity?).')
 
         # Progress bar setup
         ratio_progress_of_df_summary_vs_feature = 1.0
@@ -167,15 +132,16 @@ class DataframeReport:
 
         class DummyFile(object):
             def write(self, x):
-                pass
+                pass  # Do nothing
             def flush(self):
-                pass
+                pass  # Do nothing
 
-        if self._diag.is_progress_enabled():
+        if self.verbosity_level in ('full', 'progress_only'):
             self.progress_bar = tqdm(total=progress_chunks, bar_format= \
                     '{desc:45}|{bar}| [{percentage:3.0f}%]   {elapsed} -> ({remaining} left)', \
                     ascii=False, dynamic_ncols=True, position=0, leave= True)
         else:
+            # No progress bar, use dummy file
             self.progress_bar = tqdm(total=progress_chunks, bar_format= \
                     '{desc:45}|{bar}| [{percentage:3.0f}%]   {elapsed} -> ({remaining} left)', \
                     ascii=False, dynamic_ncols=True, position=0, leave= True, file=DummyFile())
@@ -206,17 +172,14 @@ class DataframeReport:
         # Association check
         if pairwise_analysis == 'auto' and \
                 number_features > config["Processing"].getint("association_auto_threshold"):
-            self._diag.warn(
-                f"数据集中有 {number_features} 个特征，pairwise_analysis 设置为 'auto'。\n"
-                f"成对关联计算的时间复杂度是 O(n²)：{number_features} 个特征将产生约 "
-                f"{number_features * number_features} 对需要评估，可能需要较长时间。",
-                category=ErrorCategory.PROCESSING,
-                resolution=(
-                    "请显式指定 pairwise_analysis 参数：\n"
-                    "  - pairwise_analysis='on': 启用成对关联分析（可能较慢）\n"
-                    "  - pairwise_analysis='off': 禁用成对关联分析（更快，但没有关联图）"
-                )
-            )
+            print(f"PAIRWISE CALCULATION LENGTH WARNING: There are {number_features} features in "
+                  f"this dataframe and the "
+                  f"'pairwise_analysis' parameter is set to 'auto'.\nPairwise analysis is exponential in "
+                  f"length: {number_features} features will cause ~"
+                  f"{number_features * number_features} pairs to be "
+                  f"evaluated, which could take a long time.\n\nYou must call the function with the "
+                  f"parameter pairwise_analysis='on' or 'off' to explicitly select desired behavior."
+                  )
             self.progress_bar.close()
             return
 
@@ -230,18 +193,16 @@ class DataframeReport:
                              if item == target_feature_name]
             if len(targets_found) == 0:
                 self.progress_bar.close()
-                raise SweetvizInputError(
-                    f"目标列 '{target_feature_name}' 在源数据中不存在",
-                    resolution='请检查列名的大小写是否正确，或确认该列确实存在于源数据中'
-                )
+                raise KeyError(f"Feature '{target_feature_name}' was "
+                               f"specified as TARGET, but is NOT FOUND in "
+                               f"the dataframe (watch case-sensitivity?).")
 
             # Make sure target has no nan's
             if source_df[targets_found[0]].isnull().values.any():
                 self.progress_bar.close()
-                raise SweetvizInputError(
-                    f"目标列 '{targets_found[0]}' 包含缺失值 (NaN)",
-                    resolution='目标列不能包含缺失值。请先填充或删除缺失值，再使用 Sweetviz 进行分析。'
-                )
+                raise ValueError(f"\nTarget feature '{targets_found[0]}' contains NaN (missing) values.\n"
+                               f"To avoid confusion in interpreting target distribution,\n"
+                               f"target features MUST NOT have any missing values at this time.\n")
 
             # Find Target in compared, if present
             compare_target_series = None
@@ -249,16 +210,16 @@ class DataframeReport:
                 if target_feature_name in compare_df.columns:
                     if compare_df[target_feature_name].isnull().values.any():
                         self.progress_bar.close()
-                        raise SweetvizInputError(
-                            f"对比数据中的目标列 '{target_feature_name}' 包含缺失值 (NaN)",
-                            resolution='目标列不能包含缺失值。请先填充或删除对比数据中目标列的缺失值。'
-                        )
+                        raise ValueError(
+                            f"\nTarget feature '{target_feature_name}' in COMPARED data contains NaN (missing) values.\n"
+                            f"To avoid confusion in interpreting target distribution,\n"
+                            f"target features MUST NOT have any missing values at this time.\n")
                     compare_target_series = compare_df[target_feature_name]
 
             # TARGET processed HERE with COMPARE if present
             target_to_process = FeatureToProcess(-1, source_df[targets_found[0]], compare_target_series,
                                                  None, None, fc.get_predetermined_type(targets_found[0]))
-            self._target = sa.analyze_feature_to_dictionary(target_to_process, diag=self._diag)
+            self._target = sa.analyze_feature_to_dictionary(target_to_process)
             filtered_series_names_in_source.remove(targets_found[0])
             target_type = self._target["type"]
             self.progress_bar.update(1)
@@ -315,7 +276,7 @@ class DataframeReport:
         for f in features_to_process:
             # start = time.perf_counter()
             self.progress_bar.set_description_str(f"Feature: {f.source.name}")
-            self._features[f.source.name] = sa.analyze_feature_to_dictionary(f, diag=self._diag)
+            self._features[f.source.name] = sa.analyze_feature_to_dictionary(f)
             self.progress_bar.update(1)
             # print(f"DONE FEATURE------> {f.source.name}"
             #       f" {(time.perf_counter() - start):.2f}   {self._features[f.source.name]['type']}")
@@ -332,7 +293,7 @@ class DataframeReport:
         self.summarize_category_types(source_df, self.summary_source, fc.skip, self._target)
         if compare is not None:
             self.summarize_category_types(compare_df, self.summary_compare, fc.skip, self._target)
-        self.dataframe_summary_html = sv_html.generate_html_dataframe_summary(self, diag=self._diag)
+        self.dataframe_summary_html = sv_html.generate_html_dataframe_summary(self)
 
         self.graph_legend = GraphLegend(self)
 
@@ -364,7 +325,8 @@ class DataframeReport:
         return
 
     def verbose_print(self, *args, **kwargs):
-        self._diag.info(" ".join(str(arg) for arg in args))
+        if self.verbosity_level == "full":
+            print(*args, **kwargs)
 
     def __getitem__(self, key):
         # Can also access target
@@ -506,21 +468,21 @@ class DataframeReport:
                             self[other.source.name]["type"] == FeatureType.TYPE_BOOL:
                         # CAT-CAT
                         cur_associations[other.source.name] = \
-                            associations.theils_u(feature.source, other.source, diag=self._diag)
+                            associations.theils_u(feature.source, other.source)
                         if process_compare:
                             cur_associations_compare[other.source.name] = \
-                                associations.theils_u(feature.compare, other.compare, diag=self._diag)
+                                associations.theils_u(feature.compare, other.compare)
                     elif self[other.source.name]["type"] == FeatureType.TYPE_NUM:
                         # CAT-NUM
                         # This handles cat-num, then mirrors so no need to process num-cat separately
                         # (symmetrical relationship)
                         cur_associations[other.source.name] = \
-                            associations.correlation_ratio(feature.source, other.source, diag=self._diag)
+                            associations.correlation_ratio(feature.source, other.source)
                         mirror_association(self._associations, feature_name, other.source.name, \
                                            cur_associations[other.source.name])
                         if process_compare:
                             cur_associations_compare[other.source.name] = \
-                                associations.correlation_ratio(feature.compare, other.compare, diag=self._diag)
+                                associations.correlation_ratio(feature.compare, other.compare)
                             mirror_association(self._associations_compare, feature_name, other.source.name, \
                                                cur_associations_compare[other.source.name])
 
@@ -533,13 +495,12 @@ class DataframeReport:
                             cur_associations[other.source.name] = \
                                 feature.source.corr(other.source, method='pearson')
                         except FloatingPointError:
+                            # This usually happens when there is only 1 non-NaN value in each data series
+                            # Assigning the value 1.0 as per
+                            # https://stats.stackexchange.com/questions/94150/why-is-the-pearson-correlation-1-when-only-two-data-values-are-available
+                            # -> Also showing a warning
                             cur_associations[other.source.name] = 1.0
-                            self._diag.warn(
-                                f"相关性计算遇到边界情况，已赋值 1.0",
-                                category=ErrorCategory.PROCESSING,
-                                feature_name=f"{feature_name}/{other.source.name}",
-                                resolution="这通常是由于数据太少（只有一行非 NaN 值）导致的，建议检查数据量是否充足"
-                            )
+                            self.corr_warning.append(feature_name + "/" + other.source.name)
                         # TODO: display correlation error better in graph!
                         if isnan(cur_associations[other.source.name]):
                             if feature.source.equals(other.source):
@@ -578,72 +539,48 @@ class DataframeReport:
         sv_html.set_summary_positions(self)
         sv_html.generate_html_detail(self)
         if self.associations_html_source:
-            self.associations_html_source = sv_html.generate_html_associations(self, "source", diag=self._diag)
+            self.associations_html_source = sv_html.generate_html_associations(self, "source")
         if self.associations_html_compare:
-            self.associations_html_compare = sv_html.generate_html_associations(self, "compare", diag=self._diag)
-        self._page_html = sv_html.generate_html_dataframe_page(self, diag=self._diag)
+            self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
+        self._page_html = sv_html.generate_html_dataframe_page(self)
 
     def show_html(self, filepath='SWEETVIZ_REPORT.html', open_browser=True, layout='widescreen', scale=None):
         scale = float(self.use_config_if_none(scale, "html_scale"))
         layout = self.use_config_if_none(layout, "html_layout")
         if layout not in ['widescreen', 'vertical']:
-            raise SweetvizConfigError(
-                f"layout 参数无效: '{layout}'",
-                resolution="layout 参数必须是 'widescreen' 或 'vertical' 之一"
-            )
+            raise ValueError(f"'layout' parameter must be either 'widescreen' or 'vertical'")
         sv_html.load_layout_globals_from_config()
         self.page_layout = layout
         self.scale = scale
         sv_html.set_summary_positions(self)
         sv_html.generate_html_detail(self)
         if self.associations_html_source:
-            self.associations_html_source = sv_html.generate_html_associations(self, "source", diag=self._diag)
+            self.associations_html_source = sv_html.generate_html_associations(self, "source")
         if self.associations_html_compare:
-            self.associations_html_compare = sv_html.generate_html_associations(self, "compare", diag=self._diag)
-        self._page_html = sv_html.generate_html_dataframe_page(self, diag=self._diag)
+            self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
+        self._page_html = sv_html.generate_html_dataframe_page(self)
 
-        try:
-            with open(filepath, 'w', encoding="utf-8") as f:
-                f.write(self._page_html)
-        except IOError as e:
-            exc = SweetvizResourceError(
-                f"无法写入 HTML 文件: {filepath}",
-                resolution="请检查文件路径是否正确，以及是否有写入权限",
-                original_error=e
-            )
-            self._diag.warn(
-                f"HTML 文件写入失败: {filepath}: {e}",
-                category=ErrorCategory.RESOURCE,
-                resolution=exc.resolution
-            )
-            raise exc from e
-
+        f = open(filepath, 'w', encoding="utf-8")
+        f.write(self._page_html)
+        f.close()
         if open_browser:
-            self._diag.info(f"报告 {filepath} 已生成！NOTEBOOK/COLAB 用户：浏览器可能不会自动弹出，但报告已保存到您的文件中。")
-            try:
-                webbrowser.open('file://' + os.path.realpath(filepath))
-            except Exception as e:
-                self._diag.warn(
-                    f"无法自动打开浏览器: {e}",
-                    category=ErrorCategory.RESOURCE,
-                    resolution="您可以手动打开生成的 HTML 文件来查看报告"
-                )
+            self.verbose_print(f"Report {filepath} was generated! NOTEBOOK/COLAB USERS: the web browser MAY not pop up, regardless, the report IS saved in your notebook/colab files.")
+            # Not sure how to work around this: not fatal but annoying...Notebook/colab
+            # https://bugs.python.org/issue5993
+            webbrowser.open('file://' + os.path.realpath(filepath))
         else:
-            self._diag.info(f"报告 {filepath} 已生成。")
+            self.verbose_print(f"Report {filepath} was generated.")
+        if len(self.corr_warning):
+            print("---\nWARNING: one or more correlations had an edge-case/error and a 1.0 correlation was assigned\n"
+                  "(likely due to only having a single row, containing non-NaN values for both correlated features)\n"
+                  "Affected correlations:" + str(self.corr_warning))
 
         # Auto-log to comet_ml if desired & present
-        try:
-            self._comet_ml_logger = comet_ml_logger.CometLogger()
-            if self._comet_ml_logger._logging:
-                self.generate_comet_friendly_html()
-                self._comet_ml_logger.log_html(self._page_html)
-                self._comet_ml_logger.end()
-        except Exception as e:
-            self._diag.warn(
-                f"comet_ml 日志记录失败: {e}",
-                category=ErrorCategory.PROCESSING,
-                resolution="这不会影响报告生成，您可以忽略此警告"
-            )
+        self._comet_ml_logger = comet_ml_logger.CometLogger()
+        if self._comet_ml_logger._logging:
+            self.generate_comet_friendly_html()
+            self._comet_ml_logger.log_html(self._page_html)
+            self._comet_ml_logger.end()
 
     def show_notebook(self, w=None, h=None, scale=None, layout=None, filepath=None, file_layout=None, file_scale=None):
         w = self.use_config_if_none(w, "notebook_width")
@@ -651,10 +588,7 @@ class DataframeReport:
         scale = float(self.use_config_if_none(scale, "notebook_scale"))
         layout = self.use_config_if_none(layout, "notebook_layout")
         if layout not in ['widescreen', 'vertical']:
-            raise SweetvizConfigError(
-                f"layout 参数无效: '{layout}'",
-                resolution="layout 参数必须是 'widescreen' 或 'vertical' 之一"
-            )
+            raise ValueError(f"'layout' parameter must be either 'widescreen' or 'vertical'")
 
         sv_html.load_layout_globals_from_config()
         self.page_layout = layout
@@ -662,112 +596,82 @@ class DataframeReport:
         sv_html.set_summary_positions(self)
         sv_html.generate_html_detail(self)
         if self.associations_html_source:
-            self.associations_html_source = sv_html.generate_html_associations(self, "source", diag=self._diag)
+            self.associations_html_source = sv_html.generate_html_associations(self, "source")
         if self.associations_html_compare:
-            self.associations_html_compare = sv_html.generate_html_associations(self, "compare", diag=self._diag)
-        self._page_html = sv_html.generate_html_dataframe_page(self, diag=self._diag)
+            self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
+        self._page_html = sv_html.generate_html_dataframe_page(self)
 
-        width = w
-        height = h
+        width=w
+        height=h
         if str(height).lower() == "full":
             height = self.page_height
 
         # Output to iFrame
         import html
-        page_html_escaped = html.escape(self._page_html)
-        iframe = f' <iframe width="{width}" height="{height}" srcdoc="{page_html_escaped}" frameborder="0" allowfullscreen></iframe>'
+        self._page_html = html.escape(self._page_html)
+        iframe = f' <iframe width="{width}" height="{height}" srcdoc="{self._page_html}" frameborder="0" allowfullscreen></iframe>'
         try:
-            from IPython.display import display
-            from IPython.display import HTML
+            from IPython.display import display, HTML
             display(HTML(iframe))
-        except ImportError as e:
-            exc = SweetvizResourceError(
-                "无法在 Notebook 中显示报告，缺少 IPython 依赖",
-                resolution="请确保您在 Jupyter Notebook 环境中运行，或使用 show_html() 方法生成 HTML 文件",
-                original_error=e
+        except ImportError:
+            # Not running inside a notebook / IPython is not installed.
+            # This is expected when scripting (e.g. example_runner), where
+            # the caller only cares about the ``filepath`` output branch.
+            self.verbose_print(
+                "(show_notebook) IPython not available – skipping in-kernel display."
             )
-            self._diag.warn(
-                "缺少 IPython 依赖，无法在 Notebook 中显示",
-                category=ErrorCategory.RESOURCE,
-                resolution=exc.resolution
-            )
-            raise exc from e
 
         if filepath is not None:
-            file_scale_val = float(self.use_config_if_none(file_scale, "html_scale"))
-            file_layout_val = self.use_config_if_none(file_layout, "html_layout")
-            if file_layout_val not in ['widescreen', 'vertical']:
-                raise SweetvizConfigError(
-                    f"file_layout 参数无效: '{file_layout_val}'",
-                    resolution="file_layout 参数必须是 'widescreen' 或 'vertical' 之一"
-                )
+            # We cannot just write out the same HTML as the notebook, as that one has been processed so as to
+            # remove extraneous headings so it is nicely inserted into the notebook.
+            # Instead, just do something similar to the "show_html()" code, but without its less-relevant printouts etc.
+            # f = open(filepath, 'w', encoding="utf-8")
+            # f.write(self._page_html)
+            # f.close()
+            scale = float(self.use_config_if_none(file_scale, "html_scale"))
+            layout = self.use_config_if_none(file_layout, "html_layout")
+            if layout not in ['widescreen', 'vertical']:
+                raise ValueError(f"'layout' parameter for file output must be either 'widescreen' or 'vertical'")
             sv_html.load_layout_globals_from_config()
-            self.page_layout = file_layout_val
-            self.scale = file_scale_val
+            self.page_layout = layout
+            self.scale = scale
             sv_html.set_summary_positions(self)
             sv_html.generate_html_detail(self)
             if self.associations_html_source:
-                self.associations_html_source = sv_html.generate_html_associations(self, "source", diag=self._diag)
+                self.associations_html_source = sv_html.generate_html_associations(self, "source")
             if self.associations_html_compare:
-                self.associations_html_compare = sv_html.generate_html_associations(self, "compare", diag=self._diag)
-            self._page_html = sv_html.generate_html_dataframe_page(self, diag=self._diag)
+                self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
+            self._page_html = sv_html.generate_html_dataframe_page(self)
 
-            try:
-                with open(filepath, 'w', encoding="utf-8") as f:
-                    f.write(self._page_html)
-            except IOError as e:
-                exc = SweetvizResourceError(
-                    f"无法保存报告文件: {filepath}",
-                    resolution="请检查文件路径是否正确，以及是否有写入权限",
-                    original_error=e
-                )
-                self._diag.warn(
-                    f"Notebook 文件写入失败: {filepath}: {e}",
-                    category=ErrorCategory.RESOURCE,
-                    resolution=exc.resolution
-                )
-                raise exc from e
-            self._diag.info(f"报告 '{filepath}' 已保存。")
+            f = open(filepath, 'w', encoding="utf-8")
+            f.write(self._page_html)
+            f.close()
+            self.verbose_print(f"Report '{filepath}' was saved to storage.")
+
+        if len(self.corr_warning):
+            print("WARNING: one or more correlations had an edge-case/error and a 1.0 correlation was assigned\n"
+                  "(likely due to only a single row containing non-NaN values for both correlated features)\n"
+                  "Affected correlations:" + str(self.corr_warning))
 
         # Auto-log to comet_ml if desired & present
-        try:
-            self._comet_ml_logger = comet_ml_logger.CometLogger()
-            if self._comet_ml_logger._logging:
-                self.generate_comet_friendly_html()
-                self._comet_ml_logger.log_html(self._page_html)
-                self._comet_ml_logger.end()
-        except Exception as e:
-            self._diag.warn(
-                f"comet_ml 日志记录失败: {e}",
-                category=ErrorCategory.PROCESSING,
-                resolution="这不会影响报告生成，您可以忽略此警告"
-            )
+        self._comet_ml_logger = comet_ml_logger.CometLogger()
+        if self._comet_ml_logger._logging:
+            self.generate_comet_friendly_html()
+            self._comet_ml_logger.log_html(self._page_html)
+            self._comet_ml_logger.end()
 
     def log_comet(self, experiment: 'comet_ml_logger.Experiment'):
         self.generate_comet_friendly_html()
         try:
             experiment.log_html(self._page_html)
-        except Exception as e:
-            self._diag.warn(
-                f"log_comet(): 记录 HTML 报告时出错: {e}",
-                category=ErrorCategory.PROCESSING,
-                resolution="请检查 comet_ml 实验对象是否有效，以及网络连接是否正常"
-            )
-
-    def get_diagnostic_manager(self) -> DiagnosticManager:
-        """获取当前报告的诊断管理器实例。"""
-        return self._diag
-
-    def get_warnings(self):
-        """获取当前报告的所有警告。"""
-        return self._diag.get_warnings()
+        except:
+            print("log_comet(): error logging HTML report.")
 
     def get_report_data(self, include_drift: bool = True) -> dict:
-        return serialize.build_report_data(self, include_drift=include_drift, diag=self._diag)
+        return serialize.build_report_data(self, include_drift=include_drift)
 
     def to_json(self, filepath: str = None, include_drift: bool = True,
                 indent: int = 2) -> str:
         return serialize.to_json(self, filepath=filepath,
                                  include_drift=include_drift,
-                                 indent=indent,
-                                 diag=self._diag)
+                                 indent=indent)

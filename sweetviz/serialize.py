@@ -6,40 +6,9 @@ from typing import Any, Dict, List, Optional, Union
 import pandas as pd
 
 from sweetviz.sv_types import NumWithPercent, FeatureType
-from sweetviz.diagnostics import (
-    SweetvizProcessingError, SweetvizResourceError, warn, ErrorCategory,
-    DiagnosticManager, _resolve_diag
-)
 
 
 SCHEMA_VERSION = "1.0"
-
-FEATURE_REQUIRED_FIELDS = ["name", "type", "base_stats"]
-FEATURE_OPTIONAL_FIELDS = ["stats", "detail", "compare", "drift"]
-COMPARE_REQUIRED_FIELDS = ["type", "base_stats"]
-COMPARE_OPTIONAL_FIELDS = ["stats"]
-TOP_LEVEL_REQUIRED_FIELDS = ["metadata", "source_summary", "features"]
-TOP_LEVEL_CONDITIONAL_FIELDS = {
-    "compare_summary": "当存在 compare_name 时必需",
-    "target": "当存在 _target 时必需",
-    "associations": "当存在 _associations 时必需",
-    "associations_compare": "当存在 _associations_compare 时必需",
-}
-
-_SCHEMA_DOC = f"""
-JSON Export Schema (v{SCHEMA_VERSION})
-==========================
-核心契约（缺失必抛 SweetvizProcessingError）：
-  - 顶层: {TOP_LEVEL_REQUIRED_FIELDS}
-  - 特征层: {FEATURE_REQUIRED_FIELDS}
-  - compare 子结构: {COMPARE_REQUIRED_FIELDS}
-条件必需（满足条件时缺失必抛）：
-  {TOP_LEVEL_CONDITIONAL_FIELDS}
-可选字段（失败仅 warn 降级，不中断）：
-  - 特征层: {FEATURE_OPTIONAL_FIELDS}
-  - compare 子结构: {COMPARE_OPTIONAL_FIELDS}
-  - 顶层: drift_summary, drift 计算
-"""
 
 
 def _num_with_percent_to_dict(obj: NumWithPercent) -> Optional[Dict[str, Optional[float]]]:
@@ -145,51 +114,17 @@ def _extract_details(feature_dict: dict, feature_type: FeatureType) -> Optional[
     return result if result else None
 
 
-def _extract_compare(feature_dict: dict,
-                     diag: Optional[DiagnosticManager] = None) -> Optional[dict]:
-    """提取 compare 子结构。
-
-    核心字段（type/base_stats）缺失必抛 SweetvizProcessingError；
-    可选字段（stats）失败降级记录到 warning。
-    """
+def _extract_compare(feature_dict: dict) -> Optional[dict]:
     compare_dict = feature_dict.get("compare")
     if compare_dict is None:
         return None
-
-    feature_name = feature_dict.get("name", "unknown")
-    compare_type = compare_dict.get("type")
-    if compare_type is None:
-        raise SweetvizProcessingError(
-            f"阶段: compare 结构提取 | 特征 '{feature_name}' 的 compare 缺少核心字段 'type'",
-            resolution=f"compare 子结构必须包含 {COMPARE_REQUIRED_FIELDS} 字段，请重新生成报告"
-        )
-    if "base_stats" not in compare_dict:
-        raise SweetvizProcessingError(
-            f"阶段: compare 结构提取 | 特征 '{feature_name}' 的 compare 缺少核心字段 'base_stats'",
-            resolution=f"compare 子结构必须包含 {COMPARE_REQUIRED_FIELDS} 字段，请重新生成报告"
-        )
-
     result = {}
-    result["type"] = _feature_type_to_string(compare_dict["type"])
-    try:
+    if "type" in compare_dict:
+        result["type"] = _feature_type_to_string(compare_dict["type"])
+    if "base_stats" in compare_dict:
         result["base_stats"] = _extract_base_stats(compare_dict)
-    except Exception as e:
-        raise SweetvizProcessingError(
-            f"阶段: compare 结构提取 | 特征: '{feature_name}' | 提取 compare.base_stats 失败: {e}",
-            resolution="请检查 compare 子结构的 base_stats 数据是否完整",
-            original_error=e
-        ) from e
-
-    try:
-        if "stats" in compare_dict and compare_dict.get("stats"):
-            result["stats"] = _extract_stats(compare_dict)
-    except Exception as e:
-        _resolve_diag(diag).warn(
-            f"阶段: compare 可选字段提取 | 特征 '{feature_name}' 提取 compare.stats 失败: {e}",
-            category=ErrorCategory.PROCESSING,
-            resolution="compare.stats 字段将被省略，不影响其他核心数据"
-        )
-
+    if "stats" in compare_dict and compare_dict.get("stats"):
+        result["stats"] = _extract_stats(compare_dict)
     return result
 
 
@@ -410,280 +345,79 @@ def compute_drift_summary(features: Dict[str, dict]) -> Optional[dict]:
     }
 
 
-def _extract_feature(feature_dict: dict, include_drift: bool = True,
-                     diag: Optional[DiagnosticManager] = None) -> dict:
-    """提取单个特征的数据。
-
-    核心字段（name/type/is_target/base_stats）缺失必抛 SweetvizProcessingError；
-    可选字段（stats/details/compare/drift）失败降级记录到 warning，不中断整体导出。
-    """
-    feature_name = feature_dict.get("name")
+def _extract_feature(feature_dict: dict, include_drift: bool = True) -> dict:
     feature_type = feature_dict.get("type")
-
-    if feature_name is None:
-        raise SweetvizProcessingError(
-            "阶段: 核心字段提取 | 特征缺少核心字段 'name'",
-            resolution=f"请检查报告数据结构，每个特征必须包含 {FEATURE_REQUIRED_FIELDS} 字段"
-        )
-
-    if feature_type is None:
-        raise SweetvizProcessingError(
-            f"阶段: 核心字段提取 | 特征 '{feature_name}' 缺少核心字段 'type'",
-            resolution=f"请检查特征处理流程，{FEATURE_REQUIRED_FIELDS} 为必需字段"
-        )
-
-    if "base_stats" not in feature_dict:
-        raise SweetvizProcessingError(
-            f"阶段: 核心字段提取 | 特征 '{feature_name}' 缺少核心字段 'base_stats'",
-            resolution=f"base_stats 是必需字段，包含 num_values/num_missing 等核心统计，请重新生成报告"
-        )
-
     result = {
-        "name": feature_name,
-        "display_name": feature_dict.get("display_name", feature_name),
+        "name": feature_dict.get("name"),
+        "display_name": feature_dict.get("display_name", feature_dict.get("name")),
         "type": _feature_type_to_string(feature_type),
         "is_target": feature_dict.get("is_target", False),
     }
-
-    try:
+    if "base_stats" in feature_dict:
         result["base_stats"] = _extract_base_stats(feature_dict)
-    except Exception as e:
-        raise SweetvizProcessingError(
-            f"阶段: 核心字段提取 | 特征: '{feature_name}' | 提取 base_stats 失败: {e}",
-            resolution="请检查 base_stats 数据结构是否完整，num_values/num_missing 等字段是否存在",
-            original_error=e
-        ) from e
-
-    try:
-        stats = _extract_stats(feature_dict)
-        if stats:
-            result["stats"] = stats
-    except Exception as e:
-        _resolve_diag(diag).warn(
-            f"阶段: 可选字段提取 | 特征 '{feature_name}' 提取 stats 失败: {e}",
-            category=ErrorCategory.PROCESSING,
-            resolution="stats 字段将被省略，不影响其他核心数据"
-        )
-
-    try:
-        details = _extract_details(feature_dict, feature_type)
-        if details:
-            result["details"] = details
-    except Exception as e:
-        _resolve_diag(diag).warn(
-            f"阶段: 可选字段提取 | 特征 '{feature_name}' 提取 details 失败: {e}",
-            category=ErrorCategory.PROCESSING,
-            resolution="details 字段将被省略，不影响其他核心数据"
-        )
-
-    try:
-        compare = _extract_compare(feature_dict, diag=diag)
-        if compare:
-            result["compare"] = compare
-    except SweetvizProcessingError:
-        raise
-    except Exception as e:
-        _resolve_diag(diag).warn(
-            f"阶段: 可选字段提取 | 特征 '{feature_name}' 提取 compare 失败: {e}",
-            category=ErrorCategory.PROCESSING,
-            resolution="compare 字段将被省略，不影响其他核心数据"
-        )
-
+    stats = _extract_stats(feature_dict)
+    if stats:
+        result["stats"] = stats
+    details = _extract_details(feature_dict, feature_type)
+    if details:
+        result["details"] = details
+    compare = _extract_compare(feature_dict)
+    if compare:
+        result["compare"] = compare
     if include_drift and "drift" in feature_dict and feature_dict["drift"] is not None:
-        try:
-            result["drift"] = _convert_value(feature_dict["drift"])
-        except Exception as e:
-            _resolve_diag(diag).warn(
-                f"阶段: 可选字段提取 | 特征 '{feature_name}' 提取 drift 失败: {e}",
-                category=ErrorCategory.PROCESSING,
-                resolution="drift 字段将被省略，不影响其他核心数据"
-            )
-
+        result["drift"] = _convert_value(feature_dict["drift"])
     return result
 
 
-def compute_all_drifts(report, diag: Optional[DiagnosticManager] = None) -> None:
-    """计算所有特征的漂移。属于可选增强，单个失败不影响整体。"""
-    actual_diag = diag if diag is not None else getattr(report, '_diag', None)
+def compute_all_drifts(report) -> None:
     if report.compare_name is None:
         return
     for fdict in report._features.values():
         if "drift" not in fdict or fdict["drift"] is None:
-            try:
-                fdict["drift"] = compute_drift(fdict)
-            except Exception as e:
-                _resolve_diag(actual_diag).warn(
-                    f"计算特征 '{fdict.get('name', 'unknown')}' 的漂移时出错: {e}",
-                    category=ErrorCategory.PROCESSING,
-                    resolution="该特征的漂移数据将被跳过，不影响其他数据的导出"
-                )
+            fdict["drift"] = compute_drift(fdict)
     if report._target is not None and "drift" not in report._target:
-        try:
-            report._target["drift"] = compute_drift(report._target)
-        except Exception as e:
-            _resolve_diag(actual_diag).warn(
-                f"计算目标特征的漂移时出错: {e}",
-                category=ErrorCategory.PROCESSING,
-                resolution="目标特征的漂移数据将被跳过，不影响其他数据的导出"
-            )
+        report._target["drift"] = compute_drift(report._target)
 
 
-def build_report_data(report, include_drift: bool = True,
-                      diag: Optional[DiagnosticManager] = None) -> dict:
-    """构建报告数据。核心路径失败必须抛异常，可选路径失败降级。
-
-    核心路径（失败抛 SweetvizProcessingError）：
-    - metadata 生成
-    - source_summary / compare_summary 提取
-    - features 字典构建（整体）
-    - target 特征提取（如果存在）
-    - associations / associations_compare 提取
-
-    可选路径（失败 warn 后降级）：
-    - 单个特征的 drift 计算
-    - drift_summary 生成
-    """
-    actual_diag = diag if diag is not None else getattr(report, '_diag', None)
-
-    # ---- 核心路径 1: metadata ----
+def build_report_data(report, include_drift: bool = True) -> dict:
+    metadata = {
+        "schema_version": SCHEMA_VERSION,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "source_name": getattr(report, "source_name", "DataFrame"),
+        "compare_name": getattr(report, "compare_name", None),
+    }
     try:
-        metadata = {
-            "schema_version": SCHEMA_VERSION,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "source_name": getattr(report, "source_name", "DataFrame"),
-            "compare_name": getattr(report, "compare_name", None),
-        }
-        try:
-            import sweetviz
-            metadata["sweetviz_version"] = sweetviz.__version__
-        except (ImportError, AttributeError):
-            pass
-    except Exception as e:
-        raise SweetvizProcessingError(
-            f"阶段: metadata 生成 | 生成报告元数据失败: {e}",
-            resolution="请检查系统时间和报告对象是否有效",
-            original_error=e
-        ) from e
+        import sweetviz
+        metadata["sweetviz_version"] = sweetviz.__version__
+    except (ImportError, AttributeError):
+        pass
 
-    # ---- 核心路径 2: source_summary / compare_summary ----
-    # source_summary 是必需字段
-    if not hasattr(report, "summary_source") or report.summary_source is None:
-        raise SweetvizProcessingError(
-            "阶段: 摘要提取 | 缺少必需字段 'summary_source'",
-            resolution="source_summary 是核心字段，请确保报告生成流程正常完成"
-        )
-    try:
-        source_summary = _convert_value(report.summary_source)
-    except Exception as e:
-        raise SweetvizProcessingError(
-            f"阶段: 摘要提取 | 提取 source_summary 失败: {e}",
-            resolution="请检查报告生成流程是否正常完成，summary_source 字段是否存在",
-            original_error=e
-        ) from e
+    source_summary = _convert_value(getattr(report, "summary_source", None))
+    compare_summary = _convert_value(getattr(report, "summary_compare", None))
 
-    # compare_summary 是 compare 报告的必需字段
-    if report.compare_name is not None:
-        if not hasattr(report, "summary_compare") or report.summary_compare is None:
-            raise SweetvizProcessingError(
-                "阶段: 摘要提取 | 比较报告缺少必需字段 'summary_compare'",
-                resolution="compare_summary 是比较报告的核心字段，请确保比较报告生成流程正常完成"
-            )
-        try:
-            compare_summary = _convert_value(report.summary_compare)
-        except Exception as e:
-            raise SweetvizProcessingError(
-                f"阶段: 摘要提取 | 提取 compare_summary 失败: {e}",
-                resolution="请检查比较报告生成流程是否正常完成",
-                original_error=e
-            ) from e
-    else:
-        compare_summary = None
-
-    # ---- 可选路径: drift 计算（失败降级）----
     if include_drift and report.compare_name is not None:
-        try:
-            compute_all_drifts(report, diag=actual_diag)
-        except Exception as e:
-            _resolve_diag(actual_diag).warn(
-                f"漂移计算整体失败: {e}",
-                category=ErrorCategory.PROCESSING,
-                resolution="所有漂移数据将被跳过，不影响其他数据的导出"
-            )
+        compute_all_drifts(report)
 
-    # ---- 核心路径 3: features 字典构建 ----
     features = {}
     for fname, fdict in report._features.items():
-        try:
-            features[fname] = _extract_feature(fdict, include_drift=include_drift, diag=actual_diag)
-        except SweetvizProcessingError:
-            raise
-        except Exception as e:
-            raise SweetvizProcessingError(
-                f"阶段: 特征提取 | 特征: '{fname}' | 提取失败: {e}",
-                resolution="请检查特征数据结构是否完整，必要时重新生成报告",
-                original_error=e
-            ) from e
+        features[fname] = _extract_feature(fdict, include_drift=include_drift)
 
-    # ---- 核心路径 4: target 特征提取 ----
     target = None
     if report._target is not None:
-        try:
-            target = _extract_feature(report._target, include_drift=include_drift, diag=actual_diag)
-        except SweetvizProcessingError as e:
-            raise SweetvizProcessingError(
-                f"阶段: 目标特征提取 | {e}",
-                resolution=e.resolution,
-                original_error=e
-            ) from e
-        except Exception as e:
-            raise SweetvizProcessingError(
-                f"阶段: 目标特征提取 | 提取目标特征失败: {e}",
-                resolution="请检查目标特征数据结构是否完整，必要时重新生成报告",
-                original_error=e
-            ) from e
+        target = _extract_feature(report._target, include_drift=include_drift)
 
-    # ---- 核心路径 5: associations 提取（条件必需）----
-    # associations 如果存在则是必需字段，损坏必须抛异常
-    associations = None
-    if hasattr(report, "_associations") and report._associations is not None:
-        try:
-            associations = _convert_value(report._associations)
-        except Exception as e:
-            raise SweetvizProcessingError(
-                f"阶段: 关联数据提取 | 提取 associations 失败: {e}",
-                resolution="请检查关联分析流程是否正常完成",
-                original_error=e
-            ) from e
+    associations = _convert_value(getattr(report, "_associations", None))
+    associations_compare = _convert_value(getattr(report, "_associations_compare", None))
 
-    associations_compare = None
-    if hasattr(report, "_associations_compare") and report._associations_compare is not None:
-        try:
-            associations_compare = _convert_value(report._associations_compare)
-        except Exception as e:
-            raise SweetvizProcessingError(
-                f"阶段: 关联数据提取 | 提取 associations_compare 失败: {e}",
-                resolution="请检查比较报告的关联分析流程是否正常完成",
-                original_error=e
-            ) from e
-
-    # ---- 可选路径: drift_summary（失败降级）----
     drift_summary = None
     if include_drift and report.compare_name is not None:
-        try:
-            all_features_for_summary = {}
-            for fname, fdict in report._features.items():
-                all_features_for_summary[fname] = fdict
-            if report._target is not None:
-                all_features_for_summary[report._target.get("name")] = report._target
-            drift_summary = compute_drift_summary(all_features_for_summary)
-        except Exception as e:
-            _resolve_diag(actual_diag).warn(
-                f"生成漂移摘要时出错: {e}",
-                category=ErrorCategory.PROCESSING,
-                resolution="漂移摘要将被省略，不影响其他数据的导出"
-            )
+        all_features_for_summary = {}
+        for fname, fdict in report._features.items():
+            all_features_for_summary[fname] = fdict
+        if report._target is not None:
+            all_features_for_summary[report._target.get("name")] = report._target
+        drift_summary = compute_drift_summary(all_features_for_summary)
 
-    # ---- 组装结果 ----
     result = {
         "metadata": metadata,
         "source_summary": source_summary,
@@ -704,55 +438,10 @@ def build_report_data(report, include_drift: bool = True,
 
 
 def to_json(report, filepath: str = None, include_drift: bool = True,
-            indent: int = 2, diag: Optional[DiagnosticManager] = None) -> str:
-    """导出 JSON。核心路径失败抛异常，可选路径失败降级。"""
-    actual_diag = diag if diag is not None else getattr(report, '_diag', None)
-    try:
-        data = build_report_data(report, include_drift=include_drift, diag=actual_diag)
-        json_str = json.dumps(data, ensure_ascii=False, indent=indent, default=str)
-    except SweetvizProcessingError:
-        # 已经是包装好的核心路径异常，直接抛出
-        raise
-    except (TypeError, ValueError) as e:
-        exc = SweetvizProcessingError(
-            f"阶段: JSON 序列化 | 序列化失败: {e}",
-            resolution="请检查报告数据是否包含无法序列化的类型",
-            original_error=e
-        )
-        _resolve_diag(actual_diag).warn(
-            f"JSON 序列化失败: {e}",
-            category=ErrorCategory.PROCESSING,
-            resolution=exc.resolution
-        )
-        raise exc from e
-    except Exception as e:
-        # 其他未预期的异常，包装后抛出
-        exc = SweetvizProcessingError(
-            f"阶段: JSON 导出 | 未预期错误: {e}",
-            resolution="请检查报告对象是否完整，或尝试重新生成报告",
-            original_error=e
-        )
-        _resolve_diag(actual_diag).warn(
-            f"JSON 导出未预期错误: {e}",
-            category=ErrorCategory.PROCESSING,
-            resolution=exc.resolution
-        )
-        raise exc from e
-
+            indent: int = 2) -> str:
+    data = build_report_data(report, include_drift=include_drift)
+    json_str = json.dumps(data, ensure_ascii=False, indent=indent, default=str)
     if filepath is not None:
-        try:
-            with open(filepath, 'w', encoding='utf-8') as f:
-                f.write(json_str)
-        except IOError as e:
-            exc = SweetvizResourceError(
-                f"无法写入 JSON 文件: {filepath}",
-                resolution="请检查文件路径是否正确，以及是否有写入权限",
-                original_error=e
-            )
-            _resolve_diag(actual_diag).warn(
-                f"JSON 文件写入失败: {filepath}: {e}",
-                category=ErrorCategory.RESOURCE,
-                resolution=exc.resolution
-            )
-            raise exc from e
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(json_str)
     return json_str

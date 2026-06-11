@@ -3,8 +3,6 @@ import pandas as pd
 from collections import Counter
 import math
 import scipy.stats as ss
-from typing import Optional
-from sweetviz.diagnostics import SweetvizProcessingError, warn, ErrorCategory, DiagnosticManager
 
 # This file contains original and modified versions of the dython library,
 # which you should check out at the following URL:
@@ -74,15 +72,11 @@ def convert(data, to):
         elif isinstance(data, np.ndarray):
             converted = pd.DataFrame(data)
     else:
-        raise SweetvizProcessingError(
-            f"未知的数据转换类型: {to}",
-            resolution="请检查调用代码，确保使用正确的转换目标类型"
-        )
+        raise ValueError("Unknown data conversion: {}".format(to))
     if converted is None:
-        raise SweetvizProcessingError(
-            f"无法处理从 {type(data).__name__} 到 {to} 的数据转换",
-            resolution="请检查输入数据类型是否正确"
-        )
+        raise TypeError(
+            'cannot handle data conversion of type: {} to {}'.format(
+                type(data), to))
     else:
         return converted
 
@@ -148,8 +142,7 @@ def conditional_entropy(x,
 def theils_u(y,
              x,
              nan_strategy=REPLACE,
-             nan_replace_value=DEFAULT_REPLACE_VALUE,
-             diag: Optional[DiagnosticManager] = None):
+             nan_replace_value=DEFAULT_REPLACE_VALUE):
     """
     IMPORTANT: look at the order of arguments y and x
 
@@ -196,8 +189,7 @@ def theils_u(y,
 def correlation_ratio(categories,
                       measurements,
                       nan_strategy=REPLACE,
-                      nan_replace_value=DEFAULT_REPLACE_VALUE,
-                      diag: Optional[DiagnosticManager] = None):
+                      nan_replace_value=DEFAULT_REPLACE_VALUE):
     """
     Calculates the Correlation Ratio (sometimes marked by the greek letter Eta)
     for categorical-continuous association.

@@ -1,86 +1,0 @@
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_common-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_core-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_features-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_tabular-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-=== Test 1: Fine-grained serialize functions work standalone ===
-                                             |          | [  0%]   00:00 -> (? left)[Summarizing dataframe]                      |          | [  0%]   00:00 -> (? left)Feature: num_a                               |██        | [ 20%]   00:00 -> (00:00 left)Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_common-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_core-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_features-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_tabular-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Feature: num_a                               |████      | [ 40%]   00:00 -> (00:00 left)Feature: cat_b                               |████      | [ 40%]   00:00 -> (00:00 left)Feature: text_c                              |██████    | [ 60%]   00:00 -> (00:00 left)Feature: text_c                              |████████  | [ 80%]   00:00 -> (00:00 left)Feature: bool_d                              |████████  | [ 80%]   00:00 -> (00:00 left)Feature: bool_d                              |          | [  0%]   00:00 -> (? left)    [Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 3/3] Generating associations graph     |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)
-  serialize_feature_dict for all 4 types: OK
-  serialize_features_dict: OK
-  serialize_compare_dict(None): OK
-  build_metadata_top_level: OK
-
-=== Test 2: Compare mode serialize_compare_dict with real data ===
-                                             |          | [  0%]   00:00 -> (? left)[Summarizing dataframe]                      |          | [  0%]   00:00 -> (? left)Feature: num_a                               |██        | [ 20%]   00:00 -> (00:00 left)Feature: num_a                               |████      | [ 40%]   00:00 -> (00:00 left)Feature: cat_b                               |████      | [ 40%]   00:00 -> (00:00 left)Feature: text_c                              |██████    | [ 60%]   00:00 -> (00:00 left)Feature: text_c                              |████████  | [ 80%]   00:00 -> (00:00 left)Feature: bool_d                              |████████  | [ 80%]   00:00 -> (00:00 left)Feature: bool_d                              |          | [  0%]   00:00 -> (? left)    [Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 3/3] Generating associations graph     |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)
-Traceback (most recent call last):
-  File "/Users/pkcha/sweetviz/_test_serialize_v2.py", line 82, in <module>
-    assert set(s_cat['compare'].keys()) >= {'type', 'base_stats', 'cat_stats', 'detail', 'viz'}
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-AssertionError

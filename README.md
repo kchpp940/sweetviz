@@ -71,7 +71,16 @@ Creating a report is a quick 2-line process:
 1. Create a `DataframeReport` object using one of: `analyze()`, `compare()` or `compare_intra()`
 2. Use a `show_xxx()` function to render the report. You can now use either **html** or **notebook** report options, as well as scaling: (more info on these options below)
 
-![Report_Show_Options](docs/images/Layout-Anim3.gif) 
+![Report_Show_Options](docs/images/Layout-Anim3.gif)
+
+> **Tip for new users / reproducible demos** – All examples in this README
+> use the unified built-in demo dataset shipped with sweetviz. You can run
+> every example in this section (and more) with a single command:
+> ```bash
+> python -m sweetviz.example_runner
+> ```
+> Outputs are written to `./sweetviz_example_outputs/`.  You can also import
+> the runner from Python – see the "Unified example runner" section below.
 
 ## Step 1: Create the report
 There are 3 main functions for creating reports:
@@ -81,73 +90,81 @@ There are 3 main functions for creating reports:
 
 #### Analyzing a single dataframe (and its optional target feature)
 To analyze a single dataframe, simply use the `analyze(...)` function, then the `show_html(...)` function:
-```
+```python
 import sweetviz as sv
 
-my_report = sv.analyze(my_dataframe)
-my_report.show_html() # Default arguments will generate to "SWEETVIZ_REPORT.html"
+# Use the built-in demo dataset (Titanic-like) so examples are reproducible
+df = sv.load_dataset("titanic_full")          # sv alias: sv.example_runner.load_dataset
+
+my_report = sv.analyze(df)
+my_report.show_html()   # Default arguments will generate to "SWEETVIZ_REPORT.html"
 ```
 When run, this will output a 1080p widescreen html app in your default browser:
 ![Widescreen demo](docs/images/demo_wide.png)
 ##### Optional arguments
 The `analyze()` function can take multiple other arguments:
-```
+```python
 analyze(source: Union[pd.DataFrame, Tuple[pd.DataFrame, str]],
             target_feat: str = None,
             feat_cfg: FeatureConfig = None,
             pairwise_analysis: str = 'auto',
-            verbosity: str = 'default'):
+            verbosity: str = 'default')
 ```
-- **source:** Either the data frame (as in the example) or a tuple containing the data frame and a name to show in the report. 
+- **source:** Either the data frame (as in the example) or a tuple containing the data frame and a name to show in the report.
 e.g. `my_df` or `[my_df, "Training"]`
 - **target_feat:** A string representing the name of the feature to be marked as "target". *Only BOOLEAN and NUMERICAL features can be targets for now.*
 - **feat_cfg:** A FeatureConfig object representing features to be skipped, or to be forced a certain type in the analysis. The arguments can either be a single string or list of strings. Parameters are `skip`, `force_cat`, `force_num` and `force_text`. The "force_" arguments override the built-in type detection. They can be constructed as follows:
-```
+```python
 feature_config = sv.FeatureConfig(skip="PassengerId", force_text=["Age"])
 ```
-- **verbosity:** **[NEW]** Can be set to `full`, `progress_only` (to only display the progress bar but not report generation messages) and `off` (fully quiet, except for errors or warnings). Default  verbosity can also be set in the INI override, under the "General" heading (see "The Config file" section below for details).
+- **verbosity:** Can be set to `full`, `progress_only` (to only display the progress bar but not report generation messages) and `off` (fully quiet, except for errors or warnings). Default verbosity can also be set in the INI override, under the "General" heading (see "The Config file" section below for details).
 - **pairwise_analysis:** Correlations and other associations can take quadratic time (n^2) to complete. The default setting ("auto") will run without warning until a data set contains "association_auto_threshold" features. Past that threshold, you need to explicitly pass the parameter `pairwise_analysis="on"` (or `="off"`) since processing that many features would take a long time. This parameter also covers the generation of the association graphs (based on [Drazen Zaric's concept](https://towardsdatascience.com/better-heatmaps-and-correlation-matrix-plots-in-python-41445d0f2bec)):
 
 ![Pairwise sample](docs/images/pairwise.png)
 
 #### Comparing two dataframes (e.g. Test vs Training sets)
 To compare two data sets, simply use the `compare()` function. Its parameters are the same as `analyze()`, except with an inserted second parameter to cover the comparison dataframe. It is recommended to use the [dataframe, "name"] format of parameters to better differentiate between the base and compared dataframes. (e.g. `[my_df, "Train"]` vs `my_df`)
-```
-my_report = sv.compare([my_dataframe, "Training Data"], [test_df, "Test Data"], "Survived", feature_config)
+```python
+train = sv.load_dataset("titanic_train")
+test  = sv.load_dataset("titanic_test")
+fc    = sv.FeatureConfig(skip="PassengerId")
+
+my_report = sv.compare([train, "Training Data"], [test, "Test Data"], "Survived", fc)
 ```
 #### Comparing two subsets of the same dataframe (e.g. Male vs Female)
 Another way to get great insights is to use the comparison functionality to split your dataset into 2 sub-populations.
 
 Support for this is built in through the `compare_intra()` function. This function takes a boolean series as one of the arguments, as well as an explicit "name" tuple for naming the (true, false) resulting datasets. Note that internally, this creates 2 separate dataframes to represent each resulting group. As such, it is more of a shorthand function of doing such processing manually.
-```
-my_report = sv.compare_intra(my_dataframe, my_dataframe["Sex"] == "male", ["Male", "Female"], "Survived", feature_config)
+```python
+df = sv.load_dataset("titanic_full")
+my_report = sv.compare_intra(df, df["Sex"] == "male", ["Male", "Female"], "Survived")
 ```
 ## Step 2: Show the report
 Once you have created your report object (e.g. `my_report` in the examples above), simply pass it into one of the two `show' functions:
 
 ### show_html()
-```
-show_html(  filepath='SWEETVIZ_REPORT.html', 
-            open_browser=True, 
-            layout='widescreen', 
+```python
+show_html(  filepath='SWEETVIZ_REPORT.html',
+            open_browser=True,
+            layout='widescreen',
             scale=None)
-```            
+```
 **show_html(...)** will create and save an HTML report at the given file path. There are options for:
 - **layout**: Either `'widescreen'` or `'vertical'`. The widescreen layout displays details on the right side of the screen, as the mouse goes over each feature. The new (as of 2.0) vertical layout is more compact horizontally and enables expanding each detail area upon clicking.
 - **scale**: Use a floating-point number (e.g. `scale = 0.8` or `None`) to scale the entire report. This is very useful to fit reports to any output.
 - **open_browser**: Enables the automatic opening of a web browser to show the report. Since under some circumstances this is not desired (or causes issues with some IDE's), you can disable it here.
 
 ### show_notebook()
-```
-show_notebook(  w=None, 
-                h=None, 
+```python
+show_notebook(  w=None,
+                h=None,
                 scale=None,
                 layout='widescreen',
                 filepath=None,
                 file_layout=None,
                 file_scale=None)
-```            
-**show_notebook(...)** is new as of 2.0 and will embed an IFRAME element showing the report right inside a notebook (e.g. Jupyter, Google Colab, etc.). 
+```
+**show_notebook(...)** is new as of 2.0 and will embed an IFRAME element showing the report right inside a notebook (e.g. Jupyter, Google Colab, etc.).
 
 Note that since notebooks are generally a more constrained visual environment, it is probably a good idea to use custom width/height/scale values (`w`, `h`, `scale`) and even **set custom default values in an INI override** (see below). The options are:
 - **w** (width): Sets the width of the output _window_ for the report (the full report may not fit; use `layout` and/or `scale` for the report itself). Can be as a percentage string (`w="100%"`) or number of pixels (`w=900`).
@@ -157,6 +174,73 @@ Note that since notebooks are generally a more constrained visual environment, i
 - **filepath**: An OPTIONAL output HTML report.
 - **file_layout**: Layout for the OPTIONAL file output ONLY (same as `layout` for `show_html()`, above)
 - **file_scale**: Scale for the OPTIONAL file output ONLY (same as `scale` for `show_html()`, above)
+
+### Exporting JSON metadata
+Every report can also be serialized to JSON for programmatic inspection,
+CI checks, or downstream tooling.  Two drift-analysis modes are supported:
+```python
+report = sv.analyze(df, target_feat="Survived")
+json_str  = report.to_json()                                   # string
+report.to_json(filepath="report_metadata.json")                # with drift
+report.to_json(filepath="nodrift_metadata.json", include_drift=False)
+```
+
+---
+
+## Unified example runner (recommended)
+Sweetviz ships with a fully scripted, deterministic demo harness that
+exercises every public surface of the library against a single built-in
+Titanic-like dataset.  Use it for:
+
+* **README / docs / notebooks** – so every page uses the same data + calls.
+* **New feature development** – one command to check that every report still
+  renders end-to-end.
+* **CI / regression checks** – run via `python -m sweetviz.example_runner`
+  and inspect the output folder.
+
+### From the command line
+```bash
+# Run every demo (HTML + JSON) into ./sweetviz_example_outputs/
+python -m sweetviz.example_runner
+
+# Run only the 'analyze' and 'compare' demos
+python -m sweetviz.example_runner analyze compare
+
+# Options
+python -m sweetviz.example_runner \
+    -o ./reports \
+    --open-browser \
+    --api-verbosity progress_only
+```
+
+### From Python
+```python
+import sweetviz as sv
+
+# (a) Just grab a deterministic DataFrame
+df = sv.load_dataset("titanic_full")            # or titanic_train / titanic_test
+
+# (b) Run a single canned example
+result = sv.run_analyze()                       # -> ExampleResult
+# result.report   : the DataframeReport object
+# result.outputs  : dict of "label" -> absolute output path
+# result.ok       : bool
+
+# (c) Run *all* examples end-to-end
+all_results = sv.run_all_examples()
+```
+
+### Covered code paths
+| Runner key          | API surface exercised                                                    |
+|---------------------|--------------------------------------------------------------------------|
+| `analyze`           | `analyze()`  + `show_html()` (widescreen & vertical) + `to_json()`       |
+| `compare`           | `compare()` + boolean target + `show_html()` + `to_json()`               |
+| `compare_intra`     | `compare_intra()` + target + `show_html()` + `to_json()`                 |
+| `target`            | `analyze()` with **numeric** target (`Fare`) + both layouts              |
+| `feature_config`    | `FeatureConfig(skip, force_cat, force_text, feature_names)` + display    |
+| `html`              | All `show_html()` combinations: layout × scale                           |
+| `json`              | `to_json(include_drift=True/False)` + parseable-JSON validation         |
+| `notebook`          | `show_notebook()` with the `filepath=` branch (safe in scripts)          |
 # Customizing defaults: the Config file
 The package contains an INI file for configuration. You can override any setting by providing your own then calling this before creating a report:
 ```

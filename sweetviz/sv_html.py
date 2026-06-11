@@ -3,18 +3,13 @@ import numpy as np
 import html
 import re
 from operator import itemgetter
-from typing import Optional
-from jinja2 import Environment, PackageLoader, TemplateNotFound
+from jinja2 import Environment, PackageLoader
 import sweetviz.sv_html_formatters
 from sweetviz.config import config
 from sweetviz.sv_types import NumWithPercent, FeatureType, OTHERS_GROUPED
 from sweetviz.graph_associations import CORRELATION_ERROR
 from sweetviz.graph_associations import CORRELATION_IDENTICAL
 from functools import cmp_to_key
-from sweetviz.diagnostics import (
-    SweetvizResourceError, SweetvizProcessingError, warn, ErrorCategory,
-    DiagnosticManager, _resolve_diag
-)
 
 package_loader = PackageLoader("sweetviz", "templates")
 jinja2_env = Environment(lstrip_blocks = True,
@@ -33,40 +28,6 @@ jinja2_env.filters["fmt_div_icon_missing"] = sweetviz.sv_html_formatters.fmt_div
 jinja2_env.filters["fmt_div_color_override_missing"] = sweetviz.sv_html_formatters.fmt_div_color_override_missing
 jinja2_env.filters["to_safe_id"] = lambda name: re.sub(r'[^a-zA-Z0-9_-]', '_', str(name))
 jinja2_env.globals["hello"] = "Superduper"
-
-
-def _render_template(template_name: str, diag: Optional[DiagnosticManager] = None, **kwargs) -> str:
-    """安全地渲染模板，捕获并包装模板相关异常。
-
-    异常会被同时记录到指定的诊断上下文（或全局默认）。
-    """
-    try:
-        template = jinja2_env.get_template(template_name)
-        return template.render(**kwargs)
-    except TemplateNotFound as e:
-        exc = SweetvizResourceError(
-            f"找不到模板文件: {template_name}",
-            resolution="请检查 sweetviz 包是否正确安装，templates 目录是否完整",
-            original_error=e
-        )
-        _resolve_diag(diag).warn(
-            f"模板资源缺失: {template_name}",
-            category=ErrorCategory.RESOURCE,
-            resolution=exc.resolution
-        )
-        raise exc from e
-    except Exception as e:
-        exc = SweetvizProcessingError(
-            f"渲染模板 {template_name} 时出错: {e}",
-            resolution="这可能是由于数据格式异常导致的，请检查输入数据",
-            original_error=e
-        )
-        _resolve_diag(diag).warn(
-            f"模板渲染失败: {template_name}: {e}",
-            category=ErrorCategory.PROCESSING,
-            resolution=exc.resolution
-        )
-        raise exc from e
 
 def load_layout_globals_from_config():
     jinja2_env.globals["FeatureType"] = FeatureType
@@ -108,7 +69,8 @@ def generate_html_detail(dataframe_report):
             feature["html_detail"] = generate_html_detail_text(feature, compare_dict, dataframe_report)
 
 
-def generate_html_dataframe_page(dataframe_report, diag: Optional[DiagnosticManager] = None):
+def generate_html_dataframe_page(dataframe_report):
+    template = jinja2_env.get_template('dataframe_page.html')
     # Add in total page size (160 is hardcoded from the top of page-all-summaries in CSS)
     # This could be programmatically set
     dataframe_report.page_height = 160 + (dataframe_report.num_summaries * (config["Layout"].getint("summary_height_per_element")))
@@ -121,97 +83,18 @@ def generate_html_dataframe_page(dataframe_report, diag: Optional[DiagnosticMana
     # scaling = dict()
     # scaling["main_column"] = scale
     # scaling= scale
-    actual_diag = diag if diag is not None else getattr(dataframe_report, '_diag', None)
-    try:
-        template = jinja2_env.get_template('dataframe_page.html')
-        output = template.render(dataframe=dataframe_report, version=sweetviz.__version__)
-    except TemplateNotFound as e:
-        exc = SweetvizResourceError(
-            f"找不到页面模板: dataframe_page.html",
-            resolution="请检查 sweetviz 包是否正确安装，templates 目录是否完整",
-            original_error=e
-        )
-        _resolve_diag(actual_diag).warn(
-            f"页面模板缺失: dataframe_page.html",
-            category=ErrorCategory.RESOURCE,
-            resolution=exc.resolution
-        )
-        raise exc from e
-    except Exception as e:
-        exc = SweetvizProcessingError(
-            f"渲染页面模板时出错: {e}",
-            resolution="这可能是由于数据格式异常导致的，请检查输入数据",
-            original_error=e
-        )
-        _resolve_diag(actual_diag).warn(
-            f"页面渲染失败: {e}",
-            category=ErrorCategory.PROCESSING,
-            resolution=exc.resolution
-        )
-        raise exc from e
+    output = template.render(dataframe=dataframe_report, version=sweetviz.__version__)
     return output
 
 
-def generate_html_dataframe_summary(dataframe_report, diag: Optional[DiagnosticManager] = None):
-    actual_diag = diag if diag is not None else getattr(dataframe_report, '_diag', None)
-    try:
-        template = jinja2_env.get_template('dataframe_summary.html')
-        output = template.render(dataframe=dataframe_report)
-    except TemplateNotFound as e:
-        exc = SweetvizResourceError(
-            f"找不到摘要模板: dataframe_summary.html",
-            resolution="请检查 sweetviz 包是否正确安装，templates 目录是否完整",
-            original_error=e
-        )
-        _resolve_diag(actual_diag).warn(
-            f"摘要模板缺失: dataframe_summary.html",
-            category=ErrorCategory.RESOURCE,
-            resolution=exc.resolution
-        )
-        raise exc from e
-    except Exception as e:
-        exc = SweetvizProcessingError(
-            f"渲染摘要模板时出错: {e}",
-            resolution="这可能是由于数据格式异常导致的，请检查输入数据",
-            original_error=e
-        )
-        _resolve_diag(actual_diag).warn(
-            f"摘要渲染失败: {e}",
-            category=ErrorCategory.PROCESSING,
-            resolution=exc.resolution
-        )
-        raise exc from e
+def generate_html_dataframe_summary(dataframe_report):
+    template = jinja2_env.get_template('dataframe_summary.html')
+    output = template.render(dataframe=dataframe_report)
     return output
 
-def generate_html_associations(dataframe_report, which, diag: Optional[DiagnosticManager] = None):
-    actual_diag = diag if diag is not None else getattr(dataframe_report, '_diag', None)
-    try:
-        template = jinja2_env.get_template('dataframe_associations.html')
-        output = template.render(dataframe=dataframe_report, which=which)
-    except TemplateNotFound as e:
-        exc = SweetvizResourceError(
-            f"找不到关联图模板: dataframe_associations.html",
-            resolution="请检查 sweetviz 包是否正确安装，templates 目录是否完整",
-            original_error=e
-        )
-        _resolve_diag(actual_diag).warn(
-            f"关联图模板缺失: dataframe_associations.html",
-            category=ErrorCategory.RESOURCE,
-            resolution=exc.resolution
-        )
-        raise exc from e
-    except Exception as e:
-        exc = SweetvizProcessingError(
-            f"渲染关联图模板时出错: {e}",
-            resolution="这可能是由于数据格式异常导致的，请检查输入数据",
-            original_error=e
-        )
-        _resolve_diag(actual_diag).warn(
-            f"关联图渲染失败: {e}",
-            category=ErrorCategory.PROCESSING,
-            resolution=exc.resolution
-        )
-        raise exc from e
+def generate_html_associations(dataframe_report, which):
+    template = jinja2_env.get_template('dataframe_associations.html')
+    output = template.render(dataframe=dataframe_report, which=which)
     return output
 
 # SUMMARIES

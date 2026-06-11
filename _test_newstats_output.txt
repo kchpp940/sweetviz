@@ -1,144 +1,0 @@
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_common-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_core-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_features-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_tabular-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-=== Test 1: Categorical stats ===
-                                             |          | [  0%]   00:00 -> (? left)[Summarizing dataframe]                      |          | [  0%]   00:00 -> (? left)Feature: cat_col                             |██▌       | [ 25%]   00:00 -> (00:00 left)Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_common-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_core-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_features-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Error processing line 1 of /Users/pkcha/.local/lib/python3.13/site-packages/autogluon_tabular-1.5.1b20260503-nspkg.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 207, in addpackage
-    File "<string>", line 1, in <module>
-    File "<frozen importlib._bootstrap>", line 810, in module_from_spec
-  AttributeError: 'NoneType' object has no attribute 'loader'
-
-Remainder of file ignored
-Feature: cat_col                             |█████     | [ 50%]   00:00 -> (00:00 left)Feature: bool_col                            |█████     | [ 50%]   00:00 -> (00:00 left)Feature: num_col                             |███████▌  | [ 75%]   00:00 -> (00:00 left)Feature: num_col                             |██████████| [100%]   00:00 -> (00:00 left)Feature: num_col                             |          | [  0%]   00:00 -> (? left)    [Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 3/3] Generating associations graph     |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)
-cat_col type: TYPE_CATEGORICAL
-  cat_stats keys: ['num_valid_categories', 'top_categories', 'mode_value', 'mode_percentage', 'rare_category_count', 'rare_threshold_pct', 'has_others_grouped']
-  num_valid_categories: 4
-  mode_value: Alpha
-  mode_percentage: 44.13%
-  rare_category_count (< 1%): 0
-  has_others_grouped: False
-  top_categories count: 4
-    - Alpha: 421 (44.13%)
-    - Beta: 291 (30.50%)
-    - Gamma: 135 (14.15%)
-    - Delta: 107 (11.22%)
-  OK
-
-bool_col type: TYPE_BOOL
-  cat_stats keys: ['num_valid_categories', 'top_categories', 'mode_value', 'mode_percentage', 'rare_category_count', 'rare_threshold_pct', 'has_others_grouped']
-  num_valid_categories: 2
-  mode_value: True
-  mode_percentage: 57.00%
-  OK
-
-num_col type: TYPE_NUMERIC
-  cat_stats should be None: True
-  text_stats should be None: True
-  OK
-
-=== Test 2: Text stats ===
-                                             |          | [  0%]   00:00 -> (? left)[Summarizing dataframe]                      |          | [  0%]   00:00 -> (? left)Feature: text_col                            |███▎      | [ 33%]   00:00 -> (00:00 left)Feature: num_col                             |██████▋   | [ 67%]   00:00 -> (00:00 left)Feature: num_col                             |██████████| [100%]   00:00 -> (00:00 left)Feature: num_col                             |          | [  0%]   00:00 -> (? left)    [Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 3/3] Generating associations graph     |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)
-text_col type: TYPE_CATEGORICAL
-  WARNING: text_stats not present (type detected as TYPE_CATEGORICAL)
-
-=== Test 3: Compare mode ===
-                                             |          | [  0%]   00:00 -> (? left)[Summarizing dataframe]                      |          | [  0%]   00:00 -> (? left)Feature: cat_a                               |███▎      | [ 33%]   00:00 -> (00:00 left)Feature: num_b                               |██████▋   | [ 67%]   00:00 -> (00:00 left)Feature: num_b                               |██████████| [100%]   00:00 -> (00:00 left)Feature: num_b                               |          | [  0%]   00:00 -> (? left)    [Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 2/3] Processing Pairwise Features      |          | [  0%]   00:00 -> (? left)[Step 3/3] Generating associations graph     |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |          | [  0%]   00:00 -> (? left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)Done! Use 'show' commands to display/save.   |██████████| [100%]   00:00 -> (00:00 left)
-cat_a:
-  source cat_stats: ['num_valid_categories', 'top_categories', 'mode_value', 'mode_percentage', 'rare_category_count', 'rare_threshold_pct', 'has_others_grouped']
-    source mode: X (51.00%)
-    source num_valid: 3
-  compare cat_stats: ['num_valid_categories', 'top_categories', 'mode_value', 'mode_percentage', 'rare_category_count', 'rare_threshold_pct', 'has_others_grouped']
-    compare mode: Y (39.33%)
-    compare num_valid: 4
-  OK
-
-=== Test 4: HTML output still works ===
-Report /var/folders/5n/5fk0gy756kj43rvymptfpp1r0000gn/T/tmpnyt01jd9.html was generated.
-  cat report: 542595 bytes
-Report /var/folders/5n/5fk0gy756kj43rvymptfpp1r0000gn/T/tmpnyt01jd9.html was generated.
-  text report: 534357 bytes
-Report /var/folders/5n/5fk0gy756kj43rvymptfpp1r0000gn/T/tmpnyt01jd9.html was generated.
-  compare report: 558589 bytes
-  OK
-
-=== Test 5: Non-applicable stats remain None ===
-cat_col:
-  type=TYPE_CATEGORICAL
-  numeric_stats: NoneType
-  cat_stats: dict
-  text_stats: NoneType
-bool_col:
-  type=TYPE_BOOL
-  numeric_stats: NoneType
-  cat_stats: dict
-  text_stats: NoneType
-num_col:
-  type=TYPE_NUMERIC
-  numeric_stats: dict
-  cat_stats: NoneType
-  text_stats: NoneType
-  All None assignments correct: OK
-
-=== ALL TESTS PASSED ===

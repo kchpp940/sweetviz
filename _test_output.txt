@@ -1,20 +1,0 @@
-                                             |          | [  0%]   00:00 -> (? left)[Summarizing dataframe]                      |          | [  0%]   00:00 -> (? left)Feature: a                                   |███▎      | [ 33%]   00:00 -> (00:00 left)Feature: a                                   |██████▋   | [ 67%]   00:00 -> (00:00 left)Feature: b                                   |██████▋   | [ 67%]   00:00 -> (00:00 left)Feature: b                                   |██████████| [100%]   00:00 -> (00:00 left)Feature: b                                   |██████████| [100%]   00:00 -> (00:00 left)
-=== Test 1: Basic report data ===
-get_report_data keys: ['metadata', 'source_summary', 'features']
-features: ['a', 'b']
-
-=== Test 2: JSON export ===
-JSON keys: ['metadata', 'source_summary', 'features']
-feature a keys: ['name', 'display_name', 'safe_name', 'order_index', 'is_target', 'type', 'stats', 'base_stats', 'detail', 'minigraph', 'detail_graphs', 'html_summary']
-feature a type: NUMERIC
-num_values number type: <class 'int'>
-num_values number value: 100
-
-=== Test 3: Compare + drift ===
-                                             |          | [  0%]   00:00 -> (? left)[Summarizing dataframe]                      |          | [  0%]   00:00 -> (? left)Feature: x                                   |███▎      | [ 33%]   00:00 -> (00:00 left)Feature: x                                   |██████▋   | [ 67%]   00:00 -> (00:00 left)Feature: y                                   |██████▋   | [ 67%]   00:00 -> (00:00 left)Feature: y                                   |██████████| [100%]   00:00 -> (00:00 left)
-compare_name: Compare
-drift_summary keys: ['num_features', 'average_score', 'max_score', 'severity_counts', 'top_features']
-drift max_score: 80.0
-feature x drift score: 30.0
-
-All tests passed!
