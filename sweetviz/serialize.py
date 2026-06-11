@@ -14,6 +14,33 @@ from sweetviz.diagnostics import (
 
 SCHEMA_VERSION = "1.0"
 
+FEATURE_REQUIRED_FIELDS = ["name", "type", "base_stats"]
+FEATURE_OPTIONAL_FIELDS = ["stats", "detail", "compare", "drift"]
+COMPARE_REQUIRED_FIELDS = ["type", "base_stats"]
+COMPARE_OPTIONAL_FIELDS = ["stats"]
+TOP_LEVEL_REQUIRED_FIELDS = ["metadata", "source_summary", "features"]
+TOP_LEVEL_CONDITIONAL_FIELDS = {
+    "compare_summary": "当存在 compare_name 时必需",
+    "target": "当存在 _target 时必需",
+    "associations": "当存在 _associations 时必需",
+    "associations_compare": "当存在 _associations_compare 时必需",
+}
+
+_SCHEMA_DOC = f"""
+JSON Export Schema (v{SCHEMA_VERSION})
+==========================
+核心契约（缺失必抛 SweetvizProcessingError）：
+  - 顶层: {TOP_LEVEL_REQUIRED_FIELDS}
+  - 特征层: {FEATURE_REQUIRED_FIELDS}
+  - compare 子结构: {COMPARE_REQUIRED_FIELDS}
+条件必需（满足条件时缺失必抛）：
+  {TOP_LEVEL_CONDITIONAL_FIELDS}
+可选字段（失败仅 warn 降级，不中断）：
+  - 特征层: {FEATURE_OPTIONAL_FIELDS}
+  - compare 子结构: {COMPARE_OPTIONAL_FIELDS}
+  - 顶层: drift_summary, drift 计算
+"""
+
 
 def _num_with_percent_to_dict(obj: NumWithPercent) -> Optional[Dict[str, Optional[float]]]:
     if obj is None:
@@ -118,17 +145,51 @@ def _extract_details(feature_dict: dict, feature_type: FeatureType) -> Optional[
     return result if result else None
 
 
-def _extract_compare(feature_dict: dict) -> Optional[dict]:
+def _extract_compare(feature_dict: dict,
+                     diag: Optional[DiagnosticManager] = None) -> Optional[dict]:
+    """提取 compare 子结构。
+
+    核心字段（type/base_stats）缺失必抛 SweetvizProcessingError；
+    可选字段（stats）失败降级记录到 warning。
+    """
     compare_dict = feature_dict.get("compare")
     if compare_dict is None:
         return None
+
+    feature_name = feature_dict.get("name", "unknown")
+    compare_type = compare_dict.get("type")
+    if compare_type is None:
+        raise SweetvizProcessingError(
+            f"阶段: compare 结构提取 | 特征 '{feature_name}' 的 compare 缺少核心字段 'type'",
+            resolution=f"compare 子结构必须包含 {COMPARE_REQUIRED_FIELDS} 字段，请重新生成报告"
+        )
+    if "base_stats" not in compare_dict:
+        raise SweetvizProcessingError(
+            f"阶段: compare 结构提取 | 特征 '{feature_name}' 的 compare 缺少核心字段 'base_stats'",
+            resolution=f"compare 子结构必须包含 {COMPARE_REQUIRED_FIELDS} 字段，请重新生成报告"
+        )
+
     result = {}
-    if "type" in compare_dict:
-        result["type"] = _feature_type_to_string(compare_dict["type"])
-    if "base_stats" in compare_dict:
+    result["type"] = _feature_type_to_string(compare_dict["type"])
+    try:
         result["base_stats"] = _extract_base_stats(compare_dict)
-    if "stats" in compare_dict and compare_dict.get("stats"):
-        result["stats"] = _extract_stats(compare_dict)
+    except Exception as e:
+        raise SweetvizProcessingError(
+            f"阶段: compare 结构提取 | 特征: '{feature_name}' | 提取 compare.base_stats 失败: {e}",
+            resolution="请检查 compare 子结构的 base_stats 数据是否完整",
+            original_error=e
+        ) from e
+
+    try:
+        if "stats" in compare_dict and compare_dict.get("stats"):
+            result["stats"] = _extract_stats(compare_dict)
+    except Exception as e:
+        _resolve_diag(diag).warn(
+            f"阶段: compare 可选字段提取 | 特征 '{feature_name}' 提取 compare.stats 失败: {e}",
+            category=ErrorCategory.PROCESSING,
+            resolution="compare.stats 字段将被省略，不影响其他核心数据"
+        )
+
     return result
 
 
@@ -349,26 +410,32 @@ def compute_drift_summary(features: Dict[str, dict]) -> Optional[dict]:
     }
 
 
-def _extract_feature(feature_dict: dict, include_drift: bool = True) -> dict:
+def _extract_feature(feature_dict: dict, include_drift: bool = True,
+                     diag: Optional[DiagnosticManager] = None) -> dict:
     """提取单个特征的数据。
 
-    核心字段（name/type/is_target/base_stats）失败必须抛异常；
-    可选字段（stats/details/compare/drift）失败降级记录到 warning。
+    核心字段（name/type/is_target/base_stats）缺失必抛 SweetvizProcessingError；
+    可选字段（stats/details/compare/drift）失败降级记录到 warning，不中断整体导出。
     """
-    # ---- 核心字段：失败必须抛异常 ----
     feature_name = feature_dict.get("name")
     feature_type = feature_dict.get("type")
 
     if feature_name is None:
         raise SweetvizProcessingError(
             "阶段: 核心字段提取 | 特征缺少核心字段 'name'",
-            resolution="请检查报告数据结构是否完整，特征字典必须包含 'name' 字段"
+            resolution=f"请检查报告数据结构，每个特征必须包含 {FEATURE_REQUIRED_FIELDS} 字段"
         )
 
     if feature_type is None:
         raise SweetvizProcessingError(
             f"阶段: 核心字段提取 | 特征 '{feature_name}' 缺少核心字段 'type'",
-            resolution="请检查特征处理流程是否正常完成"
+            resolution=f"请检查特征处理流程，{FEATURE_REQUIRED_FIELDS} 为必需字段"
+        )
+
+    if "base_stats" not in feature_dict:
+        raise SweetvizProcessingError(
+            f"阶段: 核心字段提取 | 特征 '{feature_name}' 缺少核心字段 'base_stats'",
+            resolution=f"base_stats 是必需字段，包含 num_values/num_missing 等核心统计，请重新生成报告"
         )
 
     result = {
@@ -378,48 +445,59 @@ def _extract_feature(feature_dict: dict, include_drift: bool = True) -> dict:
         "is_target": feature_dict.get("is_target", False),
     }
 
-    # base_stats 是核心字段，失败抛异常
-    if "base_stats" in feature_dict:
-        try:
-            result["base_stats"] = _extract_base_stats(feature_dict)
-        except Exception as e:
-            raise SweetvizProcessingError(
-                f"阶段: 核心字段提取 | 特征: '{feature_name}' | 提取 base_stats 失败: {e}",
-                resolution="请检查 base_stats 数据结构是否完整，num_values/num_missing 等字段是否存在",
-                original_error=e
-            ) from e
+    try:
+        result["base_stats"] = _extract_base_stats(feature_dict)
+    except Exception as e:
+        raise SweetvizProcessingError(
+            f"阶段: 核心字段提取 | 特征: '{feature_name}' | 提取 base_stats 失败: {e}",
+            resolution="请检查 base_stats 数据结构是否完整，num_values/num_missing 等字段是否存在",
+            original_error=e
+        ) from e
 
-    # ---- 可选字段：失败降级，不影响整体导出 ----
     try:
         stats = _extract_stats(feature_dict)
         if stats:
             result["stats"] = stats
-    except Exception:
-        # stats 是可选的，降级处理
-        pass
+    except Exception as e:
+        _resolve_diag(diag).warn(
+            f"阶段: 可选字段提取 | 特征 '{feature_name}' 提取 stats 失败: {e}",
+            category=ErrorCategory.PROCESSING,
+            resolution="stats 字段将被省略，不影响其他核心数据"
+        )
 
     try:
         details = _extract_details(feature_dict, feature_type)
         if details:
             result["details"] = details
-    except Exception:
-        # details 是可选的，降级处理
-        pass
+    except Exception as e:
+        _resolve_diag(diag).warn(
+            f"阶段: 可选字段提取 | 特征 '{feature_name}' 提取 details 失败: {e}",
+            category=ErrorCategory.PROCESSING,
+            resolution="details 字段将被省略，不影响其他核心数据"
+        )
 
     try:
-        compare = _extract_compare(feature_dict)
+        compare = _extract_compare(feature_dict, diag=diag)
         if compare:
             result["compare"] = compare
-    except Exception:
-        # compare 是可选的（只有 compare 报告才有），降级处理
-        pass
+    except SweetvizProcessingError:
+        raise
+    except Exception as e:
+        _resolve_diag(diag).warn(
+            f"阶段: 可选字段提取 | 特征 '{feature_name}' 提取 compare 失败: {e}",
+            category=ErrorCategory.PROCESSING,
+            resolution="compare 字段将被省略，不影响其他核心数据"
+        )
 
     if include_drift and "drift" in feature_dict and feature_dict["drift"] is not None:
         try:
             result["drift"] = _convert_value(feature_dict["drift"])
-        except Exception:
-            # drift 是可选的，降级处理
-            pass
+        except Exception as e:
+            _resolve_diag(diag).warn(
+                f"阶段: 可选字段提取 | 特征 '{feature_name}' 提取 drift 失败: {e}",
+                category=ErrorCategory.PROCESSING,
+                resolution="drift 字段将被省略，不影响其他核心数据"
+            )
 
     return result
 
@@ -488,8 +566,14 @@ def build_report_data(report, include_drift: bool = True,
         ) from e
 
     # ---- 核心路径 2: source_summary / compare_summary ----
+    # source_summary 是必需字段
+    if not hasattr(report, "summary_source") or report.summary_source is None:
+        raise SweetvizProcessingError(
+            "阶段: 摘要提取 | 缺少必需字段 'summary_source'",
+            resolution="source_summary 是核心字段，请确保报告生成流程正常完成"
+        )
     try:
-        source_summary = _convert_value(getattr(report, "summary_source", None))
+        source_summary = _convert_value(report.summary_source)
     except Exception as e:
         raise SweetvizProcessingError(
             f"阶段: 摘要提取 | 提取 source_summary 失败: {e}",
@@ -497,14 +581,23 @@ def build_report_data(report, include_drift: bool = True,
             original_error=e
         ) from e
 
-    try:
-        compare_summary = _convert_value(getattr(report, "summary_compare", None))
-    except Exception as e:
-        raise SweetvizProcessingError(
-            f"阶段: 摘要提取 | 提取 compare_summary 失败: {e}",
-            resolution="请检查比较报告生成流程是否正常完成",
-            original_error=e
-        ) from e
+    # compare_summary 是 compare 报告的必需字段
+    if report.compare_name is not None:
+        if not hasattr(report, "summary_compare") or report.summary_compare is None:
+            raise SweetvizProcessingError(
+                "阶段: 摘要提取 | 比较报告缺少必需字段 'summary_compare'",
+                resolution="compare_summary 是比较报告的核心字段，请确保比较报告生成流程正常完成"
+            )
+        try:
+            compare_summary = _convert_value(report.summary_compare)
+        except Exception as e:
+            raise SweetvizProcessingError(
+                f"阶段: 摘要提取 | 提取 compare_summary 失败: {e}",
+                resolution="请检查比较报告生成流程是否正常完成",
+                original_error=e
+            ) from e
+    else:
+        compare_summary = None
 
     # ---- 可选路径: drift 计算（失败降级）----
     if include_drift and report.compare_name is not None:
@@ -521,12 +614,10 @@ def build_report_data(report, include_drift: bool = True,
     features = {}
     for fname, fdict in report._features.items():
         try:
-            features[fname] = _extract_feature(fdict, include_drift=include_drift)
+            features[fname] = _extract_feature(fdict, include_drift=include_drift, diag=actual_diag)
         except SweetvizProcessingError:
-            # 核心字段缺失，直接抛出，不能静默跳过
             raise
         except Exception as e:
-            # 其他异常包装成核心异常
             raise SweetvizProcessingError(
                 f"阶段: 特征提取 | 特征: '{fname}' | 提取失败: {e}",
                 resolution="请检查特征数据结构是否完整，必要时重新生成报告",
@@ -537,9 +628,8 @@ def build_report_data(report, include_drift: bool = True,
     target = None
     if report._target is not None:
         try:
-            target = _extract_feature(report._target, include_drift=include_drift)
+            target = _extract_feature(report._target, include_drift=include_drift, diag=actual_diag)
         except SweetvizProcessingError as e:
-            # 目标特征是核心字段，包装后抛出，明确阶段
             raise SweetvizProcessingError(
                 f"阶段: 目标特征提取 | {e}",
                 resolution=e.resolution,
@@ -552,24 +642,29 @@ def build_report_data(report, include_drift: bool = True,
                 original_error=e
             ) from e
 
-    # ---- 核心路径 5: associations 提取 ----
-    try:
-        associations = _convert_value(getattr(report, "_associations", None))
-    except Exception as e:
-        raise SweetvizProcessingError(
-            f"阶段: 关联数据提取 | 提取 associations 失败: {e}",
-            resolution="请检查关联分析流程是否正常完成",
-            original_error=e
-        ) from e
+    # ---- 核心路径 5: associations 提取（条件必需）----
+    # associations 如果存在则是必需字段，损坏必须抛异常
+    associations = None
+    if hasattr(report, "_associations") and report._associations is not None:
+        try:
+            associations = _convert_value(report._associations)
+        except Exception as e:
+            raise SweetvizProcessingError(
+                f"阶段: 关联数据提取 | 提取 associations 失败: {e}",
+                resolution="请检查关联分析流程是否正常完成",
+                original_error=e
+            ) from e
 
-    try:
-        associations_compare = _convert_value(getattr(report, "_associations_compare", None))
-    except Exception as e:
-        raise SweetvizProcessingError(
-            f"阶段: 关联数据提取 | 提取 associations_compare 失败: {e}",
-            resolution="请检查比较报告的关联分析流程是否正常完成",
-            original_error=e
-        ) from e
+    associations_compare = None
+    if hasattr(report, "_associations_compare") and report._associations_compare is not None:
+        try:
+            associations_compare = _convert_value(report._associations_compare)
+        except Exception as e:
+            raise SweetvizProcessingError(
+                f"阶段: 关联数据提取 | 提取 associations_compare 失败: {e}",
+                resolution="请检查比较报告的关联分析流程是否正常完成",
+                original_error=e
+            ) from e
 
     # ---- 可选路径: drift_summary（失败降级）----
     drift_summary = None
