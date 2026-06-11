@@ -1,7 +1,7 @@
 from urllib.parse import urlparse
 from pathlib import Path
 import pandas as pd
-from sweetviz.config import sv_config
+from sweetviz.config import config
 
 # This file contains modified functions from the profiling-pandas library,
 # which you should check out at the following URL:
@@ -67,7 +67,7 @@ def is_categorical(series: pd.Series, counts: dict) -> bool:
         return True
     elif pd.api.types.is_numeric_dtype(series) and \
             counts["distinct_count_without_nan"] \
-            <= sv_config["Type_Detection"].getint("max_numeric_distinct_to_be_categorical"):
+            <= config["Type_Detection"].getint("max_numeric_distinct_to_be_categorical"):
         return True
     else:
         if counts["num_rows_with_data"] == 0:
@@ -75,9 +75,9 @@ def is_categorical(series: pd.Series, counts: dict) -> bool:
         num_distinct = counts["distinct_count_without_nan"]
         fraction_distinct = num_distinct / float(counts["num_rows_with_data"])
         if fraction_distinct \
-             > sv_config["Type_Detection"].getfloat("max_text_fraction_distinct_to_be_categorical"):
+             > config["Type_Detection"].getfloat("max_text_fraction_distinct_to_be_categorical"):
             return False
-        if num_distinct <= sv_config["Type_Detection"].getint("max_text_distinct_to_be_categorical"):
+        if num_distinct <= config["Type_Detection"].getint("max_text_distinct_to_be_categorical"):
             return True
     return False
 
@@ -85,7 +85,7 @@ def is_categorical(series: pd.Series, counts: dict) -> bool:
 def is_numeric(series: pd.Series, counts: dict) -> bool:
     return pd.api.types.is_numeric_dtype(series) and \
            counts["distinct_count_without_nan"] \
-           > sv_config["Type_Detection"].getint("max_numeric_distinct_to_be_categorical")
+           > config["Type_Detection"].getint("max_numeric_distinct_to_be_categorical")
 
 # For coercion, might need more testing!
 def could_be_numeric(series: pd.Series) -> bool:

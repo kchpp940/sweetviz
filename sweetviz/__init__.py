@@ -19,8 +19,5 @@ from sweetviz.feature_config import FeatureConfig
 # and is used to output the final report
 from sweetviz.dataframe_report import DataframeReport
 
-# This is the config_parser, use to customize settings (legacy / backwards compatibility)
+# This is the config_parser, use to customize settings
 from sweetviz.config import config as config_parser
-
-# New unified configuration object with validation and type safety
-from sweetviz.config import sv_config as settings

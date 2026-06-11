@@ -5,7 +5,7 @@ import re
 from operator import itemgetter
 from jinja2 import Environment, PackageLoader
 import sweetviz.sv_html_formatters
-from sweetviz.config import sv_config
+from sweetviz.config import config
 from sweetviz.sv_types import NumWithPercent, FeatureType, OTHERS_GROUPED
 from sweetviz.graph_associations import CORRELATION_ERROR
 from sweetviz.graph_associations import CORRELATION_IDENTICAL
@@ -31,8 +31,15 @@ jinja2_env.globals["hello"] = "Superduper"
 
 def load_layout_globals_from_config():
     jinja2_env.globals["FeatureType"] = FeatureType
-    jinja2_env.globals["layout"] = sv_config.get_layout_for_template()
-    jinja2_env.globals["general"] = sv_config.get_general_for_template()
+
+    layout_globals = dict()
+    general_globals = dict()
+    for element in config["Layout"]:
+        layout_globals[element] = config["Layout"].getint(element)
+    general_globals['use_cjk_font'] = config["General"].getint("use_cjk_font")
+    general_globals['association_min_to_bold'] = config["General"].getfloat("association_min_to_bold")
+    jinja2_env.globals["layout"] = layout_globals
+    jinja2_env.globals["general"] = general_globals
 
 
 def set_summary_positions(dataframe_report):
@@ -41,7 +48,7 @@ def set_summary_positions(dataframe_report):
     for feature in dataframe_report._features.values():
         render_index = feature["order_index"] if dataframe_report._target is None else \
             (feature["order_index"] + 1)
-        feature["summary_pos"] = render_index * sv_config["Layout"].getint("summary_spacing")
+        feature["summary_pos"] = render_index * config["Layout"].getint("summary_spacing")
         feature["summary_pos"] = 0.0
 
 
@@ -66,12 +73,12 @@ def generate_html_dataframe_page(dataframe_report):
     template = jinja2_env.get_template('dataframe_page.html')
     # Add in total page size (160 is hardcoded from the top of page-all-summaries in CSS)
     # This could be programmatically set
-    dataframe_report.page_height = 160 + (dataframe_report.num_summaries * (sv_config["Layout"].getint("summary_height_per_element")))
+    dataframe_report.page_height = 160 + (dataframe_report.num_summaries * (config["Layout"].getint("summary_height_per_element")))
     if dataframe_report.page_layout == "widescreen":
         padding_type = "full_page_padding_widescreen"
     else:
         padding_type = "full_page_padding_vertical"
-    padding = sv_config["Layout"].getint(padding_type)
+    padding = config["Layout"].getint(padding_type)
     dataframe_report.page_height += padding
     # scaling = dict()
     # scaling["main_column"] = scale
@@ -175,17 +182,17 @@ def generate_html_summary_text(feature_dict: dict, compare_dict: dict):
     # ------------------------------------
     cols = dict()
     # Cols: Move text if there is a comparison pair display
-    cur_x = sv_config["Layout"].getint("pair_spacing")
-    padding =sv_config["Layout"].getint("col_spacing")
+    cur_x = config["Layout"].getint("pair_spacing")
+    padding =config["Layout"].getint("col_spacing")
     if compare_dict is not None:
         cols["compare"] = cur_x
-        cur_x = cur_x + sv_config["Layout"].getint("pair_spacing")
+        cur_x = cur_x + config["Layout"].getint("pair_spacing")
     cur_x = cur_x + padding
     cols["text"] = cur_x
-    cols["text_width"] = sv_config["Layout"].getint("summary_text_max_width") - cur_x
-    cols["full_text_width"] = sv_config["Layout"].getint("summary_text_max_width")
+    cols["text_width"] = config["Layout"].getint("summary_text_max_width") - cur_x
+    cols["full_text_width"] = config["Layout"].getint("summary_text_max_width")
 
-    max_text_rows = sv_config["Summary_Stats"].getint("summary_max_text_rows")
+    max_text_rows = config["Summary_Stats"].getint("summary_max_text_rows")
 
     # Filter final row list to display, add "other"
     # ------------------------------------
@@ -193,7 +200,7 @@ def generate_html_summary_text(feature_dict: dict, compare_dict: dict):
     summary_list = [copy.deepcopy(elem) for elem in full_list[:max_text_rows]]
 
     # Clipping text only for display purposes (do NOT modify original data)
-    max_text_display_length = sv_config["Summary_Stats"].getint("text_max_string_len")
+    max_text_display_length = config["Summary_Stats"].getint("text_max_string_len")
     for elem in summary_list:
         elem["name"] = elem["name"][:max_text_display_length]
 
@@ -265,13 +272,13 @@ def generate_html_detail_numeric(feature_dict: dict, compare_dict: dict, datafra
     # Set some parameters for detail columns
     # ------------------------------------
     # Vertical
-    spacing = sv_config["Layout"].getint("cat_detail_col_spacing")
+    spacing = config["Layout"].getint("cat_detail_col_spacing")
     cols = dict()
     detail_layout = dict()
-    detail_layout["graph_y"] = sv_config["Layout"].getint("cat_detail_graph_y")
+    detail_layout["graph_y"] = config["Layout"].getint("cat_detail_graph_y")
     # detail_layout["breakdown_y"] = detail_layout["graph_y"] \
     #                                + feature_dict["detail_graphs"][0].size_in_inches[1] * 100 \
-    #                                + sv_config["Layout"].getint("cat_detail_breakdown_y_offset")
+    #                                + config["Layout"].getint("cat_detail_breakdown_y_offset")
     # detail_layout["breakdown_height"] = 900 - detail_layout["breakdown_y"]
 
     # Set up ASSOCIATION data
@@ -290,7 +297,7 @@ def generate_html_detail_numeric(feature_dict: dict, compare_dict: dict, datafra
                       dataframe_report.get_type(k) == FeatureType.TYPE_CAT}
 
         # Sort & get top
-        max_num = sv_config["Detail_Stats"].getint("max_num_top_associations")
+        max_num = config["Detail_Stats"].getint("max_num_top_associations")
         numerical = sorted(numerical.items(), key=cmp_to_key(cmp_assoc_values), reverse=True)[:max_num]
         categorical = sorted(categorical.items(), key=itemgetter(1), reverse=True)[:max_num]
 
@@ -315,13 +322,13 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
     # Set some parameters for detail breakdown
     # ------------------------------------------
     # Vertical
-    spacing = sv_config["Layout"].getint("cat_detail_col_spacing")
+    spacing = config["Layout"].getint("cat_detail_col_spacing")
     cols = dict()
     detail_layout = dict()
-    detail_layout["graph_y"] = sv_config["Layout"].getint("cat_detail_graph_y")
+    detail_layout["graph_y"] = config["Layout"].getint("cat_detail_graph_y")
     detail_layout["breakdown_y"] = detail_layout["graph_y"] \
                                 + feature_dict["detail_graphs"][0].size_in_inches[1] * 100 \
-                                + sv_config["Layout"].getint("cat_detail_breakdown_y_offset")
+                                + config["Layout"].getint("cat_detail_breakdown_y_offset")
     detail_layout["breakdown_height"] = 910 - detail_layout["breakdown_y"]
 
     if dataframe_report.get_target_type() == FeatureType.TYPE_NUM:
@@ -337,14 +344,14 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
     # Find name width
     count_row_data = feature_dict["detail"]["full_count"]
     longest_cat = max(map(lambda row : len(str(row['name'])), count_row_data))
-    longest_width = longest_cat * sv_config["Layout"].getint("character_width_estimate")
+    longest_width = longest_cat * config["Layout"].getint("character_width_estimate")
     # Set columns
-    #cur_x = sv_config["Layout"].getint("cat_detail_col_1_x")
+    #cur_x = config["Layout"].getint("cat_detail_col_1_x")
     # 230px->48 = 4.8
     # 37px->6 = 6.2
     # 216px->44 = 4.9
-    cur_x = longest_width + sv_config["Layout"].getint("cat_detail_col_x_padding_after_name")
-    cur_x = min(cur_x, sv_config["Layout"].getint("cat_detail_col_1_max_x"))
+    cur_x = longest_width + config["Layout"].getint("cat_detail_col_x_padding_after_name")
+    cur_x = min(cur_x, config["Layout"].getint("cat_detail_col_1_max_x"))
 
     cols["name_max_len"] = cur_x
     cols["source"] = cur_x
@@ -353,14 +360,14 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
         cols["compare"] = cur_x
         cur_x = cur_x + spacing
     if dataframe_report.get_target_type() is not None:
-        cur_x = cur_x + sv_config["Layout"].getint("cat_detail_col_target_extra_spacing")
+        cur_x = cur_x + config["Layout"].getint("cat_detail_col_target_extra_spacing")
         cols["source_target"] = cur_x
         cur_x = cur_x + spacing
         if "compare" in dataframe_report._target:
             cols["compare_target"] = cur_x
             cur_x = cur_x + spacing
 
-    max_rows = sv_config["Detail_Stats"].getint("max_num_breakdown_categories")
+    max_rows = config["Detail_Stats"].getint("max_num_breakdown_categories")
     feature_dict["detail"]["detail_count"] = feature_dict["detail"]["full_count"][:max_rows]
 
     # Set up ASSOCIATION data
@@ -388,7 +395,7 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
                             k != feature_name }
 
         # Sort & get top
-        max_num = sv_config["Detail_Stats"].getint("max_num_top_associations")
+        max_num = config["Detail_Stats"].getint("max_num_top_associations")
         influencing = sorted(influencing.items(), key=itemgetter(1), reverse=True)[:max_num]
         influenced = sorted(influenced.items(), key=itemgetter(1), reverse=True)[:max_num]
         corr_ratio = sorted(corr_ratio.items(), key=itemgetter(1), reverse=True)[:max_num]
@@ -415,17 +422,17 @@ def generate_html_detail_text(feature_dict: dict, compare_dict: dict, dataframe_
     # ------------------------------------
     cols = dict()
     # Cols: Move text if there is a comparison pair display
-    cur_x = sv_config["Layout"].getint("pair_spacing")
-    padding =sv_config["Layout"].getint("col_spacing")
+    cur_x = config["Layout"].getint("pair_spacing")
+    padding =config["Layout"].getint("col_spacing")
     if compare_dict is not None:
         cols["compare"] = cur_x
-        cur_x = cur_x + sv_config["Layout"].getint("pair_spacing")
+        cur_x = cur_x + config["Layout"].getint("pair_spacing")
     cur_x = cur_x + padding
     cols["text"] = cur_x
-    cols["text_width"] = sv_config["Layout"].getint("detail_text_max_width") - cur_x
-    cols["full_text_width"] = sv_config["Layout"].getint("detail_text_max_width")
+    cols["text_width"] = config["Layout"].getint("detail_text_max_width") - cur_x
+    cols["full_text_width"] = config["Layout"].getint("detail_text_max_width")
 
-    max_text_rows = sv_config["Detail_Stats"].getint("detail_max_text_rows")
+    max_text_rows = config["Detail_Stats"].getint("detail_max_text_rows")
 
     # Filter final row list to display, add "other"
     # ------------------------------------
@@ -433,7 +440,7 @@ def generate_html_detail_text(feature_dict: dict, compare_dict: dict, dataframe_
     detail_list = [copy.deepcopy(elem) for elem in full_list[:max_text_rows]]
 
     # Clipping text only for display purposes (do NOT modify original data)
-    max_text_display_length = sv_config["Detail_Stats"].getint("text_max_string_len")
+    max_text_display_length = config["Detail_Stats"].getint("text_max_string_len")
     for elem in detail_list:
         elem["name"] = elem["name"][:max_text_display_length]
 

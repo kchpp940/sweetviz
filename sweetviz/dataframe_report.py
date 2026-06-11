@@ -14,11 +14,12 @@ from sweetviz.graph_associations import GraphAssoc
 from sweetviz.graph_associations import CORRELATION_ERROR
 from sweetviz.graph_associations import CORRELATION_IDENTICAL
 from sweetviz.graph_legend import GraphLegend
-from sweetviz.config import sv_config
+from sweetviz.config import config
 import sweetviz.comet_ml_logger as comet_ml_logger
 import sweetviz.sv_html as sv_html
 from sweetviz.feature_config import FeatureConfig
 import webbrowser
+from sweetviz.config import config
 
 class DataframeReport:
     def __init__(self,
@@ -35,7 +36,7 @@ class DataframeReport:
 
         # Parse verbosity parameter
         if verbosity == "default":
-            verbosity = sv_config["General"]["default_verbosity"]
+            verbosity = config["General"]["default_verbosity"]
         if verbosity not in ["default", "full", "progress_only", "off"]:
             raise ValueError('"verbosity" parameter should be one of: "default", "full", "progress_only", "off"')
         self.verbosity_level = verbosity
@@ -170,7 +171,7 @@ class DataframeReport:
 
         # Association check
         if pairwise_analysis == 'auto' and \
-                number_features > sv_config["Processing"].getint("association_auto_threshold"):
+                number_features > config["Processing"].getint("association_auto_threshold"):
             print(f"PAIRWISE CALCULATION LENGTH WARNING: There are {number_features} features in "
                   f"this dataframe and the "
                   f"'pairwise_analysis' parameter is set to 'auto'.\nPairwise analysis is exponential in "
@@ -528,13 +529,13 @@ class DataframeReport:
     # ----------------------------------------------------------------------------------------------
     def use_config_if_none(self, passed_value, config_name):
         if passed_value is None:
-            return sv_config["Output_Defaults"][config_name]
+            return config["Output_Defaults"][config_name]
         return passed_value
 
     def generate_comet_friendly_html(self):
         # Enforce comet_ml-friendly layout and re-output report based on INI settings (comet_ml_Defaults)
-        self.page_layout = sv_config["comet_ml_defaults"]["html_layout"]
-        self.scale = float(sv_config["comet_ml_defaults"]["html_scale"])
+        self.page_layout = config["comet_ml_defaults"]["html_layout"]
+        self.scale = float(config["comet_ml_defaults"]["html_scale"])
         sv_html.set_summary_positions(self)
         sv_html.generate_html_detail(self)
         if self.associations_html_source:

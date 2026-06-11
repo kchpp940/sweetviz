@@ -1,6 +1,18 @@
 include LICENSE
 include README.md
-recursive-include sweetviz/fonts *.*
-recursive-include sweetviz/mpl_styles *.*
-recursive-include sweetviz/templates *.*
+include CHANGELOG.md
+include pyproject.toml
+include MANIFEST.in
+include requirements.txt
+include requirements-test.txt
+include requirements-dev.txt
+include requirements-docs.txt
+
+recursive-include sweetviz/fonts *
+recursive-include sweetviz/mpl_styles *
+recursive-include sweetviz/templates *
 include sweetviz/sweetviz_defaults.ini
+
+recursive-exclude sweetviz __pycache__
+recursive-exclude sweetviz *.pyc
+recursive-exclude sweetviz *.pyo

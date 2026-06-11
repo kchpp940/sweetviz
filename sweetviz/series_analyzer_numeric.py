@@ -3,7 +3,7 @@ import pandas as pd
 from sweetviz.graph_numeric import GraphNumeric
 import sweetviz.sv_html as sv_html
 from sweetviz.sv_types import NumWithPercent, FeatureType, FeatureToProcess
-from sweetviz.config import sv_config
+from sweetviz.config import config
 
 
 def do_stats_numeric(series: pd.Series, updated_dict: dict):
@@ -32,7 +32,7 @@ def do_detail_numeric(series: pd.Series, counts: dict, counts_compare: dict, upd
     updated_dict["detail"] = dict()
     detail = updated_dict["detail"]
     total_num = float(updated_dict["base_stats"]["num_values"])
-    num_to_show = sv_config["Detail_Stats"].getint("max_num_numeric_top_values")
+    num_to_show = config["Detail_Stats"].getint("max_num_numeric_top_values")
 
     detail["frequent_values"] = list()
     detail["min_values"] = list()

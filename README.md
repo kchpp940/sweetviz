@@ -1,6 +1,6 @@
-![version](https://img.shields.io/badge/2.3.2-blue.svg?label=version) ![updated](https://img.shields.io/badge/April%204%2C%202026-green.svg?label=updated)
+![version](https://img.shields.io/badge/2.3.3-blue.svg?label=version) ![updated](https://img.shields.io/badge/June%202026-green.svg?label=updated)
 
-### !!! April 2026 UPDATE !!! -  Version 2.3.2: Long-standing issues fixed
+### !!! June 2026 UPDATE !!! - Version 2.3.3: Build system &amp; dependency management overhaul
 
 ---
 ![Sweetviz Logo](docs/images/logo.png) 
