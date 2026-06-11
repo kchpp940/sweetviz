@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 import warnings
 
-from sweetviz.config import config
+from sweetviz.config import sv_config
 from sweetviz import sv_html_formatters
 from sweetviz.sv_types import FeatureType, FeatureToProcess
 import sweetviz.graph
@@ -24,8 +24,8 @@ class GraphNumeric(sweetviz.graph.Graph):
                 1,
                 1,
                 figsize=(
-                    config["Graphs"].getfloat("num_summary_graph_width"),
-                    config["Graphs"].getfloat("summary_graph_height"),
+                    sv_config["Graphs"].getfloat("num_summary_graph_width"),
+                    sv_config["Graphs"].getfloat("summary_graph_height"),
                 ),
             )
             self.num_bins = None
@@ -34,8 +34,8 @@ class GraphNumeric(sweetviz.graph.Graph):
                 1,
                 1,
                 figsize=(
-                    config["Graphs"].getfloat("detail_graph_width"),
-                    config["Graphs"].getfloat("detail_graph_height_numeric"),
+                    sv_config["Graphs"].getfloat("detail_graph_width"),
+                    sv_config["Graphs"].getfloat("detail_graph_height_numeric"),
                 ),
             )
             split = which_graph.split("-")
@@ -78,7 +78,7 @@ class GraphNumeric(sweetviz.graph.Graph):
             plot_data = cleaned_source
             normalizing_weights = norm_source
 
-        gap_percent = config["Graphs"].getfloat("summary_graph_categorical_gap")
+        gap_percent = sv_config["Graphs"].getfloat("summary_graph_categorical_gap")
 
         warnings.filterwarnings(
             "ignore", category=np.exceptions.VisibleDeprecationWarning

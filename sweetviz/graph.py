@@ -9,7 +9,7 @@ import importlib_resources
 from pandas.plotting import register_matplotlib_converters
 
 from sweetviz import sv_html_formatters
-from sweetviz.config import config
+from sweetviz.config import sv_config
 
 register_matplotlib_converters()
 # matplotlib.use('SVG')
@@ -167,7 +167,7 @@ class Graph:
         plt.style.use(styles_in_final_location)
 
         # NEW: support for CJK characters, apply override after setting the style
-        if config["General"].getint("use_cjk_font") != 0 and can_use_cjk:
+        if sv_config["General"].getint("use_cjk_font") != 0 and can_use_cjk:
             plt.rcParams["font.family"] = "Noto Sans CJK JP"
 
     @staticmethod

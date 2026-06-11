@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sweetviz.sv_types import FeatureType
 import sweetviz.graph
-from sweetviz.config import config
+from sweetviz.config import sv_config
 import itertools
 import matplotlib.patches as patches
 from textwrap import wrap
@@ -467,15 +467,15 @@ def corrplot(correlation_dataframe, dataframe_report, size_scale=100, marker='s'
 
     return heatmap(
         corr['x'], corr['y'],
-        figure_size=(config["Associations"].getfloat("association_graph_width"),
-                 config["Associations"].getfloat("association_graph_height")),
+        figure_size=(sv_config["Associations"].getfloat("association_graph_width"),
+                 sv_config["Associations"].getfloat("association_graph_height")),
         color=corr['value'], color_range=[-1, 1],
         palette=None,
         size=corr['value'].abs(), size_range=[0,1],
         marker=marker,
         x_order=correlation_dataframe.columns,
         y_order=correlation_dataframe.columns[::-1],
-        size_scale=config["Associations"].getfloat("association_graph_size_scale"),
+        size_scale=sv_config["Associations"].getfloat("association_graph_size_scale"),
         dataframe_report = dataframe_report
     )
 

@@ -1,8 +1,9 @@
 import numpy as np
 import pandas as pd
 from sweetviz.graph_numeric import GraphNumeric
+import sweetviz.sv_html as sv_html
 from sweetviz.sv_types import NumWithPercent, FeatureType, FeatureToProcess
-from sweetviz.config import config
+from sweetviz.config import sv_config
 
 
 def do_stats_numeric(series: pd.Series, updated_dict: dict):
@@ -31,7 +32,7 @@ def do_detail_numeric(series: pd.Series, counts: dict, counts_compare: dict, upd
     updated_dict["detail"] = dict()
     detail = updated_dict["detail"]
     total_num = float(updated_dict["base_stats"]["num_values"])
-    num_to_show = config["Detail_Stats"].getint("max_num_numeric_top_values")
+    num_to_show = sv_config["Detail_Stats"].getint("max_num_numeric_top_values")
 
     detail["frequent_values"] = list()
     detail["min_values"] = list()
@@ -104,3 +105,8 @@ def analyze(to_process: FeatureToProcess, feature_dict: dict):
         new_graph = GraphNumeric("detail-"+str(num_bins), to_process)
         if new_graph:
             feature_dict["detail_graphs"].append(new_graph)
+
+    if to_process.is_target():
+        feature_dict["html_summary"] = sv_html.generate_html_summary_target_numeric(feature_dict, compare_dict)
+    else:
+        feature_dict["html_summary"] = sv_html.generate_html_summary_numeric(feature_dict, compare_dict)

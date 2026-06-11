@@ -26,14 +26,14 @@
             <div class="{{ detail_layout.breakdown_hr_class }}"><hr></div>
             <div class="pair__header color-source" style="left: {{ cols.source }}px"></div>
             <!-- Targets -->
-            {% if dataframe.target is not none: %}
+            {% if dataframe._target is not none: %}
                 <div class="pair__header color-source-target"
                      style="position: absolute; left: {{ cols.source_target }}px; line-height: 11px;
-                             {{ "text-align: right;" if True or dataframe.target.type == FeatureType.TYPE_BOOL }}">
-                    {% if dataframe.target.type == FeatureType.TYPE_BOOL: %}
-                        {{ dataframe.target.display_name }}
+                             {{ "text-align: right;" if True or dataframe._target.type == FeatureType.TYPE_BOOL }}">
+                    {% if dataframe._target.type == FeatureType.TYPE_BOOL: %}
+                        {{ dataframe._target.display_name }}
                     {% else %}
-                         {{ dataframe.target.display_name }}<br>(avg)
+                         {{ dataframe._target.display_name }}<br>(avg)
                     {% endif %}
                 </div>
             {% endif %}
@@ -41,14 +41,14 @@
                 <div class="pair__header color-compare" style="position: absolute; left: {{ cols.compare }}px">
                     <!--{{ dataframe.compare_name }}-->
                 </div>
-                {% if dataframe.target is not none and "compare" in dataframe.target: %}
+                {% if dataframe._target is not none and "compare" in dataframe._target: %}
                     <div class="pair__header color-compare-target"
                         style="position: absolute; left: {{ cols.compare_target }}px; line-height: 11px;
-                        {{ "text-align: right;" if True or dataframe.target.type == FeatureType.TYPE_BOOL }}">
-                    {% if dataframe.target.type == FeatureType.TYPE_BOOL: %}
-                        {{ dataframe.target.display_name }}
+                        {{ "text-align: right;" if True or dataframe._target.type == FeatureType.TYPE_BOOL }}">
+                    {% if dataframe._target.type == FeatureType.TYPE_BOOL: %}
+                        {{ dataframe._target.display_name }}
                     {% else %}
-                         {{ dataframe.target.display_name }}<br>(avg)
+                         {{ dataframe._target.display_name }}<br>(avg)
                    {% endif %}
                     </div>
                 {% endif %}
@@ -79,7 +79,7 @@
                 {% endif %}
                 <!-- Targets -->
                 {% if rowdata.target_stats is not none: %}
-                    {% if dataframe.target.type == FeatureType.TYPE_BOOL: %}
+                    {% if dataframe._target.type == FeatureType.TYPE_BOOL: %}
                         <div class="pair__col color-source-target" style="position: absolute; left: {{ cols.source_target }}px">
                             <div class="pair-pos__num dim">{{ rowdata.target_stats.number|fmt_int_limit }}</div>
                             <div class="pair-pos__perc">{{ rowdata.target_stats.perc|fmt_percent }}</div>
@@ -90,7 +90,7 @@
                     </div>
                 {% endif %}
                 {% if rowdata.target_stats_compare is not none: %}
-                    {% if dataframe.target.type == FeatureType.TYPE_BOOL: %}
+                    {% if dataframe._target.type == FeatureType.TYPE_BOOL: %}
                         <div class="pair__col color-compare-target" style="position: absolute; left: {{ cols.compare_target }}px">
                             <div class="pair-pos__num dim">{{ rowdata.target_stats_compare.number|fmt_int_limit }}</div>
                             <div class="pair-pos__perc">{{ rowdata.target_stats_compare.perc|fmt_percent }}</div>
@@ -123,7 +123,7 @@
             <hr>
             {% for item in influencing %}
                 <div class="{{ 'assoc-row-target' if item[2] else 'assoc-row' }} {{ loop.cycle('', 'row-colored') }}" {{ 'style="font-weight: bold;"' if item[1] > general.association_min_to_bold }}>
-                    <div class="pos-assoc-row__label text-label">{{ item[0] }}<!--{{ dataframe.target.display_name }}--></div>
+                    <div class="pos-assoc-row__label text-label">{{ item[0] }}<!--{{ dataframe._target.display_name }}--></div>
                     <div class="pos-assoc-row__source text-label color-source">{{ item[1]|fmt_assoc }}</div>
                 </div>
             {% endfor %}

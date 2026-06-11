@@ -4,7 +4,7 @@ import matplotlib.ticker as mtick
 
 from sweetviz import sv_math
 from sweetviz import utils
-from sweetviz.config import config
+from sweetviz.config import sv_config
 from sweetviz.sv_types import FeatureType, FeatureToProcess, OTHERS_GROUPED
 import sweetviz.graph
 from typing import List
@@ -65,9 +65,9 @@ class GraphCat(sweetviz.graph.Graph):
         cycle_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
         if which_graph == "mini":
-            max_categories = config["Graphs"].getint("summary_graph_max_categories")
+            max_categories = sv_config["Graphs"].getint("summary_graph_max_categories")
         elif is_detail:
-            max_categories = config["Graphs"].getint("detail_graph_max_categories")
+            max_categories = sv_config["Graphs"].getint("detail_graph_max_categories")
         else:
             raise ValueError
         plot_data_series = utils.get_clamped_value_counts( \
@@ -75,21 +75,21 @@ class GraphCat(sweetviz.graph.Graph):
 
         if which_graph == "mini":
             f, axs = plt.subplots(1, 1, \
-                                  figsize=(config["Graphs"].getfloat("cat_summary_graph_width"),
-                                           config["Graphs"].getfloat("summary_graph_height")))
-            gap_percent = config["Graphs"].getfloat("summary_graph_categorical_gap")
+                                  figsize=(sv_config["Graphs"].getfloat("cat_summary_graph_width"),
+                                           sv_config["Graphs"].getfloat("summary_graph_height")))
+            gap_percent = sv_config["Graphs"].getfloat("summary_graph_categorical_gap")
             axs.tick_params(axis='x', direction='out', pad=0, labelsize=8, length=2)
             axs.tick_params(axis='y', direction='out', pad=2, labelsize=8, length=2)
             axs.xaxis.tick_top()
         elif is_detail:
-            height = config["Graphs"].getfloat("detail_graph_height_base") \
-                + config["Graphs"].getfloat("detail_graph_height_per_elem") * max(1, len(plot_data_series))
-            if height > config["Graphs"].getfloat("detail_graph_categorical_max_height"):
+            height = sv_config["Graphs"].getfloat("detail_graph_height_base") \
+                + sv_config["Graphs"].getfloat("detail_graph_height_per_elem") * max(1, len(plot_data_series))
+            if height > sv_config["Graphs"].getfloat("detail_graph_categorical_max_height"):
                 # Shrink height to fit, past a certain number
-                height = config["Graphs"].getfloat("detail_graph_categorical_max_height")
+                height = sv_config["Graphs"].getfloat("detail_graph_categorical_max_height")
             f, axs = plt.subplots(1, 1, \
-                                  figsize=(config["Graphs"].getfloat("detail_graph_width"), height))
-            gap_percent = config["Graphs"].getfloat("detail_graph_categorical_gap")
+                                  figsize=(sv_config["Graphs"].getfloat("detail_graph_width"), height))
+            gap_percent = sv_config["Graphs"].getfloat("detail_graph_categorical_gap")
             axs.tick_params(axis='x', direction='out', pad=0, labelsize=8, length=2)
             axs.tick_params(axis='y', direction='out', pad=2, labelsize=8, length=2)
             axs.xaxis.tick_top()

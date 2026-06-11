@@ -1,4 +1,4 @@
-from typing import Union, List, Tuple, Optional, Dict
+from typing import Union, List, Tuple
 import os
 import time
 import pandas as pd
@@ -8,18 +8,17 @@ from tqdm.auto import tqdm
 from sweetviz.sv_types import NumWithPercent, FeatureToProcess, FeatureType
 import sweetviz.from_dython as associations
 import sweetviz.series_analyzer as sa
-import sweetviz.report_data as report_data
+import sweetviz.serialize as serialize
 import sweetviz.utils as su
 from sweetviz.graph_associations import GraphAssoc
 from sweetviz.graph_associations import CORRELATION_ERROR
 from sweetviz.graph_associations import CORRELATION_IDENTICAL
 from sweetviz.graph_legend import GraphLegend
-from sweetviz.config import config
+from sweetviz.config import sv_config
 import sweetviz.comet_ml_logger as comet_ml_logger
 import sweetviz.sv_html as sv_html
 from sweetviz.feature_config import FeatureConfig
 import webbrowser
-from sweetviz.config import config
 
 class DataframeReport:
     def __init__(self,
@@ -36,7 +35,7 @@ class DataframeReport:
 
         # Parse verbosity parameter
         if verbosity == "default":
-            verbosity = config["General"]["default_verbosity"]
+            verbosity = sv_config["General"]["default_verbosity"]
         if verbosity not in ["default", "full", "progress_only", "off"]:
             raise ValueError('"verbosity" parameter should be one of: "default", "full", "progress_only", "off"')
         self.verbosity_level = verbosity
@@ -45,7 +44,6 @@ class DataframeReport:
 
         self._jupyter_html = ""
         self._page_html = ""
-        self._report_data = None
         self._features = dict()
         self.compare_name = None
         self._target = None
@@ -53,6 +51,7 @@ class DataframeReport:
         self.corr_warning = list()
         if fc is None:
             fc = FeatureConfig()
+        self._fc = fc
 
         # Associations: _associations[FEATURE][GIVES INFORMATION ABOUT THIS FEATURE]
         self._associations = dict()
@@ -171,7 +170,7 @@ class DataframeReport:
 
         # Association check
         if pairwise_analysis == 'auto' and \
-                number_features > config["Processing"].getint("association_auto_threshold"):
+                number_features > sv_config["Processing"].getint("association_auto_threshold"):
             print(f"PAIRWISE CALCULATION LENGTH WARNING: There are {number_features} features in "
                   f"this dataframe and the "
                   f"'pairwise_analysis' parameter is set to 'auto'.\nPairwise analysis is exponential in "
@@ -283,6 +282,12 @@ class DataframeReport:
         # self.progress_bar.set_description_str('[FEATURES DONE]')
         # self.progress_bar.close()
 
+        # Apply display names from FeatureConfig
+        for fname, fdict in self._features.items():
+            fdict["display_name"] = fc.get_display_name(fname)
+        if self._target is not None:
+            self._target["display_name"] = fc.get_display_name(self._target["name"])
+
         # Wrap up summary
         self.summarize_category_types(source_df, self.summary_source, fc.skip, self._target)
         if compare is not None:
@@ -316,21 +321,6 @@ class DataframeReport:
             self.associations_html_source = None
             self.associations_html_compare = None
         self.progress_bar.close()
-
-        self._report_data = report_data.build_report_data(self)
-
-        self._features = None
-        self._target = None
-        self._associations = None
-        self._associations_compare = None
-        self.graph_legend = None
-        self._association_graphs = None
-        self._association_graphs_compare = None
-        self.associations_html_source = None
-        self.associations_html_compare = None
-        self.dataframe_summary_html = None
-        self.summary_source = None
-        self.summary_compare = None
         return
 
     def verbose_print(self, *args, **kwargs):
@@ -338,25 +328,16 @@ class DataframeReport:
             print(*args, **kwargs)
 
     def __getitem__(self, key):
-        if self._report_data is None:
-            if self._features and key in self._features:
-                return self._features[key]
-            if self._target is not None and key == self._target["name"]:
-                return self._target
+        # Can also access target
+        if key in self._features.keys():
+            return self._features[key]
+        elif self._target is not None and key == self._target["name"]:
+            return self._target
+        else:
             return None
-        features = self._report_data.get("features", {})
-        if key in features:
-            return features[key]
-        target = self._report_data.get("target")
-        if target is not None and key == target.get("name"):
-            return target
-        return None
 
     def __setitem__(self, key, value):
-        if self._features is not None:
-            self._features[key] = value
-        else:
-            raise RuntimeError("Cannot modify DataframeReport after analysis is complete")
+        self._features[key] = value
 
     @staticmethod
     def get_predetermined_type(name: str,
@@ -382,44 +363,17 @@ class DataframeReport:
         return (series_only_with_booleans * 1).astype('Int64')
 
     def get_target_type(self) -> FeatureType:
-        if self._report_data is not None:
-            target = self._report_data.get("target")
-            if target is None:
-                return None
-            t = target.get("type")
-            if isinstance(t, str):
-                from sweetviz.sv_html import _TYPE_MAP
-                return _TYPE_MAP.get(t, t)
-            return t
         if self._target is None:
             return None
         return self._target["type"]
 
     def get_type(self, feature_name: str) -> FeatureType:
-        if self._report_data is not None:
-            features = self._report_data.get("features", {})
-            if feature_name in features:
-                t = features[feature_name].get("type")
-                if isinstance(t, str):
-                    from sweetviz.sv_html import _TYPE_MAP
-                    return _TYPE_MAP.get(t, t)
-                return t
-            target = self._report_data.get("target")
-            if target is not None and target.get("name") == feature_name:
-                t = target.get("type")
-                if isinstance(t, str):
-                    from sweetviz.sv_html import _TYPE_MAP
-                    return _TYPE_MAP.get(t, t)
-                return t
-            return None
-        if self._features and self._features.get(feature_name) is None:
-            if self._target is not None and self._target["name"] == feature_name:
+        if self._features.get(feature_name) is None:
+            if self._target["name"] == feature_name:
                 return self._target["type"]
             else:
                 return None
-        if self._features:
-            return self._features[feature_name].get("type")
-        return None
+        return self._features[feature_name].get("type")
 
     def  summarize_dataframe(self, source: pd.DataFrame, name: str, target_dict: dict, skip: List[str]):
         target_dict["name"] = name
@@ -457,14 +411,7 @@ class DataframeReport:
 
     def get_what_influences_me(self, feature_name: str) -> dict:
         influenced = dict()
-        associations = None
-        if self._report_data is not None:
-            associations = self._report_data.get("associations")
-        elif self._associations is not None:
-            associations = self._associations
-        if associations is None:
-            return influenced
-        for cur_name, cur_associations in associations.items():
+        for cur_name, cur_associations in self._associations.items():
             if cur_name == feature_name:
                 continue
             influence = cur_associations.get(feature_name)
@@ -581,47 +528,44 @@ class DataframeReport:
     # ----------------------------------------------------------------------------------------------
     def use_config_if_none(self, passed_value, config_name):
         if passed_value is None:
-            return config["Output_Defaults"][config_name]
+            return sv_config["Output_Defaults"][config_name]
         return passed_value
 
-    def _build_render_view_model(self, layout: str, scale: float):
-        sv_html.load_layout_globals_from_config()
-        vm = sv_html.RenderViewModel(self._report_data)
-        vm.page_layout = layout
-        vm.scale = scale
-        vm.prepare_for_render()
-        page_height = 160 + (vm.num_summaries * (config["Layout"].getint("summary_height_per_element")))
-        if layout == "widescreen":
-            padding_type = "full_page_padding_widescreen"
-        else:
-            padding_type = "full_page_padding_vertical"
-        padding = config["Layout"].getint(padding_type)
-        page_height += padding
-        vm.page_height = page_height
-        return vm
-
-    def _render_html(self, vm) -> str:
-        return sv_html.generate_html_dataframe_page(vm)
-
     def generate_comet_friendly_html(self):
-        layout = config["comet_ml_defaults"]["html_layout"]
-        scale = float(config["comet_ml_defaults"]["html_scale"])
-        vm = self._build_render_view_model(layout, scale)
-        self._page_html = self._render_html(vm)
+        # Enforce comet_ml-friendly layout and re-output report based on INI settings (comet_ml_Defaults)
+        self.page_layout = sv_config["comet_ml_defaults"]["html_layout"]
+        self.scale = float(sv_config["comet_ml_defaults"]["html_scale"])
+        sv_html.set_summary_positions(self)
+        sv_html.generate_html_detail(self)
+        if self.associations_html_source:
+            self.associations_html_source = sv_html.generate_html_associations(self, "source")
+        if self.associations_html_compare:
+            self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
+        self._page_html = sv_html.generate_html_dataframe_page(self)
 
     def show_html(self, filepath='SWEETVIZ_REPORT.html', open_browser=True, layout='widescreen', scale=None):
         scale = float(self.use_config_if_none(scale, "html_scale"))
         layout = self.use_config_if_none(layout, "html_layout")
         if layout not in ['widescreen', 'vertical']:
             raise ValueError(f"'layout' parameter must be either 'widescreen' or 'vertical'")
-        vm = self._build_render_view_model(layout, scale)
-        self._page_html = self._render_html(vm)
+        sv_html.load_layout_globals_from_config()
+        self.page_layout = layout
+        self.scale = scale
+        sv_html.set_summary_positions(self)
+        sv_html.generate_html_detail(self)
+        if self.associations_html_source:
+            self.associations_html_source = sv_html.generate_html_associations(self, "source")
+        if self.associations_html_compare:
+            self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
+        self._page_html = sv_html.generate_html_dataframe_page(self)
 
         f = open(filepath, 'w', encoding="utf-8")
         f.write(self._page_html)
         f.close()
         if open_browser:
             self.verbose_print(f"Report {filepath} was generated! NOTEBOOK/COLAB USERS: the web browser MAY not pop up, regardless, the report IS saved in your notebook/colab files.")
+            # Not sure how to work around this: not fatal but annoying...Notebook/colab
+            # https://bugs.python.org/issue5993
             webbrowser.open('file://' + os.path.realpath(filepath))
         else:
             self.verbose_print(f"Report {filepath} was generated.")
@@ -630,6 +574,7 @@ class DataframeReport:
                   "(likely due to only having a single row, containing non-NaN values for both correlated features)\n"
                   "Affected correlations:" + str(self.corr_warning))
 
+        # Auto-log to comet_ml if desired & present
         self._comet_ml_logger = comet_ml_logger.CometLogger()
         if self._comet_ml_logger._logging:
             self.generate_comet_friendly_html()
@@ -644,31 +589,54 @@ class DataframeReport:
         if layout not in ['widescreen', 'vertical']:
             raise ValueError(f"'layout' parameter must be either 'widescreen' or 'vertical'")
 
-        vm = self._build_render_view_model(layout, scale)
-        self._page_html = self._render_html(vm)
+        sv_html.load_layout_globals_from_config()
+        self.page_layout = layout
+        self.scale = scale
+        sv_html.set_summary_positions(self)
+        sv_html.generate_html_detail(self)
+        if self.associations_html_source:
+            self.associations_html_source = sv_html.generate_html_associations(self, "source")
+        if self.associations_html_compare:
+            self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
+        self._page_html = sv_html.generate_html_dataframe_page(self)
 
-        width = w
-        height = h
+        width=w
+        height=h
         if str(height).lower() == "full":
-            height = vm.page_height
+            height = self.page_height
 
+        # Output to iFrame
         import html
-        escaped_html = html.escape(self._page_html)
-        iframe = f' <iframe width="{width}" height="{height}" srcdoc="{escaped_html}" frameborder="0" allowfullscreen></iframe>'
+        self._page_html = html.escape(self._page_html)
+        iframe = f' <iframe width="{width}" height="{height}" srcdoc="{self._page_html}" frameborder="0" allowfullscreen></iframe>'
         from IPython.display import display
         from IPython.display import HTML
         display(HTML(iframe))
 
         if filepath is not None:
-            file_scale_val = float(self.use_config_if_none(file_scale, "html_scale"))
-            file_layout_val = self.use_config_if_none(file_layout, "html_layout")
-            if file_layout_val not in ['widescreen', 'vertical']:
+            # We cannot just write out the same HTML as the notebook, as that one has been processed so as to
+            # remove extraneous headings so it is nicely inserted into the notebook.
+            # Instead, just do something similar to the "show_html()" code, but without its less-relevant printouts etc.
+            # f = open(filepath, 'w', encoding="utf-8")
+            # f.write(self._page_html)
+            # f.close()
+            scale = float(self.use_config_if_none(file_scale, "html_scale"))
+            layout = self.use_config_if_none(file_layout, "html_layout")
+            if layout not in ['widescreen', 'vertical']:
                 raise ValueError(f"'layout' parameter for file output must be either 'widescreen' or 'vertical'")
-            vm_file = self._build_render_view_model(file_layout_val, file_scale_val)
-            file_html = self._render_html(vm_file)
+            sv_html.load_layout_globals_from_config()
+            self.page_layout = layout
+            self.scale = scale
+            sv_html.set_summary_positions(self)
+            sv_html.generate_html_detail(self)
+            if self.associations_html_source:
+                self.associations_html_source = sv_html.generate_html_associations(self, "source")
+            if self.associations_html_compare:
+                self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
+            self._page_html = sv_html.generate_html_dataframe_page(self)
 
             f = open(filepath, 'w', encoding="utf-8")
-            f.write(file_html)
+            f.write(self._page_html)
             f.close()
             self.verbose_print(f"Report '{filepath}' was saved to storage.")
 
@@ -677,6 +645,7 @@ class DataframeReport:
                   "(likely due to only a single row containing non-NaN values for both correlated features)\n"
                   "Affected correlations:" + str(self.corr_warning))
 
+        # Auto-log to comet_ml if desired & present
         self._comet_ml_logger = comet_ml_logger.CometLogger()
         if self._comet_ml_logger._logging:
             self.generate_comet_friendly_html()
@@ -690,41 +659,11 @@ class DataframeReport:
         except:
             print("log_comet(): error logging HTML report.")
 
-    # ----------------------------------------------------------------------------------------------
-    # PUBLIC API - report data access
-    # ----------------------------------------------------------------------------------------------
+    def get_report_data(self, include_drift: bool = True) -> dict:
+        return serialize.build_report_data(self, include_drift=include_drift)
 
-    @property
-    def features(self):
-        return self._report_data["features"]
-
-    @property
-    def target(self):
-        return self._report_data.get("target")
-
-    @property
-    def associations(self):
-        return self._report_data.get("associations")
-
-    @property
-    def associations_compare(self):
-        return self._report_data.get("associations_compare")
-
-    @property
-    def association_graphs(self):
-        return self._report_data.get("association_graphs", {})
-
-    @property
-    def association_graphs_compare(self):
-        return self._report_data.get("association_graphs_compare", {})
-
-    @property
-    def drift_summary(self):
-        return self._report_data.get("drift_summary")
-
-    def get_report_data(self) -> dict:
-        return self._report_data
-
-    def to_json(self, filepath: str = None, indent: int = 2) -> str:
-        import sweetviz.serialize as serialize
-        return serialize.to_json(self._report_data, filepath=filepath, indent=indent)
+    def to_json(self, filepath: str = None, include_drift: bool = True,
+                indent: int = 2) -> str:
+        return serialize.to_json(self, filepath=filepath,
+                                 include_drift=include_drift,
+                                 indent=indent)

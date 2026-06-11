@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 import matplotlib.patches as patches
 
-from sweetviz.config import config
+from sweetviz.config import sv_config
 from sweetviz import sv_html_formatters
 from sweetviz.sv_types import FeatureType, FeatureToProcess
 import sweetviz.graph
@@ -17,7 +17,7 @@ class GraphLegend(sweetviz.graph.Graph):
         self.set_style(styles)
 
         fig = plt.figure(
-            figsize=(config["Graphs"].getfloat("legend_width"), config["Graphs"].getfloat("legend_height")))
+            figsize=(sv_config["Graphs"].getfloat("legend_width"), sv_config["Graphs"].getfloat("legend_height")))
         axs = fig.add_axes([0, 0, 1, 1])
         axs.axis('off')
         scale = axs.transAxes.transform((1,1))

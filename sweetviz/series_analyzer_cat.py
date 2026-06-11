@@ -1,6 +1,7 @@
-from sweetviz.config import config
+from sweetviz.config import sv_config
 from sweetviz.sv_types import NumWithPercent, FeatureType, FeatureToProcess
 from sweetviz.graph_cat import GraphCat
+import sweetviz.sv_html as sv_html
 import sweetviz.utils as utils
 from sweetviz.sv_types import OTHERS_GROUPED
 
@@ -19,7 +20,7 @@ def do_detail_categorical(to_process: FeatureToProcess, updated_dict: dict):
         num_values_compare = updated_dict["compare"]["base_stats"]["num_values"].number
 
     category_counts = utils.get_clamped_value_counts(to_process.source_counts["value_counts_without_nan"], \
-                                   config["Graphs"].getint("detail_graph_max_categories"))
+                                   sv_config["Graphs"].getint("detail_graph_max_categories"))
 
     # Iterate through ALL VALUES and get stats
     total_num_compare = 0
@@ -144,6 +145,11 @@ def analyze(to_process: FeatureToProcess, feature_dict: dict):
     feature_dict["minigraph"] = GraphCat("mini", to_process)
     feature_dict["detail_graphs"] = list()
     feature_dict["detail_graphs"].append(GraphCat("detail", to_process))
+
+    if to_process.is_target():
+        feature_dict["html_summary"] = sv_html.generate_html_summary_target_cat(feature_dict, compare_dict)
+    else:
+        feature_dict["html_summary"] = sv_html.generate_html_summary_cat(feature_dict, compare_dict)
 
     return
 

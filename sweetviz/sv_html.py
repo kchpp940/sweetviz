@@ -1,339 +1,15 @@
 import copy
 import numpy as np
-import pandas as pd
 import html
 import re
 from operator import itemgetter
 from jinja2 import Environment, PackageLoader
 import sweetviz.sv_html_formatters
-from sweetviz.config import config
-from sweetviz.sv_types import NumWithPercent, FeatureType, OTHERS_GROUPED, FeatureToProcess
+from sweetviz.config import sv_config
+from sweetviz.sv_types import NumWithPercent, FeatureType, OTHERS_GROUPED
 from sweetviz.graph_associations import CORRELATION_ERROR
 from sweetviz.graph_associations import CORRELATION_IDENTICAL
-from sweetviz.graph_numeric import GraphNumeric
-from sweetviz.graph_cat import GraphCat
-from sweetviz.graph_legend import GraphLegend
-from sweetviz.graph_associations import GraphAssoc
 from functools import cmp_to_key
-
-
-class _AttrDict:
-    def __init__(self, data=None):
-        object.__setattr__(self, "_data", data if data is not None else {})
-
-    def __getattr__(self, name):
-        if name == "_data":
-            return object.__getattribute__(self, name)
-        if name in self._data:
-            return self._data[name]
-        raise AttributeError(name)
-
-    def __setattr__(self, key, value):
-        if key == "_data":
-            object.__setattr__(self, "_data", value)
-        else:
-            self._data[key] = value
-
-    def __getitem__(self, key):
-        return self._data[key]
-
-    def __setitem__(self, key, value):
-        self._data[key] = value
-
-    def __contains__(self, key):
-        return key in self._data
-
-    def __repr__(self):
-        return repr(self._data)
-
-    def keys(self):
-        return self._data.keys()
-
-    def values(self):
-        return self._data.values()
-
-    def items(self):
-        return self._data.items()
-
-    def get(self, key, default=None):
-        return self._data.get(key, default)
-
-
-def _restore_nwp(obj):
-    if isinstance(obj, NumWithPercent):
-        return obj
-    if isinstance(obj, dict) and "number" in obj and "percentage" in obj and len(obj) <= 3:
-        num = obj["number"]
-        pct = obj["percentage"]
-        if num is None or pct is None:
-            nwp = NumWithPercent(1, 0)
-            nwp.number = None
-            nwp.perc = None
-            return nwp
-        if pct == 0:
-            return NumWithPercent(num, 1 if num == 0 else (num * 100.0) / max(pct, 1e-9))
-        total = (num * 100.0) / pct
-        nwp = NumWithPercent(num, total)
-        nwp.perc = pct
-        return nwp
-    if isinstance(obj, dict):
-        return _AttrDict({k: _restore_nwp(v) for k, v in obj.items()})
-    if isinstance(obj, list):
-        return [_restore_nwp(v) for v in obj]
-    return obj
-
-
-_TYPE_MAP = {
-    "NUMERIC": FeatureType.TYPE_NUM,
-    "CATEGORICAL": FeatureType.TYPE_CAT,
-    "BOOL": FeatureType.TYPE_BOOL,
-    "TEXT": FeatureType.TYPE_TEXT,
-}
-
-
-def _restore_type(t):
-    if isinstance(t, FeatureType):
-        return t
-    return _TYPE_MAP.get(t, t)
-
-
-def _restore_graph(obj):
-    if obj is None:
-        return None
-    if isinstance(obj, _AttrDict):
-        return obj
-    if isinstance(obj, dict):
-        return _AttrDict(obj)
-    return obj
-
-
-def _rebuild_feature_to_process(fdict):
-    raw = fdict.get("_raw_data")
-    if raw is None:
-        return None
-    name = fdict.get("name")
-    order = fdict.get("order_index", 0)
-    is_target = fdict.get("is_target", False)
-    if is_target:
-        order = -1
-
-    src_dtype = raw.get("source_type", "float64")
-    source_series = pd.Series(raw.get("source_values", []), name=name, dtype=src_dtype if src_dtype != 'object' and src_dtype != 'category' else None)
-    compare_series = None
-    if "compare_values" in raw:
-        cmp_dtype = raw.get("compare_type", "float64")
-        compare_series = pd.Series(raw.get("compare_values", []), name=name, dtype=cmp_dtype if cmp_dtype != 'object' and cmp_dtype != 'category' else None)
-    source_target = None
-    if "source_target_values" in raw:
-        st_dtype = raw.get("source_target_type", "float64")
-        source_target = pd.Series(raw.get("source_target_values", []), dtype=st_dtype)
-    compare_target = None
-    if "compare_target_values" in raw:
-        ct_dtype = raw.get("compare_target_type", "float64")
-        compare_target = pd.Series(raw.get("compare_target_values", []), dtype=ct_dtype)
-
-    ptt_str = raw.get("predetermined_type_target", "UNKNOWN")
-    ptt = _restore_type(ptt_str) if ptt_str != "UNKNOWN" else None
-
-    ftp = FeatureToProcess(order, source_series, compare_series, source_target, compare_target, predetermined_type_target=ptt)
-
-    if "source_value_counts" in raw:
-        svc = raw["source_value_counts"]
-        from pandas import Series as pdSeries
-        idx = list(svc.keys())
-        vals = list(svc.values())
-        try:
-            ftp.source_counts = {
-                "value_counts_without_nan": pdSeries(vals, index=idx),
-                "distinct_count_without_nan": len(svc),
-                "num_rows_with_data": sum(vals),
-                "num_rows_total": len(source_series),
-            }
-        except:
-            pass
-    if "compare_value_counts" in raw and compare_series is not None:
-        cvc = raw["compare_value_counts"]
-        from pandas import Series as pdSeries
-        idx = list(cvc.keys())
-        vals = list(cvc.values())
-        try:
-            ftp.compare_counts = {
-                "value_counts_without_nan": pdSeries(vals, index=idx),
-                "distinct_count_without_nan": len(cvc),
-                "num_rows_with_data": sum(vals),
-                "num_rows_total": len(compare_series),
-            }
-        except:
-            pass
-    return ftp
-
-
-def _restore_feature(fdict):
-    if fdict is None:
-        return None
-    restored = _restore_nwp(fdict)
-    if "type" in restored:
-        restored["type"] = _restore_type(restored["type"])
-    if "compare" in restored and isinstance(restored["compare"], dict):
-        restored["compare"] = _restore_feature(restored["compare"])
-
-    ftp = _rebuild_feature_to_process(fdict)
-    if ftp is not None:
-        ftype = restored.get("type")
-        try:
-            if ftype == FeatureType.TYPE_NUM:
-                restored["minigraph"] = GraphNumeric("mini", ftp)
-                detail_graphs = []
-                for nb in [0, 5, 15, 30]:
-                    g = GraphNumeric(f"detail-{nb}", ftp)
-                    if g:
-                        detail_graphs.append(g)
-                restored["detail_graphs"] = detail_graphs
-            elif ftype in (FeatureType.TYPE_CAT, FeatureType.TYPE_BOOL):
-                restored["minigraph"] = GraphCat("mini", ftp)
-                detail_graphs = [GraphCat("detail", ftp)]
-                restored["detail_graphs"] = detail_graphs
-        except Exception as e:
-            pass
-    return restored
-
-
-class RenderViewModel:
-    def __init__(self, report_data):
-        self._report_data = report_data
-        rd = report_data
-        self.metadata = rd["metadata"]
-        self.source_name = rd["metadata"].get("source_name")
-        self.compare_name = rd["metadata"].get("compare_name")
-
-        self.summary_source = _restore_nwp(rd.get("source_summary", {}))
-        self.summary_compare = _restore_nwp(rd.get("compare_summary"))
-
-        self.features = {}
-        for fname, fdict in rd.get("features", {}).items():
-            self.features[fname] = _restore_feature(copy.deepcopy(fdict))
-
-        self.target = _restore_feature(copy.deepcopy(rd.get("target"))) if rd.get("target") else None
-
-        self.associations = rd.get("associations")
-        self.associations_compare = rd.get("associations_compare")
-
-        try:
-            self.graph_legend = GraphLegend(self)
-        except:
-            self.graph_legend = None
-
-        self.association_graphs = {}
-        if self.associations is not None:
-            try:
-                self.association_graphs["all"] = GraphAssoc(self, "all", self.associations)
-            except:
-                pass
-        self.association_graphs_compare = {}
-        if self.associations_compare is not None:
-            try:
-                self.association_graphs_compare["all"] = GraphAssoc(self, "all", self.associations_compare)
-            except:
-                pass
-
-        self.drift_summary = rd.get("drift_summary")
-
-        self.associations_html_source = True if rd.get("associations") is not None else None
-        self.associations_html_compare = True if rd.get("associations_compare") is not None else None
-        self.dataframe_summary_html = None
-        self.page_layout = None
-        self.scale = None
-        self.page_height = None
-        self.test_mode = False
-
-        num_feat = len(self.features)
-        if self.target is not None:
-            num_feat += 1
-        self.num_summaries = num_feat
-
-    @property
-    def _features(self):
-        return self.features
-
-    @property
-    def _target(self):
-        return self.target
-
-    def __getitem__(self, key):
-        if key in self.features:
-            return self.features[key]
-        if self.target is not None and key == self.target.get("name"):
-            return self.target
-        return None
-
-    def __setitem__(self, key, value):
-        self.features[key] = value
-
-    def get_target_type(self):
-        if self.target is None:
-            return None
-        return self.target["type"]
-
-    def get_type(self, feature_name):
-        if feature_name in self.features:
-            return self.features[feature_name].get("type")
-        if self.target is not None and feature_name == self.target.get("name"):
-            return self.target["type"]
-        return None
-
-    def get_what_influences_me(self, feature_name):
-        influenced = {}
-        if self.associations is None:
-            return influenced
-        for cur_name, cur_associations in self.associations.items():
-            if cur_name == feature_name:
-                continue
-            influence = cur_associations.get(feature_name)
-            if influence is not None:
-                influenced[cur_name] = influence
-        return influenced
-
-    def all_features(self):
-        result = list(self.features.values())
-        if self.target is not None:
-            result.append(self.target)
-        return result
-
-    def prepare_for_render(self):
-        set_summary_positions(self)
-        self._generate_html_summaries()
-        generate_html_detail(self)
-        self.dataframe_summary_html = generate_html_dataframe_summary(self)
-        if self.associations_html_source:
-            self.associations_html_source = generate_html_associations(self, "source")
-        else:
-            self.associations_html_source = None
-        if self.associations_html_compare:
-            self.associations_html_compare = generate_html_associations(self, "compare")
-        else:
-            self.associations_html_compare = None
-
-    def _generate_html_summaries(self):
-        for feature in self.all_features():
-            self._generate_one_summary(feature)
-
-    def _generate_one_summary(self, feature):
-        compare_dict = feature.get("compare")
-        is_target = feature.get("is_target", False)
-        ftype = feature["type"]
-        if ftype == FeatureType.TYPE_NUM:
-            if is_target:
-                feature["html_summary"] = generate_html_summary_target_numeric(feature, compare_dict)
-            else:
-                feature["html_summary"] = generate_html_summary_numeric(feature, compare_dict)
-        elif ftype in (FeatureType.TYPE_CAT, FeatureType.TYPE_BOOL):
-            if is_target:
-                feature["html_summary"] = generate_html_summary_target_cat(feature, compare_dict)
-            else:
-                feature["html_summary"] = generate_html_summary_cat(feature, compare_dict)
-        elif ftype == FeatureType.TYPE_TEXT:
-            feature["html_summary"] = generate_html_summary_text(feature, compare_dict)
-
 
 package_loader = PackageLoader("sweetviz", "templates")
 jinja2_env = Environment(lstrip_blocks = True,
@@ -355,32 +31,25 @@ jinja2_env.globals["hello"] = "Superduper"
 
 def load_layout_globals_from_config():
     jinja2_env.globals["FeatureType"] = FeatureType
-
-    layout_globals = dict()
-    general_globals = dict()
-    for element in config["Layout"]:
-        layout_globals[element] = config["Layout"].getint(element)
-    general_globals['use_cjk_font'] = config["General"].getint("use_cjk_font")
-    general_globals['association_min_to_bold'] = config["General"].getfloat("association_min_to_bold")
-    jinja2_env.globals["layout"] = layout_globals
-    jinja2_env.globals["general"] = general_globals
+    jinja2_env.globals["layout"] = sv_config.get_layout_for_template()
+    jinja2_env.globals["general"] = sv_config.get_general_for_template()
 
 
 def set_summary_positions(dataframe_report):
-    if dataframe_report.target is not None:
-        dataframe_report.target["summary_pos"] = 0.0
-    for feature in dataframe_report.features.values():
-        render_index = feature["order_index"] if dataframe_report.target is None else \
+    if dataframe_report._target is not None:
+        dataframe_report._target["summary_pos"] = 0.0
+    for feature in dataframe_report._features.values():
+        render_index = feature["order_index"] if dataframe_report._target is None else \
             (feature["order_index"] + 1)
-        feature["summary_pos"] = render_index * config["Layout"].getint("summary_spacing")
+        feature["summary_pos"] = render_index * sv_config["Layout"].getint("summary_spacing")
         feature["summary_pos"] = 0.0
 
 
 def generate_html_detail(dataframe_report):
     # Need to generate final data for numeric and categorical
-    all_detail = list(dataframe_report.features.values())
-    if dataframe_report.target is not None:
-        all_detail.append(dataframe_report.target)
+    all_detail = list(dataframe_report._features.values())
+    if dataframe_report._target is not None:
+        all_detail.append(dataframe_report._target)
 
     for feature in (all_detail):
         compare_dict = feature.get("compare")
@@ -397,12 +66,12 @@ def generate_html_dataframe_page(dataframe_report):
     template = jinja2_env.get_template('dataframe_page.html')
     # Add in total page size (160 is hardcoded from the top of page-all-summaries in CSS)
     # This could be programmatically set
-    dataframe_report.page_height = 160 + (dataframe_report.num_summaries * (config["Layout"].getint("summary_height_per_element")))
+    dataframe_report.page_height = 160 + (dataframe_report.num_summaries * (sv_config["Layout"].getint("summary_height_per_element")))
     if dataframe_report.page_layout == "widescreen":
         padding_type = "full_page_padding_widescreen"
     else:
         padding_type = "full_page_padding_vertical"
-    padding = config["Layout"].getint(padding_type)
+    padding = sv_config["Layout"].getint(padding_type)
     dataframe_report.page_height += padding
     # scaling = dict()
     # scaling["main_column"] = scale
@@ -506,17 +175,17 @@ def generate_html_summary_text(feature_dict: dict, compare_dict: dict):
     # ------------------------------------
     cols = dict()
     # Cols: Move text if there is a comparison pair display
-    cur_x = config["Layout"].getint("pair_spacing")
-    padding =config["Layout"].getint("col_spacing")
+    cur_x = sv_config["Layout"].getint("pair_spacing")
+    padding =sv_config["Layout"].getint("col_spacing")
     if compare_dict is not None:
         cols["compare"] = cur_x
-        cur_x = cur_x + config["Layout"].getint("pair_spacing")
+        cur_x = cur_x + sv_config["Layout"].getint("pair_spacing")
     cur_x = cur_x + padding
     cols["text"] = cur_x
-    cols["text_width"] = config["Layout"].getint("summary_text_max_width") - cur_x
-    cols["full_text_width"] = config["Layout"].getint("summary_text_max_width")
+    cols["text_width"] = sv_config["Layout"].getint("summary_text_max_width") - cur_x
+    cols["full_text_width"] = sv_config["Layout"].getint("summary_text_max_width")
 
-    max_text_rows = config["Summary_Stats"].getint("summary_max_text_rows")
+    max_text_rows = sv_config["Summary_Stats"].getint("summary_max_text_rows")
 
     # Filter final row list to display, add "other"
     # ------------------------------------
@@ -524,7 +193,7 @@ def generate_html_summary_text(feature_dict: dict, compare_dict: dict):
     summary_list = [copy.deepcopy(elem) for elem in full_list[:max_text_rows]]
 
     # Clipping text only for display purposes (do NOT modify original data)
-    max_text_display_length = config["Summary_Stats"].getint("text_max_string_len")
+    max_text_display_length = sv_config["Summary_Stats"].getint("text_max_string_len")
     for elem in summary_list:
         elem["name"] = elem["name"][:max_text_display_length]
 
@@ -596,39 +265,39 @@ def generate_html_detail_numeric(feature_dict: dict, compare_dict: dict, datafra
     # Set some parameters for detail columns
     # ------------------------------------
     # Vertical
-    spacing = config["Layout"].getint("cat_detail_col_spacing")
+    spacing = sv_config["Layout"].getint("cat_detail_col_spacing")
     cols = dict()
     detail_layout = dict()
-    detail_layout["graph_y"] = config["Layout"].getint("cat_detail_graph_y")
+    detail_layout["graph_y"] = sv_config["Layout"].getint("cat_detail_graph_y")
     # detail_layout["breakdown_y"] = detail_layout["graph_y"] \
     #                                + feature_dict["detail_graphs"][0].size_in_inches[1] * 100 \
-    #                                + config["Layout"].getint("cat_detail_breakdown_y_offset")
+    #                                + sv_config["Layout"].getint("cat_detail_breakdown_y_offset")
     # detail_layout["breakdown_height"] = 900 - detail_layout["breakdown_y"]
 
     # Set up ASSOCIATION data
     # ------------------------------------
     feature_name = feature_dict["name"]
-    if dataframe_report.associations is not None:
-        numerical = dataframe_report.associations[feature_name]
+    if dataframe_report._associations is not None:
+        numerical = dataframe_report._associations[feature_name]
         # Filter by datatype NUMERICAL
         numerical = {k: v for k, v in numerical.items() \
                        if dataframe_report.get_type(k) == FeatureType.TYPE_NUM and k != feature_name}
 
-        categorical = dataframe_report.associations[feature_name]
+        categorical = dataframe_report._associations[feature_name]
         # Filter by datatype CATEGORICAL
         categorical = {k: v for k, v in categorical.items() \
                       if dataframe_report.get_type(k) == FeatureType.TYPE_BOOL or
                       dataframe_report.get_type(k) == FeatureType.TYPE_CAT}
 
         # Sort & get top
-        max_num = config["Detail_Stats"].getint("max_num_top_associations")
+        max_num = sv_config["Detail_Stats"].getint("max_num_top_associations")
         numerical = sorted(numerical.items(), key=cmp_to_key(cmp_assoc_values), reverse=True)[:max_num]
         categorical = sorted(categorical.items(), key=itemgetter(1), reverse=True)[:max_num]
 
         # Set who's the target, for highlighting
-        if dataframe_report.target is not None:
-            numerical = add_is_target_or_not(numerical, dataframe_report.target["name"])
-            categorical = add_is_target_or_not(categorical, dataframe_report.target["name"])
+        if dataframe_report._target is not None:
+            numerical = add_is_target_or_not(numerical, dataframe_report._target["name"])
+            categorical = add_is_target_or_not(categorical, dataframe_report._target["name"])
     else:
         max_num = None
         numerical = None
@@ -646,13 +315,13 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
     # Set some parameters for detail breakdown
     # ------------------------------------------
     # Vertical
-    spacing = config["Layout"].getint("cat_detail_col_spacing")
+    spacing = sv_config["Layout"].getint("cat_detail_col_spacing")
     cols = dict()
     detail_layout = dict()
-    detail_layout["graph_y"] = config["Layout"].getint("cat_detail_graph_y")
+    detail_layout["graph_y"] = sv_config["Layout"].getint("cat_detail_graph_y")
     detail_layout["breakdown_y"] = detail_layout["graph_y"] \
                                 + feature_dict["detail_graphs"][0].size_in_inches[1] * 100 \
-                                + config["Layout"].getint("cat_detail_breakdown_y_offset")
+                                + sv_config["Layout"].getint("cat_detail_breakdown_y_offset")
     detail_layout["breakdown_height"] = 910 - detail_layout["breakdown_y"]
 
     if dataframe_report.get_target_type() == FeatureType.TYPE_NUM:
@@ -668,14 +337,14 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
     # Find name width
     count_row_data = feature_dict["detail"]["full_count"]
     longest_cat = max(map(lambda row : len(str(row['name'])), count_row_data))
-    longest_width = longest_cat * config["Layout"].getint("character_width_estimate")
+    longest_width = longest_cat * sv_config["Layout"].getint("character_width_estimate")
     # Set columns
-    #cur_x = config["Layout"].getint("cat_detail_col_1_x")
+    #cur_x = sv_config["Layout"].getint("cat_detail_col_1_x")
     # 230px->48 = 4.8
     # 37px->6 = 6.2
     # 216px->44 = 4.9
-    cur_x = longest_width + config["Layout"].getint("cat_detail_col_x_padding_after_name")
-    cur_x = min(cur_x, config["Layout"].getint("cat_detail_col_1_max_x"))
+    cur_x = longest_width + sv_config["Layout"].getint("cat_detail_col_x_padding_after_name")
+    cur_x = min(cur_x, sv_config["Layout"].getint("cat_detail_col_1_max_x"))
 
     cols["name_max_len"] = cur_x
     cols["source"] = cur_x
@@ -684,22 +353,22 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
         cols["compare"] = cur_x
         cur_x = cur_x + spacing
     if dataframe_report.get_target_type() is not None:
-        cur_x = cur_x + config["Layout"].getint("cat_detail_col_target_extra_spacing")
+        cur_x = cur_x + sv_config["Layout"].getint("cat_detail_col_target_extra_spacing")
         cols["source_target"] = cur_x
         cur_x = cur_x + spacing
-        if "compare" in dataframe_report.target:
+        if "compare" in dataframe_report._target:
             cols["compare_target"] = cur_x
             cur_x = cur_x + spacing
 
-    max_rows = config["Detail_Stats"].getint("max_num_breakdown_categories")
-    feature_dict["detail"]["detail_count"] = [copy.deepcopy(elem) for elem in feature_dict["detail"]["full_count"][:max_rows]]
+    max_rows = sv_config["Detail_Stats"].getint("max_num_breakdown_categories")
+    feature_dict["detail"]["detail_count"] = feature_dict["detail"]["full_count"][:max_rows]
 
     # Set up ASSOCIATION data
     # ------------------------------------
     feature_name = feature_dict["name"]
-    if dataframe_report.associations is not None:
+    if dataframe_report._associations is not None:
         # Filter by datatype CATEGORICAL
-        influencing = dataframe_report.associations[feature_name]
+        influencing = dataframe_report._associations[feature_name]
         influencing = { k: v for k, v in influencing.items() \
                         if (dataframe_report.get_type(k) == FeatureType.TYPE_BOOL or
                             dataframe_report.get_type(k) == FeatureType.TYPE_CAT) and
@@ -713,22 +382,22 @@ def generate_html_detail_cat(feature_dict: dict, compare_dict: dict, dataframe_r
                             k != feature_name }
 
         # NUM-CAT
-        corr_ratio = dataframe_report.associations[feature_name]
+        corr_ratio = dataframe_report._associations[feature_name]
         corr_ratio = { k: v for k, v in corr_ratio.items() \
                         if dataframe_report.get_type(k) == FeatureType.TYPE_NUM and
                             k != feature_name }
 
         # Sort & get top
-        max_num = config["Detail_Stats"].getint("max_num_top_associations")
+        max_num = sv_config["Detail_Stats"].getint("max_num_top_associations")
         influencing = sorted(influencing.items(), key=itemgetter(1), reverse=True)[:max_num]
         influenced = sorted(influenced.items(), key=itemgetter(1), reverse=True)[:max_num]
         corr_ratio = sorted(corr_ratio.items(), key=itemgetter(1), reverse=True)[:max_num]
 
         # Set who's the target, for highlighting
-        if dataframe_report.target is not None:
-            influencing = add_is_target_or_not(influencing, dataframe_report.target["name"])
-            influenced = add_is_target_or_not(influenced, dataframe_report.target["name"])
-            corr_ratio = add_is_target_or_not(corr_ratio, dataframe_report.target["name"])
+        if dataframe_report._target is not None:
+            influencing = add_is_target_or_not(influencing, dataframe_report._target["name"])
+            influenced = add_is_target_or_not(influenced, dataframe_report._target["name"])
+            corr_ratio = add_is_target_or_not(corr_ratio, dataframe_report._target["name"])
     else:
         influencing = None
         influenced = None
@@ -746,17 +415,17 @@ def generate_html_detail_text(feature_dict: dict, compare_dict: dict, dataframe_
     # ------------------------------------
     cols = dict()
     # Cols: Move text if there is a comparison pair display
-    cur_x = config["Layout"].getint("pair_spacing")
-    padding =config["Layout"].getint("col_spacing")
+    cur_x = sv_config["Layout"].getint("pair_spacing")
+    padding =sv_config["Layout"].getint("col_spacing")
     if compare_dict is not None:
         cols["compare"] = cur_x
-        cur_x = cur_x + config["Layout"].getint("pair_spacing")
+        cur_x = cur_x + sv_config["Layout"].getint("pair_spacing")
     cur_x = cur_x + padding
     cols["text"] = cur_x
-    cols["text_width"] = config["Layout"].getint("detail_text_max_width") - cur_x
-    cols["full_text_width"] = config["Layout"].getint("detail_text_max_width")
+    cols["text_width"] = sv_config["Layout"].getint("detail_text_max_width") - cur_x
+    cols["full_text_width"] = sv_config["Layout"].getint("detail_text_max_width")
 
-    max_text_rows = config["Detail_Stats"].getint("detail_max_text_rows")
+    max_text_rows = sv_config["Detail_Stats"].getint("detail_max_text_rows")
 
     # Filter final row list to display, add "other"
     # ------------------------------------
@@ -764,7 +433,7 @@ def generate_html_detail_text(feature_dict: dict, compare_dict: dict, dataframe_
     detail_list = [copy.deepcopy(elem) for elem in full_list[:max_text_rows]]
 
     # Clipping text only for display purposes (do NOT modify original data)
-    max_text_display_length = config["Detail_Stats"].getint("text_max_string_len")
+    max_text_display_length = sv_config["Detail_Stats"].getint("text_max_string_len")
     for elem in detail_list:
         elem["name"] = elem["name"][:max_text_display_length]
 

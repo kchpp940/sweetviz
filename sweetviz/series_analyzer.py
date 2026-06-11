@@ -155,27 +155,7 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
     else:
         raise ValueError
 
-    raw_data = {
-        "source_values": to_process.source.tolist(),
-        "source_type": str(to_process.source.dtype),
-    }
-    if to_process.source_counts is not None:
-        vc = to_process.source_counts["value_counts_without_nan"]
-        raw_data["source_value_counts"] = {str(k): int(v) for k, v in vc.items()}
-    if to_process.compare is not None:
-        raw_data["compare_values"] = to_process.compare.tolist()
-        raw_data["compare_type"] = str(to_process.compare.dtype)
-    if to_process.compare_counts is not None:
-        vc = to_process.compare_counts["value_counts_without_nan"]
-        raw_data["compare_value_counts"] = {str(k): int(v) for k, v in vc.items()}
-    if to_process.source_target is not None:
-        raw_data["source_target_values"] = to_process.source_target.tolist()
-        raw_data["source_target_type"] = str(to_process.source_target.dtype)
-    if to_process.compare_target is not None:
-        raw_data["compare_target_values"] = to_process.compare_target.tolist()
-        raw_data["compare_target_type"] = str(to_process.compare_target.dtype)
-    raw_data["predetermined_type_target"] = to_process.predetermined_type_target.value \
-        if hasattr(to_process.predetermined_type_target, 'value') else str(to_process.predetermined_type_target)
-    returned_feature_dict["_raw_data"] = raw_data
+    # print(f"{to_process.source.name} PROCESSED ------> "
+    #       f" {time.perf_counter() - start}")
 
     return returned_feature_dict

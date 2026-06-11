@@ -24,32 +24,32 @@
         <style> {% include 'sweetviz.css' %} </style>
 
     <style>
-        {% if dataframe.target is not none: %}
-            span.minigraph-target::before { content: url(data:image/png;base64,{{ dataframe.target.minigraph.graph_base64 }});}
-            {% if "detail_graphs" in dataframe.target.keys(): %}
-                {% for detail_graph in dataframe.target.detail_graphs %}
-                    span.detail_graph-{{ dataframe.target.safe_name }}-{{ detail_graph.index_for_css }}::before { content: url(data:image/png;base64,{{ detail_graph.graph_base64 }});}
+        {% if dataframe._target is not none: %}
+            span.minigraph-target::before { content: url(data:image/png;base64,{{ dataframe._target.minigraph.graph_base64.decode('ascii') }});}
+            {% if "detail_graphs" in dataframe._target.keys(): %}
+                {% for detail_graph in dataframe._target.detail_graphs %}
+                    span.detail_graph-{{ dataframe._target.safe_name }}-{{ detail_graph.index_for_css }}::before { content: url(data:image/png;base64,{{ detail_graph.graph_base64.decode('ascii') }});}
                 {% endfor %}
             {% endif %}
         {% endif %}
 
-        {% for item in dataframe.features.values() %}
+        {% for item in dataframe._features.values() %}
             {% if "minigraph" in item.keys(): %}
-                span.minigraph-{{ item.safe_name }}::before { content: url(data:image/png;base64,{{ item.minigraph.graph_base64 }});}
+                span.minigraph-{{ item.safe_name }}::before { content: url(data:image/png;base64,{{ item.minigraph.graph_base64.decode('ascii') }});}
             {% endif %}
             {% if "detail_graphs" in item.keys(): %}
                 {% for detail_graph in item.detail_graphs %}
-                    span.detail_graph-{{ item.safe_name }}-{{ detail_graph.index_for_css }}::before { content: url(data:image/png;base64,{{ detail_graph.graph_base64 }});}
+                    span.detail_graph-{{ item.safe_name }}-{{ detail_graph.index_for_css }}::before { content: url(data:image/png;base64,{{ detail_graph.graph_base64.decode('ascii') }});}
                 {% endfor %}
             {% endif %}
         {% endfor %}
-        {% if dataframe.associations is not none: %}
-            span.association-graph-source::before { content: url(data:image/png;base64,{{ dataframe.association_graphs.all.graph_base64 }});}
+        {% if dataframe._associations is not none: %}
+            span.association-graph-source::before { content: url(data:image/png;base64,{{ dataframe._association_graphs.all.graph_base64.decode('ascii') }});}
         {% endif %}
-        {% if dataframe.associations_compare is not none: %}
-            span.association-graph-compare::before { content: url(data:image/png;base64,{{ dataframe.association_graphs_compare.all.graph_base64 }});}
+        {% if dataframe._associations_compare is not none: %}
+            span.association-graph-compare::before { content: url(data:image/png;base64,{{ dataframe._association_graphs_compare.all.graph_base64.decode('ascii') }});}
         {% endif %}
-        span.graph-legend { content: url(data:image/png;base64,{{ dataframe.graph_legend.graph_base64 }});}
+        span.graph-legend { content: url(data:image/png;base64,{{ dataframe.graph_legend.graph_base64.decode('ascii') }});}
     </style>
 <script>
     g_height = {{ dataframe.page_height }};
@@ -90,17 +90,17 @@
         <div class="page-all-summaries">
             <span class="graph-legend" style="left: 391px;position: absolute;top: 5px;"></span>
             <!-- TARGET Summary -->
-            {% if dataframe.target is not none: %}
-                <div class="pos-feature-summary" style="top: {{ dataframe.target.summary_pos }}px">
-                    {{ dataframe.target.html_summary }}
+            {% if dataframe._target is not none: %}
+                <div class="pos-feature-summary" style="top: {{ dataframe._target.summary_pos }}px">
+                    {{ dataframe._target.html_summary }}
                     <!-- This DETAIL WINDOW (VERTICAL ONLY) -->
                     {% if dataframe.page_layout == 'vertical': %}
-                        {{ dataframe.target.html_detail }}
+                        {{ dataframe._target.html_detail }}
                     {% endif %}
                 </div>
             {% endif %}
             <!-- FEATURE Summaries -->
-            {% for item in dataframe.features.values() %}
+            {% for item in dataframe._features.values() %}
                 <div class="pos-feature-summary" style="top: {{ item.summary_pos }}px">
                     {{ item.html_summary }}
                     <!-- This DETAIL WINDOW (VERTICAL ONLY) -->
@@ -115,8 +115,8 @@
     <!-- ALL DETAIL WINDOWS (WIDESCREEN ONLY) -->
     {% if dataframe.page_layout == 'widescreen': %}
         <div class="page-column-detail" id="col2">
-            {% if dataframe.target is not none: %}
-                {{ dataframe.target.html_detail }}
+            {% if dataframe._target is not none: %}
+                {{ dataframe._target.html_detail }}
             {% endif %}
             {% if dataframe.associations_html_source is not none: %}
                 {{ dataframe.associations_html_source }}
@@ -125,11 +125,11 @@
                 {{ dataframe.associations_html_compare }}
             {% endif %}
             <!-- TARGET Detail -->
-            {% if dataframe.target is not none: %}
-                {{ dataframe.target.html_detail }}
+            {% if dataframe._target is not none: %}
+                {{ dataframe._target.html_detail }}
             {% endif %}
             <!-- FEATURE Details -->
-            {% for item in dataframe.features.values() %}
+            {% for item in dataframe._features.values() %}
                 {{ item.html_detail }}
             {% endfor %}
         </div>
