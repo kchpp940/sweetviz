@@ -45,6 +45,7 @@ class DataframeReport:
 
         self._jupyter_html = ""
         self._page_html = ""
+        self._report_data = None
         self._features = dict()
         self.compare_name = None
         self._target = None
@@ -317,6 +318,19 @@ class DataframeReport:
         self.progress_bar.close()
 
         self._report_data = report_data.build_report_data(self)
+
+        self._features = None
+        self._target = None
+        self._associations = None
+        self._associations_compare = None
+        self.graph_legend = None
+        self._association_graphs = None
+        self._association_graphs_compare = None
+        self.associations_html_source = None
+        self.associations_html_compare = None
+        self.dataframe_summary_html = None
+        self.summary_source = None
+        self.summary_compare = None
         return
 
     def verbose_print(self, *args, **kwargs):
@@ -324,16 +338,25 @@ class DataframeReport:
             print(*args, **kwargs)
 
     def __getitem__(self, key):
-        # Can also access target
-        if key in self._features.keys():
-            return self._features[key]
-        elif self._target is not None and key == self._target["name"]:
-            return self._target
-        else:
+        if self._report_data is None:
+            if self._features and key in self._features:
+                return self._features[key]
+            if self._target is not None and key == self._target["name"]:
+                return self._target
             return None
+        features = self._report_data.get("features", {})
+        if key in features:
+            return features[key]
+        target = self._report_data.get("target")
+        if target is not None and key == target.get("name"):
+            return target
+        return None
 
     def __setitem__(self, key, value):
-        self._features[key] = value
+        if self._features is not None:
+            self._features[key] = value
+        else:
+            raise RuntimeError("Cannot modify DataframeReport after analysis is complete")
 
     @staticmethod
     def get_predetermined_type(name: str,
@@ -359,17 +382,44 @@ class DataframeReport:
         return (series_only_with_booleans * 1).astype('Int64')
 
     def get_target_type(self) -> FeatureType:
+        if self._report_data is not None:
+            target = self._report_data.get("target")
+            if target is None:
+                return None
+            t = target.get("type")
+            if isinstance(t, str):
+                from sweetviz.sv_html import _TYPE_MAP
+                return _TYPE_MAP.get(t, t)
+            return t
         if self._target is None:
             return None
         return self._target["type"]
 
     def get_type(self, feature_name: str) -> FeatureType:
-        if self._features.get(feature_name) is None:
-            if self._target["name"] == feature_name:
+        if self._report_data is not None:
+            features = self._report_data.get("features", {})
+            if feature_name in features:
+                t = features[feature_name].get("type")
+                if isinstance(t, str):
+                    from sweetviz.sv_html import _TYPE_MAP
+                    return _TYPE_MAP.get(t, t)
+                return t
+            target = self._report_data.get("target")
+            if target is not None and target.get("name") == feature_name:
+                t = target.get("type")
+                if isinstance(t, str):
+                    from sweetviz.sv_html import _TYPE_MAP
+                    return _TYPE_MAP.get(t, t)
+                return t
+            return None
+        if self._features and self._features.get(feature_name) is None:
+            if self._target is not None and self._target["name"] == feature_name:
                 return self._target["type"]
             else:
                 return None
-        return self._features[feature_name].get("type")
+        if self._features:
+            return self._features[feature_name].get("type")
+        return None
 
     def  summarize_dataframe(self, source: pd.DataFrame, name: str, target_dict: dict, skip: List[str]):
         target_dict["name"] = name
@@ -407,7 +457,14 @@ class DataframeReport:
 
     def get_what_influences_me(self, feature_name: str) -> dict:
         influenced = dict()
-        for cur_name, cur_associations in self._associations.items():
+        associations = None
+        if self._report_data is not None:
+            associations = self._report_data.get("associations")
+        elif self._associations is not None:
+            associations = self._associations
+        if associations is None:
+            return influenced
+        for cur_name, cur_associations in associations.items():
             if cur_name == feature_name:
                 continue
             influence = cur_associations.get(feature_name)

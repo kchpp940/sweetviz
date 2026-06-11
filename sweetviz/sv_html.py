@@ -1,14 +1,19 @@
 import copy
 import numpy as np
+import pandas as pd
 import html
 import re
 from operator import itemgetter
 from jinja2 import Environment, PackageLoader
 import sweetviz.sv_html_formatters
 from sweetviz.config import config
-from sweetviz.sv_types import NumWithPercent, FeatureType, OTHERS_GROUPED
+from sweetviz.sv_types import NumWithPercent, FeatureType, OTHERS_GROUPED, FeatureToProcess
 from sweetviz.graph_associations import CORRELATION_ERROR
 from sweetviz.graph_associations import CORRELATION_IDENTICAL
+from sweetviz.graph_numeric import GraphNumeric
+from sweetviz.graph_cat import GraphCat
+from sweetviz.graph_legend import GraphLegend
+from sweetviz.graph_associations import GraphAssoc
 from functools import cmp_to_key
 
 
@@ -102,18 +107,94 @@ def _restore_graph(obj):
     return obj
 
 
+def _rebuild_feature_to_process(fdict):
+    raw = fdict.get("_raw_data")
+    if raw is None:
+        return None
+    name = fdict.get("name")
+    order = fdict.get("order_index", 0)
+    is_target = fdict.get("is_target", False)
+    if is_target:
+        order = -1
+
+    src_dtype = raw.get("source_type", "float64")
+    source_series = pd.Series(raw.get("source_values", []), name=name, dtype=src_dtype if src_dtype != 'object' and src_dtype != 'category' else None)
+    compare_series = None
+    if "compare_values" in raw:
+        cmp_dtype = raw.get("compare_type", "float64")
+        compare_series = pd.Series(raw.get("compare_values", []), name=name, dtype=cmp_dtype if cmp_dtype != 'object' and cmp_dtype != 'category' else None)
+    source_target = None
+    if "source_target_values" in raw:
+        st_dtype = raw.get("source_target_type", "float64")
+        source_target = pd.Series(raw.get("source_target_values", []), dtype=st_dtype)
+    compare_target = None
+    if "compare_target_values" in raw:
+        ct_dtype = raw.get("compare_target_type", "float64")
+        compare_target = pd.Series(raw.get("compare_target_values", []), dtype=ct_dtype)
+
+    ptt_str = raw.get("predetermined_type_target", "UNKNOWN")
+    ptt = _restore_type(ptt_str) if ptt_str != "UNKNOWN" else None
+
+    ftp = FeatureToProcess(order, source_series, compare_series, source_target, compare_target, predetermined_type_target=ptt)
+
+    if "source_value_counts" in raw:
+        svc = raw["source_value_counts"]
+        from pandas import Series as pdSeries
+        idx = list(svc.keys())
+        vals = list(svc.values())
+        try:
+            ftp.source_counts = {
+                "value_counts_without_nan": pdSeries(vals, index=idx),
+                "distinct_count_without_nan": len(svc),
+                "num_rows_with_data": sum(vals),
+                "num_rows_total": len(source_series),
+            }
+        except:
+            pass
+    if "compare_value_counts" in raw and compare_series is not None:
+        cvc = raw["compare_value_counts"]
+        from pandas import Series as pdSeries
+        idx = list(cvc.keys())
+        vals = list(cvc.values())
+        try:
+            ftp.compare_counts = {
+                "value_counts_without_nan": pdSeries(vals, index=idx),
+                "distinct_count_without_nan": len(cvc),
+                "num_rows_with_data": sum(vals),
+                "num_rows_total": len(compare_series),
+            }
+        except:
+            pass
+    return ftp
+
+
 def _restore_feature(fdict):
     if fdict is None:
         return None
     restored = _restore_nwp(fdict)
     if "type" in restored:
         restored["type"] = _restore_type(restored["type"])
-    if "minigraph" in restored:
-        restored["minigraph"] = _restore_graph(restored["minigraph"])
-    if "detail_graphs" in restored:
-        restored["detail_graphs"] = [_restore_graph(g) for g in restored["detail_graphs"]]
     if "compare" in restored and isinstance(restored["compare"], dict):
         restored["compare"] = _restore_feature(restored["compare"])
+
+    ftp = _rebuild_feature_to_process(fdict)
+    if ftp is not None:
+        ftype = restored.get("type")
+        try:
+            if ftype == FeatureType.TYPE_NUM:
+                restored["minigraph"] = GraphNumeric("mini", ftp)
+                detail_graphs = []
+                for nb in [0, 5, 15, 30]:
+                    g = GraphNumeric(f"detail-{nb}", ftp)
+                    if g:
+                        detail_graphs.append(g)
+                restored["detail_graphs"] = detail_graphs
+            elif ftype in (FeatureType.TYPE_CAT, FeatureType.TYPE_BOOL):
+                restored["minigraph"] = GraphCat("mini", ftp)
+                detail_graphs = [GraphCat("detail", ftp)]
+                restored["detail_graphs"] = detail_graphs
+        except Exception as e:
+            pass
     return restored
 
 
@@ -137,11 +218,23 @@ class RenderViewModel:
         self.associations = rd.get("associations")
         self.associations_compare = rd.get("associations_compare")
 
-        self.graph_legend = _restore_graph(rd.get("graph_legend"))
-        ag = rd.get("association_graphs")
-        self.association_graphs = {k: _restore_graph(v) for k, v in ag.items()} if ag else {}
-        agc = rd.get("association_graphs_compare")
-        self.association_graphs_compare = {k: _restore_graph(v) for k, v in agc.items()} if agc else {}
+        try:
+            self.graph_legend = GraphLegend(self)
+        except:
+            self.graph_legend = None
+
+        self.association_graphs = {}
+        if self.associations is not None:
+            try:
+                self.association_graphs["all"] = GraphAssoc(self, "all", self.associations)
+            except:
+                pass
+        self.association_graphs_compare = {}
+        if self.associations_compare is not None:
+            try:
+                self.association_graphs_compare["all"] = GraphAssoc(self, "all", self.associations_compare)
+            except:
+                pass
 
         self.drift_summary = rd.get("drift_summary")
 
@@ -157,6 +250,14 @@ class RenderViewModel:
         if self.target is not None:
             num_feat += 1
         self.num_summaries = num_feat
+
+    @property
+    def _features(self):
+        return self.features
+
+    @property
+    def _target(self):
+        return self.target
 
     def __getitem__(self, key):
         if key in self.features:

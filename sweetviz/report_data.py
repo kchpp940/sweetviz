@@ -156,20 +156,9 @@ def _extract_feature(feature_dict: dict) -> dict:
         result["compare"] = compare
     if "drift" in feature_dict and feature_dict["drift"] is not None:
         result["drift"] = _convert_value(feature_dict["drift"])
-    mini = feature_dict.get("minigraph")
-    if mini is not None:
-        mini_data = _extract_graph_data(mini)
-        if mini_data:
-            result["minigraph"] = mini_data
-    detail_graphs = feature_dict.get("detail_graphs")
-    if detail_graphs:
-        graphs = []
-        for g in detail_graphs:
-            gd = _extract_graph_data(g)
-            if gd:
-                graphs.append(gd)
-        if graphs:
-            result["detail_graphs"] = graphs
+    raw = feature_dict.get("_raw_data")
+    if raw:
+        result["_raw_data"] = _convert_value(raw)
     return result
 
 
@@ -410,28 +399,6 @@ def build_report_data(report) -> dict:
     associations = _convert_value(report._associations)
     associations_compare = _convert_value(report._associations_compare) if report._associations_compare is not None else None
 
-    graph_legend = None
-    if hasattr(report, 'graph_legend') and report.graph_legend is not None:
-        graph_legend = _extract_graph_data(report.graph_legend)
-
-    association_graphs = {}
-    if hasattr(report, '_association_graphs'):
-        for k, v in report._association_graphs.items():
-            gd = _extract_graph_data(v)
-            if gd:
-                association_graphs[k] = gd
-    if not association_graphs:
-        association_graphs = None
-
-    association_graphs_compare = {}
-    if hasattr(report, '_association_graphs_compare'):
-        for k, v in report._association_graphs_compare.items():
-            gd = _extract_graph_data(v)
-            if gd:
-                association_graphs_compare[k] = gd
-    if not association_graphs_compare:
-        association_graphs_compare = None
-
     drift_summary = compute_drift_summary(report._features, report._target)
 
     result = {
@@ -447,12 +414,6 @@ def build_report_data(report) -> dict:
         result["associations"] = associations
     if associations_compare is not None:
         result["associations_compare"] = associations_compare
-    if graph_legend is not None:
-        result["graph_legend"] = graph_legend
-    if association_graphs is not None:
-        result["association_graphs"] = association_graphs
-    if association_graphs_compare is not None:
-        result["association_graphs_compare"] = association_graphs_compare
     if drift_summary is not None:
         result["drift_summary"] = drift_summary
     return result
