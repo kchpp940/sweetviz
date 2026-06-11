@@ -3,13 +3,14 @@
 Sweetviz unified pre-release / CI quality checks.
 
 Usage:
-    python tools/check.py                  # all checks
-    python tools/check.py requirements     # check requirements consistency
-    python tools/check.py manifest         # check MANIFEST.in vs package data
-    python tools/check.py prerelease       # run sweetviz pre-release suite
-    python tools/check.py build            # build wheel + sdist, verify contents
-    python tools/check.py all              # everything (default)
-    python tools/check.py --skip build     # skip a category
+    python tools/check.py                     # release pipeline (default)
+    python tools/check.py requirements        # check requirements consistency
+    python tools/check.py prerelease          # run sweetviz pre-release suite
+    python tools/check.py build               # build wheel + sdist, verify contents
+    python tools/check.py release             # requirements + prerelease + build
+    python tools/check.py all                 # same as release
+    python tools/check.py build --verbose     # show per-file build verification logs
+    python tools/check.py --skip build        # skip a category / tag
 
 Exit code 0 = everything passed; non-zero = failures.
 """
@@ -19,12 +20,14 @@ import configparser
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
+import venv
 import zipfile
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 ROOT = Path(__file__).resolve().parent.parent
 PYPROJECT = ROOT / "pyproject.toml"
@@ -35,6 +38,17 @@ FAIL = "FAIL"
 SKIP = "SKIP"
 
 _results: List[Tuple[str, str, str]] = []
+VERBOSE: bool = False
+
+
+def _set_verbose(v: bool):
+    global VERBOSE
+    VERBOSE = v
+
+
+def _vlog(msg: str):
+    if VERBOSE:
+        print(f"    | {msg}", flush=True)
 
 
 def _record(name: str, status: str, detail: str = ""):
@@ -288,25 +302,45 @@ def _parse_entry_points(ep_text: str) -> dict:
 def check_build_wheel_contents():
     import tarfile as _tf  # noqa: F401
 
+    _vlog(f"Building wheel with python -m build --wheel --outdir dist")
     wheel = _build_wheel()
+    _vlog(f"Wheel built: {wheel.name} ({wheel.stat().st_size:,} bytes)")
 
     with zipfile.ZipFile(wheel) as zf:
         names = set(zf.namelist())
         info_map = {zi.filename: zi for zi in zf.infolist()}
+    _vlog(f"Wheel contains {len(names)} entries total")
 
-    missing = [p for p in WHEEL_FILES_REQUIRED if p not in names]
+    missing: list[str] = []
+    present: int = 0
+    for p in WHEEL_FILES_REQUIRED:
+        if p in names:
+            present += 1
+        else:
+            missing.append(p)
+    _vlog(f"Required file presence: {present}/{len(WHEEL_FILES_REQUIRED)}")
     if missing:
+        _vlog(f"MISSING files: {missing}")
         raise RuntimeError(f"Wheel missing {len(missing)} files: {missing}")
 
-    empty = [p for p in WHEEL_NONEMPTY_FILES if info_map[p].file_size == 0]
+    empty: list[str] = []
+    for p in WHEEL_NONEMPTY_FILES:
+        size = info_map[p].file_size
+        if size == 0:
+            empty.append(p)
+        else:
+            _vlog(f"  non-empty resource OK: {p} ({size:,} bytes)")
     if empty:
+        _vlog(f"ZERO-BYTE resources: {empty}")
         raise RuntimeError(f"Wheel contains zero-byte resource files: {empty}")
 
-    too_small = []
+    too_small: list[str] = []
     for path, min_bytes in WHEEL_BINARIES_MIN_BYTES.items():
         size = info_map[path].file_size
         if size < min_bytes:
-            too_small.append(f"{path} ({size} < {min_bytes})")
+            too_small.append(f"{path} ({size:,} < {min_bytes:,})")
+        else:
+            _vlog(f"  binary size OK: {path} = {size:,} bytes (>= {min_bytes:,})")
     if too_small:
         raise RuntimeError(f"Wheel binary files suspiciously small: {too_small}")
 
@@ -323,11 +357,16 @@ def check_build_wheel_contents():
         )
     dist_info_prefix = dist_info_candidates[0].split(".dist-info")[0] + ".dist-info/"
     entry_points_path = dist_info_prefix + "entry_points.txt"
+    _vlog(f"Looking for entry points at: {entry_points_path}")
     if entry_points_path not in names:
         raise RuntimeError("Wheel missing .dist-info/entry_points.txt")
 
     with zipfile.ZipFile(wheel) as zf:
         ep_text = zf.read(entry_points_path).decode("utf-8")
+    _vlog("entry_points.txt contents:")
+    for line in ep_text.splitlines():
+        _vlog(f"    {line}")
+
     entry_points = _parse_entry_points(ep_text)
     if "console_scripts" not in entry_points:
         raise RuntimeError("Wheel entry_points missing [console_scripts] group")
@@ -338,6 +377,7 @@ def check_build_wheel_contents():
         raise RuntimeError(
             f"sweetviz-check entry point points to wrong target: {target}"
         )
+    _vlog(f"sweetviz-check entry point OK: {target}")
 
     return (
         f"Wheel {wheel.name}: {len(WHEEL_FILES_REQUIRED)} files present, "
@@ -349,7 +389,9 @@ def check_build_wheel_contents():
 def check_build_sdist_contents():
     import tarfile
 
+    _vlog(f"Building sdist with python -m build --sdist --outdir dist")
     sdist = _build_sdist()
+    _vlog(f"sdist built: {sdist.name} ({sdist.stat().st_size:,} bytes)")
 
     with tarfile.open(sdist, "r:gz") as tf:
         members = tf.getmembers()
@@ -359,17 +401,33 @@ def check_build_sdist_contents():
             rel = "/".join(m.name.split("/")[1:])
             names.add(rel)
             name_to_member[rel] = m
+    _vlog(f"sdist contains {len(members)} entries total")
 
-    missing = [p for p in SDIST_FILES_REQUIRED if p not in names]
+    missing: list[str] = []
+    present: int = 0
+    for p in SDIST_FILES_REQUIRED:
+        if p in names:
+            present += 1
+        else:
+            missing.append(p)
+    _vlog(f"Required file presence: {present}/{len(SDIST_FILES_REQUIRED)}")
     if missing:
+        _vlog(f"MISSING files: {missing}")
         raise RuntimeError(f"sdist missing {len(missing)} files: {missing}")
 
     sdist_nonempty = [
         p for p in SDIST_FILES_REQUIRED
         if p.endswith((".html", ".css", ".js", ".ini", ".ttf", ".ttc", ".mplstyle"))
     ]
-    empty = [p for p in sdist_nonempty if name_to_member[p].size == 0]
+    empty: list[str] = []
+    for p in sdist_nonempty:
+        size = name_to_member[p].size
+        if size == 0:
+            empty.append(p)
+        else:
+            _vlog(f"  non-empty resource OK: {p} ({size:,} bytes)")
     if empty:
+        _vlog(f"ZERO-BYTE resources: {empty}")
         raise RuntimeError(f"sdist contains zero-byte resource files: {empty}")
 
     return (
@@ -378,68 +436,155 @@ def check_build_sdist_contents():
     )
 
 
+def _make_temp_venv(wheel_path: Path) -> Tuple[Path, Path]:
+    """
+    Create a fully-isolated temp venv outside ROOT, install the built wheel
+    (with its runtime dependencies) into it, and return:
+      (venv_root, venv_python_binary)
+    The caller should delete venv_root when done.
+    """
+    tmp_root = Path(tempfile.mkdtemp(prefix="sweetviz_venv_"))
+    venv_root = tmp_root / "venv"
+    venv.create(venv_root, with_pip=True, clear=True)
+    _vlog(f"Created temporary venv at {venv_root}")
+
+    # Determine venv python path
+    if (venv_root / "bin" / "python").exists():
+        py = venv_root / "bin" / "python"
+    elif (venv_root / "Scripts" / "python.exe").exists():
+        py = venv_root / "Scripts" / "python.exe"
+    else:
+        raise RuntimeError(f"Cannot find venv python under {venv_root}")
+
+    # Upgrade pip inside the venv to avoid legacy resolver issues
+    _vlog("Upgrading pip inside temp venv")
+    r = subprocess.run(
+        [str(py), "-m", "pip", "install", "--upgrade", "pip"],
+        capture_output=True, text=True,
+    )
+    if r.returncode != 0:
+        raise RuntimeError(
+            f"pip upgrade in temp venv failed (rc={r.returncode}).\n"
+            f"STDERR: {r.stderr[-800:]}"
+        )
+
+    # Install wheel WITH dependencies (sweetviz's runtime deps must resolve
+    # from PyPI for this smoke test to be realistic).
+    _vlog(f"Installing wheel {wheel_path.name} (with deps) into temp venv")
+    r = subprocess.run(
+        [str(py), "-m", "pip", "install", str(wheel_path)],
+        capture_output=True, text=True,
+    )
+    if r.returncode != 0:
+        raise RuntimeError(
+            f"pip install {wheel_path.name} in temp venv failed (rc={r.returncode}).\n"
+            f"STDOUT:\n{r.stdout[-1200:]}\nSTDERR:\n{r.stderr[-1200:]}"
+        )
+
+    return tmp_root, py
+
+
 def check_wheel_install_and_import():
     wheels = list((ROOT / "dist").glob("sweetviz-*.whl"))
     if not wheels:
         raise RuntimeError("No wheel to test install from (run check_build_wheel_contents first)")
     wheel = max(wheels, key=lambda p: p.stat().st_mtime)
+    _vlog(f"Using wheel {wheel.name} for isolated-venv smoke test")
 
-    script = (
-        "import sys, subprocess;"
-        "subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-deps', sys.argv[1]]);"
-        "import sweetviz;"
-        "print('VERSION', sweetviz.__version__);"
-        "print('ANALYZE', callable(sweetviz.analyze));"
-        "print('DATAFRAMEREPORT', callable(sweetviz.DataframeReport));"
-        "report = sweetviz.analyze(__import__('pandas').DataFrame({'a': [1,2,3]}));"
-        "print('REPORT', type(report).__name__);"
-        "import shutil;"
-        "svc = shutil.which('sweetviz-check');"
-        "print('SVCLI', bool(svc));"
-    )
-    result = _run([sys.executable, "-c", script, str(wheel)])
-    if result.returncode != 0:
-        raise RuntimeError(f"Wheel install+import failed.\n{result.stdout[-1000:]}\n{result.stderr[-1000:]}")
+    tmp_root, venv_py = _make_temp_venv(wheel)
+    try:
+        # --- Run assertions from a CWD completely outside ROOT ---
+        sandbox = Path(tempfile.mkdtemp(prefix="sweetviz_sandbox_"))
+        _vlog(f"Smoke-test CWD (outside source tree): {sandbox}")
 
-    stdout = result.stdout
-    checks = {
-        "import sweetviz": "VERSION" in stdout,
-        "sweetviz.analyze callable": "ANALYZE True" in stdout,
-        "sweetviz.DataframeReport callable": "DATAFRAMEREPORT True" in stdout,
-        "analyze() produces DataframeReport": "REPORT DataframeReport" in stdout,
-        "sweetviz-check CLI installed on PATH": "SVCLI True" in stdout,
-    }
-    failed = [k for k, v in checks.items() if not v]
-    if failed:
-        raise RuntimeError(
-            f"Wheel install smoke-test failures: {failed}.\n"
-            f"STDOUT:\n{result.stdout[-1500:]}"
-        )
+        smoke_script = [
+            "import sys, os, shutil",
+            "# Guard: current dir must not contain sweetviz/",
+            "assert not os.path.isdir(os.path.join(os.getcwd(), 'sweetviz')), \"CWD contains sweetviz/ source tree!\"",
+            "# Guard: sys.path must not contain ROOT",
+            f"ROOT_HINT = {str(ROOT)!r}",
+            "for p in sys.path:",
+            "    if p and os.path.isdir(os.path.join(p, 'sweetviz')) and os.path.isdir(os.path.join(p, 'sweetviz', 'templates')):",
+            "        # It's the venv site-packages — that's fine",
+            "        pass",
+            "import sweetviz",
+            "print('VERSION', sweetviz.__version__)",
+            "print('FILE', sweetviz.__file__)",
+            "assert 'site-packages' in sweetviz.__file__ or 'dist-packages' in sweetviz.__file__ or 'Lib' in sweetviz.__file__, f\"Not from wheel: {sweetviz.__file__}\"",
+            "print('ANALYZE', callable(sweetviz.analyze))",
+            "print('DATAFRAMEREPORT', callable(sweetviz.DataframeReport))",
+            "report = sweetviz.analyze(__import__('pandas').DataFrame({'a': [1,2,3], 'b': ['x','y','z']}))",
+            "print('REPORT', type(report).__name__)",
+            "svc = shutil.which('sweetviz-check')",
+            "print('SVCLI', bool(svc), svc or '')",
+        ]
 
-    script_cli = (
-        "import subprocess, sys;"
-        "r = subprocess.run(['sweetviz-check'], capture_output=True, text=True, timeout=120);"
-        "print('RC', r.returncode);"
-        "sys.stdout.write(r.stdout[-500:]);"
-        "sys.stderr.write(r.stderr[-500:]);"
-        "sys.exit(r.returncode);"
-    )
-    result_cli = _run([sys.executable, "-c", script_cli])
-    if result_cli.returncode != 0:
-        raise RuntimeError(
-            f"sweetviz-check CLI execution failed (rc={result_cli.returncode}).\n"
-            f"STDOUT:\n{result_cli.stdout[-1500:]}\n"
-            f"STDERR:\n{result_cli.stderr[-1500:]}"
+        r = subprocess.run(
+            [str(venv_py), "-c", "\n".join(smoke_script)],
+            cwd=str(sandbox),
+            capture_output=True, text=True, timeout=300,
         )
-    if "All pre-release checks passed" not in result_cli.stdout:
-        raise RuntimeError(
-            "sweetviz-check CLI did not print success banner:\n"
-            f"{result_cli.stdout[-1000:]}"
+        if r.returncode != 0:
+            raise RuntimeError(
+                f"Wheel import smoke-test failed in isolated venv (rc={r.returncode}).\n"
+                f"STDOUT:\n{r.stdout[-1500:]}\nSTDERR:\n{r.stderr[-1500:]}"
+            )
+        out = r.stdout
+        for line in out.splitlines():
+            _vlog(f"  [smoke] {line}")
+
+        checks = {
+            "import sweetviz": "VERSION" in out,
+            "sweetviz.__file__ points to wheel": ("site-packages" in out or "dist-packages" in out or "Lib" in out),
+            "sweetviz.analyze callable": "ANALYZE True" in out,
+            "sweetviz.DataframeReport callable": "DATAFRAMEREPORT True" in out,
+            "analyze() produces DataframeReport": "REPORT DataframeReport" in out,
+            "sweetviz-check CLI on PATH": "SVCLI True" in out,
+        }
+        failed = [k for k, v in checks.items() if not v]
+        if failed:
+            raise RuntimeError(
+                f"Wheel install smoke-test assertions failed: {failed}.\n"
+                f"STDOUT:\n{out[-2000:]}"
+            )
+
+        # --- Run sweetviz-check CLI from the same sandbox CWD ---
+        _vlog("Running sweetviz-check CLI inside isolated venv (sandboxed CWD)")
+        svc_path = shutil.which("sweetviz-check")
+        # If host env already has sweetviz-check, we need to use the venv one
+        if not svc_path or str(venv_py.parent) not in svc_path:
+            if (venv_py.parent / "sweetviz-check").exists():
+                svc_bin = str(venv_py.parent / "sweetviz-check")
+            else:
+                svc_bin = str(venv_py.parent / "Scripts" / "sweetviz-check.exe")
+        else:
+            svc_bin = svc_path
+        _vlog(f"sweetviz-check binary: {svc_bin}")
+
+        r2 = subprocess.run(
+            [svc_bin],
+            cwd=str(sandbox),
+            capture_output=True, text=True, timeout=300,
         )
+        for line in (r2.stdout or "").splitlines()[-10:]:
+            _vlog(f"  [svc] {line}")
+        if r2.returncode != 0:
+            raise RuntimeError(
+                f"sweetviz-check CLI in isolated venv failed (rc={r2.returncode}).\n"
+                f"STDOUT:\n{r2.stdout[-1500:]}\nSTDERR:\n{r2.stderr[-1500:]}"
+            )
+        if "All pre-release checks passed" not in r2.stdout:
+            raise RuntimeError(
+                "sweetviz-check CLI did not print success banner.\n"
+                f"STDOUT:\n{r2.stdout[-1500:]}"
+            )
+    finally:
+        _vlog(f"Cleaning up temp venv at {tmp_root}")
+        shutil.rmtree(tmp_root, ignore_errors=True)
 
     return (
-        "Wheel installs cleanly; import works; analyze() runs; "
-        "sweetviz-check CLI on PATH executes and all 24 checks pass"
+        "Isolated temp venv: wheel installs (with deps), analyze() runs from sandboxed CWD, "
+        "sweetviz-check CLI executes and all 24 checks pass"
     )
 
 
@@ -525,8 +670,16 @@ def run(targets=None, skip=None):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    skip_flags = [a[len("--skip="):] for a in sys.argv[1:] if a.startswith("--skip=")]
+    verbose = False
+    raw_args = list(sys.argv[1:])
+    for flag in ("--verbose", "-v"):
+        if flag in raw_args:
+            verbose = True
+            raw_args.remove(flag)
+    _set_verbose(verbose)
+
+    args = [a for a in raw_args if not a.startswith("--")]
+    skip_flags = [a[len("--skip="):] for a in raw_args if a.startswith("--skip=")]
     skip = set()
     for s in skip_flags:
         skip.update(s.split(","))

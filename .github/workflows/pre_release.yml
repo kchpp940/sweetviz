@@ -34,14 +34,14 @@ jobs:
 
       - name: Install build & test deps
         run: |
-          python -m pip install --upgrade pip setuptools wheel
-          python -m pip install build pytest pytest-cov
+          python -m pip install --upgrade pip setuptools
+          python -m pip install build pytest pytest-cov twine
 
       - name: Install sweetviz (editable)
         run: python -m pip install -e .
 
-      - name: Run full release-quality pipeline
-        run: python tools/check.py release
+      - name: Run full release-quality pipeline (verbose)
+        run: python tools/check.py release --verbose
 
   build-matrix:
     name: Build artifact verification
@@ -54,132 +54,15 @@ jobs:
           python-version: "3.11"
 
       - name: Install build deps
-        run: python -m pip install --upgrade pip build twine
+        run: python -m pip install --upgrade pip setuptools build twine
 
-      - name: Build sdist + wheel (with enforce-prerelease hook)
+      - name: Build + verify wheel & sdist (tools/check.py build --verbose, SWEETVIZ_ENFORCE_PRERELEASE=1)
         env:
           SWEETVIZ_ENFORCE_PRERELEASE: "1"
-        run: python -m build
+        run: python tools/check.py build --verbose
 
-      - name: Verify package metadata with twine
+      - name: twine check --strict as final metadata sanity check
         run: twine check --strict dist/*
-
-      - name: Unpack wheel and verify every resource + entry point
-        run: |
-          set -e
-          WHEEL=$(ls dist/sweetviz-*.whl | head -n1)
-          SDIST=$(ls dist/sweetviz-*.tar.gz | head -n1)
-          echo "Wheel: $WHEEL"
-          echo "sdist: $SDIST"
-
-          mkdir -p /tmp/wheel_extract /tmp/sdist_extract
-          python -m zipfile -e "$WHEEL" /tmp/wheel_extract/
-
-          echo "--- Wheel file listing (top-level) ---"
-          ls -la /tmp/wheel_extract/
-
-          echo "--- Wheel contents count ---"
-          find /tmp/wheel_extract/sweetviz -type f | wc -l
-
-          echo "=== Verifying wheel required files ==="
-          WHEEL_FILES=(
-            "sweetviz/__init__.py"
-            "sweetviz/_pre_release.py"
-            "sweetviz/sv_public.py"
-            "sweetviz/dataframe_report.py"
-            "sweetviz/serialize.py"
-            "sweetviz/sweetviz_defaults.ini"
-            "sweetviz/templates/dataframe_page.html"
-            "sweetviz/templates/dataframe_summary.html"
-            "sweetviz/templates/sweetviz.css"
-            "sweetviz/templates/sv_assets.css"
-            "sweetviz/templates/js/jquery-3.7.1.min.js"
-            "sweetviz/templates/js/sweetviz.js"
-            "sweetviz/templates/js/sweetviz_vertical.js"
-            "sweetviz/fonts/Roboto-Medium.ttf"
-            "sweetviz/fonts/NotoSansCJK-Medium.ttc"
-            "sweetviz/mpl_styles/graph_base.mplstyle"
-            "sweetviz/mpl_styles/graph_target.mplstyle"
-          )
-          for f in "${WHEEL_FILES[@]}"; do
-            path="/tmp/wheel_extract/$f"
-            if [ ! -f "$path" ]; then
-              echo "FAIL: wheel missing $f"
-              exit 1
-            fi
-            if [ ! -s "$path" ]; then
-              echo "FAIL: wheel has zero-byte $f"
-              exit 1
-            fi
-          done
-          echo "OK: all ${#WHEEL_FILES[@]} wheel required files present and non-empty"
-
-          echo "=== Verifying wheel binary file sizes ==="
-          python - <<'PY'
-          import os
-          sizes = {
-            "/tmp/wheel_extract/sweetviz/fonts/Roboto-Medium.ttf": 100_000,
-            "/tmp/wheel_extract/sweetviz/fonts/NotoSansCJK-Medium.ttc": 5_000_000,
-            "/tmp/wheel_extract/sweetviz/templates/js/jquery-3.7.1.min.js": 50_000,
-          }
-          for path, min_bytes in sizes.items():
-              size = os.path.getsize(path)
-              assert size >= min_bytes, f"{path} too small: {size} < {min_bytes}"
-              print(f"OK  {path}: {size:,} bytes (>= {min_bytes:,})")
-          PY
-
-          echo "=== Verifying wheel entry_points.txt has sweetviz-check ==="
-          EP_FILE=$(ls /tmp/wheel_extract/sweetviz-*.dist-info/entry_points.txt 2>/dev/null || echo "")
-          if [ -z "$EP_FILE" ]; then
-            echo "FAIL: no entry_points.txt found under .dist-info"
-            ls -la /tmp/wheel_extract/
-            exit 1
-          fi
-          echo "Found entry_points at: $EP_FILE"
-          cat "$EP_FILE"
-          grep -q '^\[console_scripts\]' "$EP_FILE" || (echo "FAIL: no [console_scripts] in entry_points.txt"; exit 1)
-          grep -q '^sweetviz-check\s*=' "$EP_FILE" || (echo "FAIL: no sweetviz-check console script"; exit 1)
-          grep -q 'sweetviz._pre_release:main' "$EP_FILE" || (echo "FAIL: sweetviz-check not pointing to sweetviz._pre_release:main"; exit 1)
-          echo "OK: sweetviz-check entry point verified"
-
-          echo "=== Verifying sdist contents ==="
-          tar -xzf "$SDIST" -C /tmp/sdist_extract/
-          SDIST_ROOT=$(ls -d /tmp/sdist_extract/sweetviz-*/)
-          echo "sdist root: $SDIST_ROOT"
-
-          SDIST_FILES=(
-            "pyproject.toml"
-            "setup.py"
-            "MANIFEST.in"
-            "LICENSE"
-            "README.md"
-            "tools/check.py"
-            "tools/build_hooks.py"
-            "scripts/pre_release_checks.py"
-            "tests/pre_release/test_pre_release.py"
-            "sweetviz/__init__.py"
-            "sweetviz/sweetviz_defaults.ini"
-            "sweetviz/templates/dataframe_page.html"
-            "sweetviz/templates/sweetviz.css"
-            "sweetviz/templates/js/sweetviz.js"
-            "sweetviz/fonts/Roboto-Medium.ttf"
-            "sweetviz/mpl_styles/graph_base.mplstyle"
-          )
-          for f in "${SDIST_FILES[@]}"; do
-            path="$SDIST_ROOT/$f"
-            if [ ! -f "$path" ]; then
-              echo "FAIL: sdist missing $f"
-              exit 1
-            fi
-          done
-          echo "OK: all ${#SDIST_FILES[@]} sdist required files present"
-
-          echo "=== Verifying installed wheel sweetviz-check CLI works ==="
-          python -m pip install --force-reinstall --no-deps "$WHEEL"
-          python -c "import sweetviz; print('version:', sweetviz.__version__)"
-          python -m sweetviz._pre_release 2>&1 | tail -5
-          echo "---"
-          sweetviz-check 2>&1 | tail -5
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
