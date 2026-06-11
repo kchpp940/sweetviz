@@ -1,5 +1,7 @@
 include LICENSE
 include README.md
+include setup.py
+recursive-include tools *.py
 recursive-include sweetviz/fonts *.*
 recursive-include sweetviz/mpl_styles *.*
 recursive-include sweetviz/templates *.*

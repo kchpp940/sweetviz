@@ -1,7 +1,7 @@
 """
-Pytest wrapper for pre-release checks.
+Pytest suite for sweetviz pre-release checks.
 
-Run with:  pytest scripts/test_pre_release.py -v
+Run with:  pytest tests/pre_release -v
 """
 from sweetviz._pre_release import ALL_CHECKS
 

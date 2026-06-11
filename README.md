@@ -275,32 +275,48 @@ I definitely welcome the help I can get on this project, simply get in touch on 
 Please note that after a hectic development period, the code itself right now needs a bit of cleanup. :)
 
 ### 5. Pre-release checks
-Before publishing a new version, run the pre-release check suite to catch missing resources, broken imports, or API drift early:
+Before publishing a new version, run the unified check pipeline to catch missing resources, broken imports, API drift, and packaging issues early. The pipeline runs on every `python -m build` invocation automatically (bypass with `SWEETVIZ_SKIP_PRERELEASE_HOOK=1`).
 
 ```bash
-# Option 1: CLI command (after pip install -e .)
+# Full pipeline (requirements + prerelease suite + build verification)
+python tools/check.py
+
+# Or run individual categories
+python tools/check.py requirements    # pyproject.toml deps, MANIFEST.in globs
+python tools/check.py prerelease      # 24-check pre-release suite
+python tools/check.py build           # wheel + sdist build & contents verification
+
+# Skip a category
+python tools/check.py all --skip=build
+
+# --- Entry points for the pre-release suite itself ---
+# 1. CLI command (after pip install -e .)
 sweetviz-check
 
-# Option 2: Direct script
+# 2. Direct script
 python scripts/pre_release_checks.py
 
-# Option 3: Via pytest
-pytest scripts/test_pre_release.py -v
+# 3. Via pytest
+pytest tests/pre_release -v
 
 # Verbose output (shows byte sizes, counts, etc.)
 SWEETVIZ_PRERELEASE_VERBOSE=1 sweetviz-check
 
-# Skip a category (e.g. notebook checks in headless CI)
+# Skip a check category (e.g. notebook checks in headless CI)
 sweetviz-check --skip=notebook
 ```
 
-The 24 checks cover:
+**Build enforcement.** Running `python -m build` (wheel or sdist) triggers the pre-release hook in `tools/build_hooks.py` via `setup.py`. If any of the 24 checks fail, the build is aborted with a non-zero exit code — so a broken package can never reach `dist/` unless the hook is explicitly bypassed.
+
+**Check categories (24 core + 7 unified):**
+- **requirements** – pyproject.toml declares every runtime dep; every dep carries a version pin; MANIFEST.in contains required graft/include globs; no accidental debug-file includes
 - **resources** – templates, JS, fonts, mpl_styles, INI config all readable from the installed package; code-vs-disk template consistency
 - **api** – all public symbols (`analyze`, `compare`, `compare_intra`, `FeatureConfig`, `DataframeReport`, `config_parser`, `__version__`) importable; config loads correctly
 - **report** – `analyze()`, `compare()`, `compare_intra()`, target features, `FeatureConfig` skip all produce valid reports
 - **html** – `show_html()` generates valid widescreen/vertical/compare HTML files
 - **json** – `to_json()` and `get_report_data()` produce structurally valid JSON with correct metadata keys; `include_drift` flag works; file export round-trips
 - **notebook** – `show_notebook()` path runs end-to-end (with mocked IPython) for both layouts
+- **build** – wheel contains all 15 required runtime files; sdist contains pyproject/MANIFEST/LICENSE/sources; wheel installs cleanly and `sweetviz.analyze()` runs
 
 # Special thanks & related materials
 ### Contributors

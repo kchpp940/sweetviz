@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=77"]
+requires = ["setuptools>=77", "wheel>=0.40"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
@@ -84,4 +84,5 @@ Changelog = "https://github.com/fbdesignpro/sweetviz/releases"
 
 [tool.pytest.ini_options]
 addopts = "-v"
-testpaths = ["scripts"]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
