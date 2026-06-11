@@ -26,6 +26,7 @@ from sweetviz.config import config as config_parser
 from sweetviz.diagnostics import (
     set_verbosity, get_verbosity, set_debug,
     get_warnings, clear_diagnostics,
+    create_diagnostic_manager, DiagnosticManager,
     SweetvizError, SweetvizInputError, SweetvizConfigError,
     SweetvizResourceError, SweetvizProcessingError,
     ErrorCategory

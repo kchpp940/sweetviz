@@ -21,8 +21,9 @@ from sweetviz.feature_config import FeatureConfig
 from sweetviz.diagnostics import (
     SweetvizError, SweetvizInputError, SweetvizConfigError,
     SweetvizProcessingError, SweetvizResourceError,
-    ErrorCategory, warn, info, debug, set_verbosity, get_verbosity,
-    get_diagnostic_manager, wrap_exception, get_warnings
+    ErrorCategory, warn, info, debug,
+    create_diagnostic_manager, DiagnosticManager,
+    wrap_exception, get_warnings
 )
 import webbrowser
 from sweetviz.config import config
@@ -43,9 +44,9 @@ class DataframeReport:
                 resolution='请使用以下值之一: "on", "auto", "off"'
             )
 
-        # Parse verbosity parameter (使用诊断层统一管理)
-        set_verbosity(verbosity)
-        self.verbosity_level = get_verbosity()
+        # Parse verbosity parameter (每个报告持有独立的诊断上下文，不影响全局)
+        self._diag: DiagnosticManager = create_diagnostic_manager(verbosity)
+        self.verbosity_level = self._diag.get_verbosity()
 
         sv_html.load_layout_globals_from_config()
 
@@ -170,8 +171,7 @@ class DataframeReport:
             def flush(self):
                 pass
 
-        from sweetviz.diagnostics import is_progress_enabled
-        if is_progress_enabled():
+        if self._diag.is_progress_enabled():
             self.progress_bar = tqdm(total=progress_chunks, bar_format= \
                     '{desc:45}|{bar}| [{percentage:3.0f}%]   {elapsed} -> ({remaining} left)', \
                     ascii=False, dynamic_ncols=True, position=0, leave= True)
@@ -206,7 +206,7 @@ class DataframeReport:
         # Association check
         if pairwise_analysis == 'auto' and \
                 number_features > config["Processing"].getint("association_auto_threshold"):
-            warn(
+            self._diag.warn(
                 f"数据集中有 {number_features} 个特征，pairwise_analysis 设置为 'auto'。\n"
                 f"成对关联计算的时间复杂度是 O(n²)：{number_features} 个特征将产生约 "
                 f"{number_features * number_features} 对需要评估，可能需要较长时间。",
@@ -258,7 +258,7 @@ class DataframeReport:
             # TARGET processed HERE with COMPARE if present
             target_to_process = FeatureToProcess(-1, source_df[targets_found[0]], compare_target_series,
                                                  None, None, fc.get_predetermined_type(targets_found[0]))
-            self._target = sa.analyze_feature_to_dictionary(target_to_process)
+            self._target = sa.analyze_feature_to_dictionary(target_to_process, diag=self._diag)
             filtered_series_names_in_source.remove(targets_found[0])
             target_type = self._target["type"]
             self.progress_bar.update(1)
@@ -315,7 +315,7 @@ class DataframeReport:
         for f in features_to_process:
             # start = time.perf_counter()
             self.progress_bar.set_description_str(f"Feature: {f.source.name}")
-            self._features[f.source.name] = sa.analyze_feature_to_dictionary(f)
+            self._features[f.source.name] = sa.analyze_feature_to_dictionary(f, diag=self._diag)
             self.progress_bar.update(1)
             # print(f"DONE FEATURE------> {f.source.name}"
             #       f" {(time.perf_counter() - start):.2f}   {self._features[f.source.name]['type']}")
@@ -364,7 +364,7 @@ class DataframeReport:
         return
 
     def verbose_print(self, *args, **kwargs):
-        info(" ".join(str(arg) for arg in args))
+        self._diag.info(" ".join(str(arg) for arg in args))
 
     def __getitem__(self, key):
         # Can also access target
@@ -506,21 +506,21 @@ class DataframeReport:
                             self[other.source.name]["type"] == FeatureType.TYPE_BOOL:
                         # CAT-CAT
                         cur_associations[other.source.name] = \
-                            associations.theils_u(feature.source, other.source)
+                            associations.theils_u(feature.source, other.source, diag=self._diag)
                         if process_compare:
                             cur_associations_compare[other.source.name] = \
-                                associations.theils_u(feature.compare, other.compare)
+                                associations.theils_u(feature.compare, other.compare, diag=self._diag)
                     elif self[other.source.name]["type"] == FeatureType.TYPE_NUM:
                         # CAT-NUM
                         # This handles cat-num, then mirrors so no need to process num-cat separately
                         # (symmetrical relationship)
                         cur_associations[other.source.name] = \
-                            associations.correlation_ratio(feature.source, other.source)
+                            associations.correlation_ratio(feature.source, other.source, diag=self._diag)
                         mirror_association(self._associations, feature_name, other.source.name, \
                                            cur_associations[other.source.name])
                         if process_compare:
                             cur_associations_compare[other.source.name] = \
-                                associations.correlation_ratio(feature.compare, other.compare)
+                                associations.correlation_ratio(feature.compare, other.compare, diag=self._diag)
                             mirror_association(self._associations_compare, feature_name, other.source.name, \
                                                cur_associations_compare[other.source.name])
 
@@ -534,7 +534,7 @@ class DataframeReport:
                                 feature.source.corr(other.source, method='pearson')
                         except FloatingPointError:
                             cur_associations[other.source.name] = 1.0
-                            warn(
+                            self._diag.warn(
                                 f"相关性计算遇到边界情况，已赋值 1.0",
                                 category=ErrorCategory.PROCESSING,
                                 feature_name=f"{feature_name}/{other.source.name}",
@@ -613,17 +613,17 @@ class DataframeReport:
             ) from e
 
         if open_browser:
-            info(f"报告 {filepath} 已生成！NOTEBOOK/COLAB 用户：浏览器可能不会自动弹出，但报告已保存到您的文件中。")
+            self._diag.info(f"报告 {filepath} 已生成！NOTEBOOK/COLAB 用户：浏览器可能不会自动弹出，但报告已保存到您的文件中。")
             try:
                 webbrowser.open('file://' + os.path.realpath(filepath))
             except Exception as e:
-                warn(
+                self._diag.warn(
                     f"无法自动打开浏览器: {e}",
                     category=ErrorCategory.RESOURCE,
                     resolution="您可以手动打开生成的 HTML 文件来查看报告"
                 )
         else:
-            info(f"报告 {filepath} 已生成。")
+            self._diag.info(f"报告 {filepath} 已生成。")
 
         # Auto-log to comet_ml if desired & present
         try:
@@ -633,7 +633,7 @@ class DataframeReport:
                 self._comet_ml_logger.log_html(self._page_html)
                 self._comet_ml_logger.end()
         except Exception as e:
-            warn(
+            self._diag.warn(
                 f"comet_ml 日志记录失败: {e}",
                 category=ErrorCategory.PROCESSING,
                 resolution="这不会影响报告生成，您可以忽略此警告"
@@ -709,7 +709,7 @@ class DataframeReport:
                     resolution="请检查文件路径是否正确，以及是否有写入权限",
                     original_error=e
                 ) from e
-            info(f"报告 '{filepath}' 已保存。")
+            self._diag.info(f"报告 '{filepath}' 已保存。")
 
         # Auto-log to comet_ml if desired & present
         try:
@@ -719,7 +719,7 @@ class DataframeReport:
                 self._comet_ml_logger.log_html(self._page_html)
                 self._comet_ml_logger.end()
         except Exception as e:
-            warn(
+            self._diag.warn(
                 f"comet_ml 日志记录失败: {e}",
                 category=ErrorCategory.PROCESSING,
                 resolution="这不会影响报告生成，您可以忽略此警告"
@@ -730,11 +730,19 @@ class DataframeReport:
         try:
             experiment.log_html(self._page_html)
         except Exception as e:
-            warn(
+            self._diag.warn(
                 f"log_comet(): 记录 HTML 报告时出错: {e}",
                 category=ErrorCategory.PROCESSING,
                 resolution="请检查 comet_ml 实验对象是否有效，以及网络连接是否正常"
             )
+
+    def get_diagnostic_manager(self) -> DiagnosticManager:
+        """获取当前报告的诊断管理器实例。"""
+        return self._diag
+
+    def get_warnings(self):
+        """获取当前报告的所有警告。"""
+        return self._diag.get_warnings()
 
     def get_report_data(self, include_drift: bool = True) -> dict:
         return serialize.build_report_data(self, include_drift=include_drift)

@@ -3,7 +3,8 @@ import pandas as pd
 from collections import Counter
 import math
 import scipy.stats as ss
-from sweetviz.diagnostics import SweetvizProcessingError, warn, ErrorCategory
+from typing import Optional
+from sweetviz.diagnostics import SweetvizProcessingError, warn, ErrorCategory, DiagnosticManager
 
 # This file contains original and modified versions of the dython library,
 # which you should check out at the following URL:
@@ -147,7 +148,8 @@ def conditional_entropy(x,
 def theils_u(y,
              x,
              nan_strategy=REPLACE,
-             nan_replace_value=DEFAULT_REPLACE_VALUE):
+             nan_replace_value=DEFAULT_REPLACE_VALUE,
+             diag: Optional[DiagnosticManager] = None):
     """
     IMPORTANT: look at the order of arguments y and x
 
@@ -194,7 +196,8 @@ def theils_u(y,
 def correlation_ratio(categories,
                       measurements,
                       nan_strategy=REPLACE,
-                      nan_replace_value=DEFAULT_REPLACE_VALUE):
+                      nan_replace_value=DEFAULT_REPLACE_VALUE,
+                      diag: Optional[DiagnosticManager] = None):
     """
     Calculates the Correlation Ratio (sometimes marked by the greek letter Eta)
     for categorical-continuous association.

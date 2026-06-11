@@ -3,7 +3,6 @@ import pandas as pd
 
 import sweetviz.dataframe_report
 from sweetviz.feature_config import FeatureConfig
-from sweetviz.diagnostics import set_verbosity
 
 
 def analyze(source: Union[pd.DataFrame, Tuple[pd.DataFrame, str]],

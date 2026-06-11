@@ -1,11 +1,13 @@
 import pandas as pd
+from typing import Optional
 from sweetviz.sv_types import FeatureType
 from sweetviz.from_profiling_pandas import is_boolean, is_numeric, is_categorical, could_be_numeric
-from sweetviz.diagnostics import SweetvizInputError, ErrorCategory, warn
+from sweetviz.diagnostics import SweetvizInputError, ErrorCategory, warn, DiagnosticManager
 
 
 def determine_feature_type(series: pd.Series, counts: dict,
-        must_be_this_type: FeatureType, which_dataframe: str) -> object:
+        must_be_this_type: FeatureType, which_dataframe: str,
+        diag: Optional[DiagnosticManager] = None) -> object:
     # Replace infinite values with NaNs to avoid issues with histograms
     # TODO: INFINITE VALUE HANDLING/WARNING
     # series.replace(to_replace=[np.inf, np.NINF, np.PINF], value=np.nan,

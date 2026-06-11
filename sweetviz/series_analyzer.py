@@ -1,7 +1,9 @@
 import pandas as pd
 import re
+from typing import Optional
 from sweetviz.sv_types import NumWithPercent, FeatureType, FeatureToProcess
 from sweetviz.type_detection import determine_feature_type
+from sweetviz.diagnostics import DiagnosticManager
 import sweetviz.series_analyzer_numeric
 import sweetviz.series_analyzer_cat
 import sweetviz.series_analyzer_text
@@ -81,7 +83,8 @@ def add_series_base_stats_to_dict(series: pd.Series, counts: dict, updated_dict:
 
 
 # This generates everything EXCEPT the "detail pane"
-def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
+def analyze_feature_to_dictionary(to_process: FeatureToProcess,
+                                  diag: Optional[DiagnosticManager] = None) -> dict:
     # start = time.perf_counter()
 
     # Validation: Make sure the targets are the same length as the series
@@ -103,7 +106,8 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
     # Determine SOURCE feature type
     to_process.source_counts = get_counts(to_process.source)
     returned_feature_dict["type"] = determine_feature_type(to_process.source, to_process.source_counts,
-                                                           to_process.predetermined_type, "SOURCE")
+                                                           to_process.predetermined_type, "SOURCE",
+                                                           diag=diag)
     source_type = returned_feature_dict["type"]
 
     # Determine COMPARED feature type & initialize
@@ -112,7 +116,8 @@ def analyze_feature_to_dictionary(to_process: FeatureToProcess) -> dict:
         to_process.compare_counts = get_counts(to_process.compare)
         compare_type = determine_feature_type(to_process.compare,
                                               to_process.compare_counts,
-                                              returned_feature_dict["type"], "COMPARED")
+                                              returned_feature_dict["type"], "COMPARED",
+                                              diag=diag)
         if compare_type != FeatureType.TYPE_ALL_NAN and \
             source_type != FeatureType.TYPE_ALL_NAN:
             # Explicitly show missing categories on each set

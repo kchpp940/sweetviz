@@ -1,6 +1,11 @@
 """
 Sweetviz 内部诊断层
-集中处理用户可读错误、warning、debug 日志和静默模式。
+支持"每个报告/每次调用一个诊断上下文"，避免全局状态泄漏。
+
+架构：
+- DiagnosticManager: 可独立实例化的诊断管理器，每个报告持有一个实例
+- 全局默认实例: 用于向后兼容的全局 API（set_verbosity/get_warnings 等）
+- 便捷函数: 支持可选的 diag 参数，传入则使用指定实例，否则使用全局默认
 """
 
 import sys
@@ -125,6 +130,7 @@ class SweetvizProcessingError(SweetvizError, RuntimeError):
             original_error=original_error
         )
 
+
 class WarningRecord:
     """记录一条 warning 的信息。"""
 
@@ -145,11 +151,11 @@ class WarningRecord:
 class DiagnosticManager:
     """Sweetviz 诊断管理器，集中处理日志和错误。
 
-    单例模式，全局共享一个实例。
-    支持 verbosity 级别控制，与原有 verbosity 参数兼容。
-    """
+    每个 DataframeReport 持有一个独立的 DiagnosticManager 实例，
+    确保 verbosity 设置和 warning 记录不会跨报告泄漏。
 
-    _instance: Optional['DiagnosticManager'] = None
+    同时存在一个全局默认实例，用于向后兼容的全局 API。
+    """
 
     VERBOSITY_MAP = {
         "off": LogLevel.SILENT,
@@ -158,25 +164,24 @@ class DiagnosticManager:
         "default": LogLevel.INFO,
     }
 
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._initialized = False
-        return cls._instance
+    def __init__(self, verbosity: str = "default"):
+        """创建一个独立的诊断上下文。
 
-    def __init__(self):
-        if self._initialized:
-            return
-        self._initialized = True
+        参数:
+            verbosity: 初始 verbosity 级别 ("off", "progress_only", "full", "default")
+        """
         self._verbosity: str = "default"
         self._log_level: LogLevel = LogLevel.INFO
         self._warnings: List[WarningRecord] = []
         self._errors: List[SweetvizError] = []
         self._progress_enabled: bool = True
         self._debug_enabled: bool = False
+        self.set_verbosity(verbosity)
 
     def set_verbosity(self, verbosity: str) -> None:
         """设置 verbosity 级别，与原有参数兼容。
+
+        只影响当前诊断上下文，不影响全局或其他报告。
 
         参数:
             verbosity: "off", "progress_only", "full", "default"
@@ -202,7 +207,7 @@ class DiagnosticManager:
         return self._progress_enabled
 
     def set_debug(self, enabled: bool) -> None:
-        """启用或禁用 debug 日志。"""
+        """启用或禁用 debug 日志（只影响当前上下文）。"""
         self._debug_enabled = enabled
 
     def _should_log(self, level: LogLevel) -> bool:
@@ -213,16 +218,7 @@ class DiagnosticManager:
     def error(self, message: str, category: ErrorCategory = ErrorCategory.INTERNAL,
               feature_name: Optional[str] = None, resolution: Optional[str] = None,
               raise_exception: bool = False, exc_type: type = SweetvizError) -> SweetvizError:
-        """记录错误，可选地抛出异常。
-
-        参数:
-            message: 错误消息
-            category: 错误类别
-            feature_name: 相关的特征列名（如果适用）
-            resolution: 建议的解决方案
-            raise_exception: 是否立即抛出异常
-            exc_type: 异常类型（默认为 SweetvizError）
-        """
+        """记录错误，可选地抛出异常。"""
         error = exc_type(message=message, resolution=resolution)
         error.category = category
         self._errors.append(error)
@@ -241,14 +237,7 @@ class DiagnosticManager:
 
     def warn(self, message: str, category: ErrorCategory = ErrorCategory.PROCESSING,
              feature_name: Optional[str] = None, resolution: Optional[str] = None) -> WarningRecord:
-        """记录一条 warning。
-
-        参数:
-            message: warning 消息
-            category: 警告类别
-            feature_name: 相关的特征列名（如果适用）
-            resolution: 建议的解决方案
-        """
+        """记录一条 warning。"""
         record = WarningRecord(
             message=message,
             category=category,
@@ -268,12 +257,7 @@ class DiagnosticManager:
         return record
 
     def info(self, message: str, feature_name: Optional[str] = None) -> None:
-        """输出信息级别的日志。
-
-        参数:
-            message: 信息消息
-            feature_name: 相关的特征列名（如果适用）
-        """
+        """输出信息级别的日志。"""
         if not self._should_log(LogLevel.INFO):
             return
 
@@ -296,29 +280,22 @@ class DiagnosticManager:
         print(f"{prefix}: {message}")
 
     def get_warnings(self) -> List[WarningRecord]:
-        """获取所有记录的 warnings。"""
+        """获取当前上下文所有记录的 warnings。"""
         return list(self._warnings)
 
     def get_errors(self) -> List[SweetvizError]:
-        """获取所有记录的错误。"""
+        """获取当前上下文所有记录的错误。"""
         return list(self._errors)
 
     def clear(self) -> None:
-        """清除所有记录的警告和错误。"""
+        """清除当前上下文所有记录的警告和错误。"""
         self._warnings.clear()
         self._errors.clear()
 
     def wrap_exception(self, exc: Exception, category: ErrorCategory,
                        user_message: Optional[str] = None,
                        resolution: Optional[str] = None) -> SweetvizError:
-        """将底层异常包装成 SweetvizError。
-
-        参数:
-            exc: 原始异常
-            category: 错误类别
-            user_message: 用户可读的消息（不提供则使用异常消息）
-            resolution: 建议的解决方案
-        """
+        """将底层异常包装成 SweetvizError。"""
         message = user_message or str(exc)
         error_map = {
             ErrorCategory.INPUT_DATA: SweetvizInputError,
@@ -346,11 +323,7 @@ class DiagnosticManager:
         print()
 
     def format_exception_for_user(self, exc: Exception) -> str:
-        """格式化异常信息，提供用户友好的输出。
-
-        对于 SweetvizError，展示分类和建议；
-        对于其他异常，展示友好提示并隐藏技术细节。
-        """
+        """格式化异常信息，提供用户友好的输出。"""
         if isinstance(exc, SweetvizError):
             return str(exc)
 
@@ -361,65 +334,137 @@ class DiagnosticManager:
         )
 
 
-_diagnostic_manager: Optional[DiagnosticManager] = None
+_default_diagnostic_manager: Optional[DiagnosticManager] = None
 
 
-def get_diagnostic_manager() -> DiagnosticManager:
-    """获取全局诊断管理器实例。"""
-    global _diagnostic_manager
-    if _diagnostic_manager is None:
-        _diagnostic_manager = DiagnosticManager()
-    return _diagnostic_manager
+def get_default_diagnostic_manager() -> DiagnosticManager:
+    """获取全局默认诊断管理器实例（用于向后兼容）。
+
+    注意：新代码应该为每个报告创建独立的 DiagnosticManager 实例。
+    """
+    global _default_diagnostic_manager
+    if _default_diagnostic_manager is None:
+        _default_diagnostic_manager = DiagnosticManager()
+    return _default_diagnostic_manager
+
+
+def create_diagnostic_manager(verbosity: str = "default") -> DiagnosticManager:
+    """创建一个新的、独立的诊断管理器实例。
+
+    用于每次 analyze/compare 调用，确保上下文隔离。
+
+    参数:
+        verbosity: 初始 verbosity 级别
+
+    返回:
+        新的 DiagnosticManager 实例
+    """
+    return DiagnosticManager(verbosity=verbosity)
+
+
+def _resolve_diag(diag: Optional[DiagnosticManager]) -> DiagnosticManager:
+    """解析要使用的诊断管理器：优先使用传入的，否则使用全局默认。"""
+    return diag if diag is not None else get_default_diagnostic_manager()
 
 
 def set_verbosity(verbosity: str) -> None:
-    """设置全局 verbosity 级别。"""
-    get_diagnostic_manager().set_verbosity(verbosity)
+    """设置全局默认 verbosity 级别（向后兼容）。
+
+    注意：这只会影响全局默认实例和未来未显式指定 verbosity 的报告。
+    已创建的报告不会受到影响。
+    """
+    get_default_diagnostic_manager().set_verbosity(verbosity)
 
 
 def get_verbosity() -> str:
-    """获取当前 verbosity 级别。"""
-    return get_diagnostic_manager().get_verbosity()
+    """获取全局默认 verbosity 级别（向后兼容）。"""
+    return get_default_diagnostic_manager().get_verbosity()
 
 
 def error(message: str, category: ErrorCategory = ErrorCategory.INTERNAL,
           feature_name: Optional[str] = None, resolution: Optional[str] = None,
-          raise_exception: bool = False, exc_type: type = SweetvizError) -> SweetvizError:
-    return get_diagnostic_manager().error(
+          raise_exception: bool = False, exc_type: type = SweetvizError,
+          diag: Optional[DiagnosticManager] = None) -> SweetvizError:
+    """记录错误（向后兼容的全局 API）。
+
+    参数:
+        diag: 可选的诊断管理器实例，传入则使用该实例，否则使用全局默认
+    """
+    return _resolve_diag(diag).error(
         message, category, feature_name, resolution, raise_exception, exc_type
     )
 
 
 def warn(message: str, category: ErrorCategory = ErrorCategory.PROCESSING,
-         feature_name: Optional[str] = None, resolution: Optional[str] = None) -> WarningRecord:
-    return get_diagnostic_manager().warn(message, category, feature_name, resolution)
+         feature_name: Optional[str] = None, resolution: Optional[str] = None,
+         diag: Optional[DiagnosticManager] = None) -> WarningRecord:
+    """记录一条 warning（向后兼容的全局 API）。
+
+    参数:
+        diag: 可选的诊断管理器实例，传入则使用该实例，否则使用全局默认
+    """
+    return _resolve_diag(diag).warn(message, category, feature_name, resolution)
 
 
-def info(message: str, feature_name: Optional[str] = None) -> None:
-    get_diagnostic_manager().info(message, feature_name)
+def info(message: str, feature_name: Optional[str] = None,
+         diag: Optional[DiagnosticManager] = None) -> None:
+    """输出信息级别的日志（向后兼容的全局 API）。
+
+    参数:
+        diag: 可选的诊断管理器实例，传入则使用该实例，否则使用全局默认
+    """
+    _resolve_diag(diag).info(message, feature_name)
 
 
-def debug(message: str, feature_name: Optional[str] = None) -> None:
-    get_diagnostic_manager().debug(message, feature_name)
+def debug(message: str, feature_name: Optional[str] = None,
+          diag: Optional[DiagnosticManager] = None) -> None:
+    """输出 debug 级别的日志（向后兼容的全局 API）。
+
+    参数:
+        diag: 可选的诊断管理器实例，传入则使用该实例，否则使用全局默认
+    """
+    _resolve_diag(diag).debug(message, feature_name)
 
 
 def set_debug(enabled: bool) -> None:
-    get_diagnostic_manager().set_debug(enabled)
+    """设置全局默认 debug 开关（向后兼容）。"""
+    get_default_diagnostic_manager().set_debug(enabled)
 
 
-def is_progress_enabled() -> bool:
-    return get_diagnostic_manager().is_progress_enabled()
+def is_progress_enabled(diag: Optional[DiagnosticManager] = None) -> bool:
+    """检查是否启用进度条（向后兼容的全局 API）。
+
+    参数:
+        diag: 可选的诊断管理器实例，传入则使用该实例，否则使用全局默认
+    """
+    return _resolve_diag(diag).is_progress_enabled()
 
 
-def get_warnings() -> List[WarningRecord]:
-    return get_diagnostic_manager().get_warnings()
+def get_warnings(diag: Optional[DiagnosticManager] = None) -> List[WarningRecord]:
+    """获取 warnings（向后兼容的全局 API）。
+
+    参数:
+        diag: 可选的诊断管理器实例，传入则使用该实例，否则使用全局默认
+    """
+    return _resolve_diag(diag).get_warnings()
 
 
-def clear_diagnostics() -> None:
-    get_diagnostic_manager().clear()
+def clear_diagnostics(diag: Optional[DiagnosticManager] = None) -> None:
+    """清除诊断记录（向后兼容的全局 API）。
+
+    参数:
+        diag: 可选的诊断管理器实例，传入则清除该实例，否则清除全局默认
+    """
+    _resolve_diag(diag).clear()
 
 
 def wrap_exception(exc: Exception, category: ErrorCategory,
                    user_message: Optional[str] = None,
-                   resolution: Optional[str] = None) -> SweetvizError:
-    return get_diagnostic_manager().wrap_exception(exc, category, user_message, resolution)
+                   resolution: Optional[str] = None,
+                   diag: Optional[DiagnosticManager] = None) -> SweetvizError:
+    """包装异常（向后兼容的全局 API）。
+
+    参数:
+        diag: 可选的诊断管理器实例，传入则使用该实例，否则使用全局默认
+    """
+    return _resolve_diag(diag).wrap_exception(exc, category, user_message, resolution)
