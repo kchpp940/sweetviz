@@ -1,7 +1,6 @@
 import configparser
-import os
 import copy
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Dict
 
 
 try:
@@ -354,6 +353,229 @@ _CONFIG_SCHEMA: Dict[str, Dict[str, Dict[str, Any]]] = {
 }
 
 
+def _convert_value_to_type(value: Any, target_type: type) -> Any:
+    if target_type is bool:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return bool(value)
+        if isinstance(value, str):
+            return value.lower().strip() in ("1", "true", "yes", "on")
+        raise TypeError(f"Cannot convert '{value}' to bool")
+    if target_type is int:
+        if isinstance(value, bool):
+            return int(value)
+        if isinstance(value, int):
+            return value
+        if isinstance(value, float):
+            return int(value)
+        if isinstance(value, str):
+            return int(float(value.strip()))
+        raise TypeError(f"Cannot convert '{value}' to int")
+    if target_type is float:
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return float(value)
+        if isinstance(value, str):
+            return float(value.strip())
+        raise TypeError(f"Cannot convert '{value}' to float")
+    if target_type is str:
+        if isinstance(value, str):
+            return value.replace("%%", "%")
+        return str(value)
+    return value
+
+
+class _SyncedConfigSection:
+    def __init__(self, owner: "_SyncedConfigParser", section: str):
+        object.__setattr__(self, "_owner", owner)
+        object.__setattr__(self, "_section", section)
+
+    def _check_section(self):
+        if self._section not in self._owner._values:
+            raise KeyError(self._section)
+
+    def __getitem__(self, key: str):
+        self._check_section()
+        if key not in self._owner._values[self._section]:
+            raise KeyError(key)
+        return str(self._owner._values[self._section][key])
+
+    def __setitem__(self, key: str, value):
+        self._owner.set(self._section, key, value)
+
+    def __contains__(self, key: str):
+        return (
+            self._section in self._owner._values
+            and key in self._owner._values[self._section]
+        )
+
+    def get(self, key: str, fallback=None):
+        try:
+            return self[key]
+        except KeyError:
+            return fallback
+
+    def getint(self, key: str) -> int:
+        self._check_section()
+        val = self._owner._values[self._section][key]
+        if isinstance(val, bool):
+            return int(val)
+        if isinstance(val, int):
+            return val
+        return int(float(str(val).strip()))
+
+    def getfloat(self, key: str) -> float:
+        self._check_section()
+        val = self._owner._values[self._section][key]
+        if isinstance(val, (int, float)) and not isinstance(val, bool):
+            return float(val)
+        return float(str(val).strip())
+
+    def getboolean(self, key: str) -> bool:
+        self._check_section()
+        val = self._owner._values[self._section][key]
+        if isinstance(val, bool):
+            return val
+        if isinstance(val, int):
+            return bool(val)
+        if isinstance(val, str):
+            return val.lower().strip() in ("1", "true", "yes", "on")
+        return bool(val)
+
+    def keys(self):
+        self._check_section()
+        return list(self._owner._values[self._section].keys())
+
+    def __iter__(self):
+        return iter(self.keys())
+
+
+class _SyncedConfigParser(configparser.ConfigParser):
+    def __init__(self, sv_config_ref: "SweetvizConfig"):
+        super().__init__()
+        object.__setattr__(self, "_sv_ref", sv_config_ref)
+
+    @property
+    def _values(self):
+        return object.__getattribute__(self, "_sv_ref")._values
+
+    @property
+    def _schema(self):
+        return object.__getattribute__(self, "_sv_ref")._schema
+
+    def has_section(self, section: str) -> bool:
+        return section in self._values
+
+    def sections(self):
+        return list(self._values.keys())
+
+    def has_option(self, section: str, option: str) -> bool:
+        return section in self._values and option in self._values[section]
+
+    def options(self, section: str):
+        if section not in self._values:
+            raise configparser.NoSectionError(section)
+        return list(self._values[section].keys())
+
+    def get(self, section: str, option: str, *, raw=False, vars=None, fallback=...):
+        if section not in self._values:
+            if fallback is not ...:
+                return fallback
+            raise configparser.NoSectionError(section)
+        if option not in self._values[section]:
+            if fallback is not ...:
+                return fallback
+            raise configparser.NoOptionError(option, section)
+        return str(self._values[section][option])
+
+    def getint(self, section: str, option: str, *, raw=False, vars=None, fallback=...):
+        if section not in self._values:
+            if fallback is not ...:
+                return fallback
+            raise configparser.NoSectionError(section)
+        if option not in self._values[section]:
+            if fallback is not ...:
+                return fallback
+            raise configparser.NoOptionError(option, section)
+        val = self._values[section][option]
+        if isinstance(val, bool):
+            return int(val)
+        if isinstance(val, int):
+            return val
+        return int(float(str(val).strip()))
+
+    def getfloat(self, section: str, option: str, *, raw=False, vars=None, fallback=...):
+        if section not in self._values:
+            if fallback is not ...:
+                return fallback
+            raise configparser.NoSectionError(section)
+        if option not in self._values[section]:
+            if fallback is not ...:
+                return fallback
+            raise configparser.NoOptionError(option, section)
+        val = self._values[section][option]
+        if isinstance(val, (int, float)) and not isinstance(val, bool):
+            return float(val)
+        return float(str(val).strip())
+
+    def getboolean(self, section: str, option: str, *, raw=False, vars=None, fallback=...):
+        if section not in self._values:
+            if fallback is not ...:
+                return fallback
+            raise configparser.NoSectionError(section)
+        if option not in self._values[section]:
+            if fallback is not ...:
+                return fallback
+            raise configparser.NoOptionError(option, section)
+        val = self._values[section][option]
+        if isinstance(val, bool):
+            return val
+        if isinstance(val, int):
+            return bool(val)
+        if isinstance(val, str):
+            return val.lower().strip() in ("1", "true", "yes", "on")
+        return bool(val)
+
+    def set(self, section: str, option: str, value):
+        sv = object.__getattribute__(self, "_sv_ref")
+        sv._check_frozen()
+        if section not in self._schema:
+            raise KeyError(f"Unknown config section: '{section}'")
+        if option not in self._schema[section]:
+            raise KeyError(f"Unknown config key '{option}' in section '{section}'")
+        meta = self._schema[section][option]
+        try:
+            typed_value = _convert_value_to_type(value, meta["type"])
+            if meta.get("validator"):
+                typed_value = meta["validator"](typed_value)
+        except (ValueError, TypeError) as e:
+            raise ValueError(
+                f"Invalid value for [{section}] {option} = {value!r}: {e}"
+            ) from e
+        self._values[section][option] = typed_value
+
+    def items(self, section: str = ..., raw=False, vars=None):
+        if section is ...:
+            return super().items(raw=raw, vars=vars)
+        if section not in self._values:
+            raise configparser.NoSectionError(section)
+        return [(k, str(v)) for k, v in self._values[section].items()]
+
+    def __getitem__(self, section: str):
+        if section not in self._values:
+            raise KeyError(section)
+        return _SyncedConfigSection(self, section)
+
+    def __setitem__(self, section: str, value):
+        raise TypeError(
+            "Direct section assignment is not supported. "
+            "Use config[section][key] = value or sweetviz.settings.override()."
+        )
+
+    def __contains__(self, section: str):
+        return section in self._values
+
+
 class _FrozenConfig:
     def __init__(self, data: Dict[str, Dict[str, Any]]):
         object.__setattr__(self, "_data", data)
@@ -412,13 +634,15 @@ class _FrozenSection:
 
     def getint(self, key: str) -> int:
         val = self[key]
+        if isinstance(val, bool):
+            return int(val)
         if not isinstance(val, int):
             raise TypeError(f"Config key '{key}' is not an int (got {type(val).__name__})")
         return val
 
     def getfloat(self, key: str) -> float:
         val = self[key]
-        if not isinstance(val, (int, float)):
+        if not isinstance(val, (int, float)) or isinstance(val, bool):
             raise TypeError(f"Config key '{key}' is not a float (got {type(val).__name__})")
         return float(val)
 
@@ -454,14 +678,7 @@ class SweetvizConfig:
         self._schema: Dict[str, Dict[str, Dict[str, Any]]] = _CONFIG_SCHEMA
         self._values: Dict[str, Dict[str, Any]] = {}
         self._frozen: bool = False
-        self._load_defaults()
         self._load_from_ini()
-
-    def _load_defaults(self):
-        for section, keys in self._schema.items():
-            self._values[section] = {}
-            for key, meta in keys.items():
-                self._values[section][key] = copy.deepcopy(meta["default"])
 
     def _load_from_ini(self):
         ini_parser = configparser.ConfigParser()
@@ -469,43 +686,26 @@ class SweetvizConfig:
         try:
             ini_parser.read_file(ini_file)
             for section, keys in self._schema.items():
-                if not ini_parser.has_section(section):
-                    continue
+                self._values[section] = {}
                 for key, meta in keys.items():
-                    if ini_parser.has_option(section, key):
+                    if ini_parser.has_section(section) and ini_parser.has_option(section, key):
                         raw_value = ini_parser.get(section, key)
-                        try:
-                            typed_value = self._convert_type(raw_value, meta["type"])
-                            if meta.get("validator"):
-                                typed_value = meta["validator"](typed_value)
-                            self._values[section][key] = typed_value
-                        except (ValueError, TypeError) as e:
-                            raise ValueError(
-                                f"Invalid value in sweetviz_defaults.ini for "
-                                f"[{section}] {key} = '{raw_value}': {e}"
-                            ) from e
+                        source = "ini"
+                    else:
+                        raw_value = meta["default"]
+                        source = "schema_fallback"
+                    try:
+                        typed_value = _convert_value_to_type(raw_value, meta["type"])
+                        if meta.get("validator"):
+                            typed_value = meta["validator"](typed_value)
+                        self._values[section][key] = typed_value
+                    except (ValueError, TypeError) as e:
+                        raise ValueError(
+                            f"Invalid default value [{section}] {key} = {raw_value!r} "
+                            f"(source: {source}): {e}"
+                        ) from e
         finally:
             ini_file.close()
-
-    @staticmethod
-    def _convert_type(value: str, target_type: type) -> Any:
-        if target_type is bool:
-            if isinstance(value, bool):
-                return value
-            if isinstance(value, (int, float)):
-                return bool(value)
-            if isinstance(value, str):
-                return value.lower().strip() in ("1", "true", "yes", "on")
-            raise TypeError(f"Cannot convert '{value}' to bool")
-        if target_type is int:
-            return int(float(value)) if isinstance(value, str) else int(value)
-        if target_type is float:
-            return float(value)
-        if target_type is str:
-            if isinstance(value, str):
-                return value.replace("%%", "%")
-            return str(value)
-        return value
 
     def _check_frozen(self):
         if self._frozen:
@@ -522,7 +722,7 @@ class SweetvizConfig:
             raise KeyError(f"Unknown config key '{key}' in section '{section}'")
         meta = self._schema[section][key]
         try:
-            typed_value = self._convert_type(value, meta["type"])
+            typed_value = _convert_value_to_type(value, meta["type"])
             if meta.get("validator"):
                 typed_value = meta["validator"](typed_value)
         except (ValueError, TypeError) as e:
@@ -530,7 +730,6 @@ class SweetvizConfig:
                 f"Invalid override value for [{section}] {key} = {value!r}: {e}"
             ) from e
         self._values[section][key] = typed_value
-        config.set(section, key, str(value))
 
     def override_dict(self, overrides: Dict[str, Dict[str, Any]]):
         self._check_frozen()
@@ -559,10 +758,7 @@ class SweetvizConfig:
         return copy.deepcopy(self._values)
 
     def get_layout_for_template(self) -> Dict[str, int]:
-        result = {}
-        for key in self._values["Layout"]:
-            result[key] = self._values["Layout"][key]
-        return result
+        return {k: v for k, v in self._values["Layout"].items()}
 
     def get_general_for_template(self) -> Dict[str, Any]:
         return {
@@ -579,10 +775,5 @@ class SweetvizConfig:
         return section in self._values
 
 
-config = configparser.ConfigParser()
-the_open = pkg_resources.open_text("sweetviz", "sweetviz_defaults.ini")
-config.read_file(the_open)
-the_open.close()
-
-
 sv_config = SweetvizConfig()
+config = _SyncedConfigParser(sv_config)
