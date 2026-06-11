@@ -270,6 +270,13 @@ CATEGORIES = {
     ],
 }
 
+CATEGORIES["release"] = (
+    CATEGORIES["requirements"]
+    + CATEGORIES["prerelease"]
+    + CATEGORIES["build"]
+)
+CATEGORIES["all"] = CATEGORIES["release"]
+
 
 def _safe_run(name: str, func, *args, **kwargs):
     try:
@@ -280,18 +287,18 @@ def _safe_run(name: str, func, *args, **kwargs):
 
 
 def run(targets=None, skip=None):
-    targets = targets or ["all"]
+    targets = targets or ["release"]
     skip = skip or set()
-
-    if "all" in targets:
-        targets = list(CATEGORIES.keys())
 
     todo: List[Tuple[str, callable]] = []
     for cat in targets:
         if cat in skip:
             continue
         if cat not in CATEGORIES:
-            raise ValueError(f"Unknown check category: {cat}. Available: {list(CATEGORIES.keys()) + ['all']}")
+            raise ValueError(
+                f"Unknown check category: {cat}. "
+                f"Available: {sorted(CATEGORIES.keys())}"
+            )
         todo.extend(CATEGORIES[cat])
 
     for name, func in todo:
@@ -302,7 +309,7 @@ def run(targets=None, skip=None):
     skipped = sum(1 for _, s, _ in _results if s == SKIP)
 
     print("\n" + "=" * 64)
-    print("Sweetviz Unified Pre-Release Check (tools/check.py)")
+    print("Sweetviz Release-Quality Check (tools/check.py)")
     print("=" * 64)
     for name, status, detail in _results:
         marker = {"PASS": "✓", "FAIL": "✗", "SKIP": "○"}[status]
@@ -328,7 +335,7 @@ def main():
     skip = set()
     for s in skip_flags:
         skip.update(s.split(","))
-    targets = args or ["all"]
+    targets = args or ["release"]
     sys.exit(run(targets, skip))
 
 

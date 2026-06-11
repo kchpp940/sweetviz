@@ -1,0 +1,71 @@
+name: Pre-release Checks
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+concurrency:
+  group: pre-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pre-release:
+    name: Pre-release quality gate
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.9", "3.11", "3.13"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install build & test deps
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install build pytest pytest-cov
+
+      - name: Install sweetviz (editable)
+        run: python -m pip install -e .
+
+      - name: Run full release-quality pipeline
+        run: python tools/check.py release
+
+  build-matrix:
+    name: Build artifact verification
+    needs: pre-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build deps
+        run: python -m pip install --upgrade pip build twine
+
+      - name: Build sdist + wheel (with enforce-prerelease hook)
+        env:
+          SWEETVIZ_ENFORCE_PRERELEASE: "1"
+        run: python -m build
+
+      - name: Verify package metadata with twine
+        run: twine check --strict dist/*
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sweetviz-dist-${{ github.sha }}
+          path: dist/

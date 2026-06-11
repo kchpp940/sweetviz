@@ -1,13 +1,16 @@
 """
-Setuptools setup script — required to inject pre-release check build hooks.
+Setuptools setup script — registers lightweight build hooks.
 
-The hook runs BEFORE any build artifact (wheel / sdist) is produced,
-preventing broken packages from being built without passing the
-pre-release checklist.
+Hooks run during `python -m build`, `pip install .`, and `pip install -e .`:
+  * Always: lightweight packaging checks (file manifest, MANIFEST rules,
+    pyproject.toml deps completeness & version pins). No runtime deps.
+  * SWEETVIZ_ENFORCE_PRERELEASE=1: additionally run the full 24-check
+    pre-release suite (requires sweetviz + all runtime deps installed).
 
-The hook may be bypassed with:  SWEETVIZ_SKIP_PRERELEASE_HOOK=1
+Environment:
+  SWEETVIZ_SKIP_BUILD_HOOK=1   — bypass the hook entirely.
 """
-from setuptools import setup, find_packages
+from setuptools import setup
 from setuptools.command.build_py import build_py
 from setuptools.command.sdist import sdist as _sdist
 
@@ -24,8 +27,8 @@ def _inject_hook(cmd_class):
     orig_run = cmd_class.run
 
     def hooked_run(self):
-        from build_hooks import _run_prerelease_hook
-        _run_prerelease_hook()
+        from build_hooks import run as run_build_hooks
+        run_build_hooks()
         orig_run(self)
 
     cmd_class.run = hooked_run
@@ -43,7 +46,7 @@ class PrereleaseSdist(_sdist):
 
 
 try:
-    from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
+    from setuptools.command.bdist_wheel import bdist_wheel as _bdist_wheel
 
     @_inject_hook
     class PrereleaseBdistWheel(_bdist_wheel):
@@ -60,6 +63,4 @@ if PrereleaseBdistWheel is not None:
     cmdclass["bdist_wheel"] = PrereleaseBdistWheel
 
 
-setup(
-    cmdclass=cmdclass,
-)
+setup(cmdclass=cmdclass)
