@@ -1,6 +1,6 @@
 import configparser
 import copy
-from typing import Any, Dict
+from typing import Any, Dict, FrozenSet, IO, Sequence
 
 
 try:
@@ -43,314 +43,316 @@ _CONFIG_SCHEMA: Dict[str, Dict[str, Dict[str, Any]]] = {
     "General": {
         "default_verbosity": {
             "type": str,
-            "default": "full",
+            "_doc_default": "full",
             "validator": _validate_choice(["full", "progress_only", "off"]),
         },
         "use_cjk_font": {
             "type": int,
-            "default": 0,
+            "_doc_default": 0,
             "validator": _validate_choice([0, 1]),
         },
         "association_min_to_bold": {
             "type": float,
-            "default": 0.1,
+            "_doc_default": 0.1,
             "validator": _validate_range(0.0, 1.0),
         },
     },
     "Output_Defaults": {
         "html_layout": {
             "type": str,
-            "default": "widescreen",
+            "_doc_default": "widescreen",
             "validator": _validate_choice(["widescreen", "vertical"]),
         },
         "html_scale": {
             "type": float,
-            "default": 1.0,
+            "_doc_default": 1.0,
             "validator": _validate_positive,
         },
         "notebook_layout": {
             "type": str,
-            "default": "vertical",
+            "_doc_default": "vertical",
             "validator": _validate_choice(["widescreen", "vertical"]),
         },
         "notebook_scale": {
             "type": float,
-            "default": 1.0,
+            "_doc_default": 1.0,
             "validator": _validate_positive,
         },
         "notebook_width": {
             "type": str,
-            "default": "100%",
+            "_doc_default": "100%",
             "validator": None,
         },
         "notebook_height": {
             "type": int,
-            "default": 750,
+            "_doc_default": 750,
             "validator": _validate_positive,
         },
     },
     "comet_ml_defaults": {
         "html_layout": {
             "type": str,
-            "default": "vertical",
+            "_doc_default": "vertical",
             "validator": _validate_choice(["widescreen", "vertical"]),
         },
         "html_scale": {
             "type": float,
-            "default": 0.9,
+            "_doc_default": 0.9,
             "validator": _validate_positive,
         },
     },
     "Type_Detection": {
         "max_numeric_distinct_to_be_categorical": {
             "type": int,
-            "default": 10,
+            "_doc_default": 10,
             "validator": _validate_non_negative,
         },
         "max_text_distinct_to_be_categorical": {
             "type": int,
-            "default": 101,
+            "_doc_default": 101,
             "validator": _validate_non_negative,
         },
         "max_text_fraction_distinct_to_be_categorical": {
             "type": float,
-            "default": 0.33,
+            "_doc_default": 0.33,
             "validator": _validate_range(0.0, 1.0),
         },
     },
     "Processing": {
         "association_auto_threshold": {
             "type": int,
-            "default": 200,
+            "_doc_default": 200,
             "validator": _validate_non_negative,
         },
     },
     "Graphs": {
         "num_summary_graph_width": {
             "type": float,
-            "default": 2.9,
+            "_doc_default": 2.9,
             "validator": _validate_positive,
         },
         "cat_summary_graph_width": {
             "type": float,
-            "default": 5.9,
+            "_doc_default": 5.9,
             "validator": _validate_positive,
         },
         "summary_graph_height": {
             "type": float,
-            "default": 1.2,
+            "_doc_default": 1.2,
             "validator": _validate_positive,
         },
         "summary_graph_categorical_gap": {
             "type": float,
-            "default": 20.0,
+            "_doc_default": 20.0,
             "validator": _validate_range(0.0, 100.0),
         },
         "legend_width": {
             "type": float,
-            "default": 6.0,
+            "_doc_default": 6.0,
             "validator": _validate_positive,
         },
         "legend_height": {
             "type": float,
-            "default": 0.27,
+            "_doc_default": 0.27,
             "validator": _validate_positive,
         },
         "detail_graph_width": {
             "type": float,
-            "default": 5.8,
+            "_doc_default": 5.8,
             "validator": _validate_positive,
         },
         "detail_graph_height_numeric": {
             "type": float,
-            "default": 5.3,
+            "_doc_default": 5.3,
             "validator": _validate_positive,
         },
         "detail_graph_height_base": {
             "type": float,
-            "default": 0.0,
+            "_doc_default": 0.0,
             "validator": _validate_non_negative,
         },
         "detail_graph_height_per_elem": {
             "type": float,
-            "default": 0.6,
+            "_doc_default": 0.6,
             "validator": _validate_non_negative,
         },
         "detail_graph_categorical_gap": {
             "type": float,
-            "default": 10.0,
+            "_doc_default": 10.0,
             "validator": _validate_range(0.0, 100.0),
         },
         "detail_graph_categorical_max_height": {
             "type": float,
-            "default": 5.3,
+            "_doc_default": 5.3,
             "validator": _validate_positive,
         },
         "summary_graph_max_categories": {
             "type": int,
-            "default": 5,
+            "_doc_default": 5,
             "validator": _validate_positive,
         },
         "detail_graph_max_categories": {
             "type": int,
-            "default": 18,
+            "_doc_default": 18,
             "validator": _validate_positive,
         },
     },
     "Associations": {
         "association_graph_width": {
             "type": float,
-            "default": 8.7,
+            "_doc_default": 8.7,
             "validator": _validate_positive,
         },
         "association_graph_height": {
             "type": float,
-            "default": 7.6,
+            "_doc_default": 7.6,
             "validator": _validate_positive,
         },
         "association_graph_size_scale": {
             "type": float,
-            "default": 150000,
+            "_doc_default": 150000,
             "validator": _validate_positive,
         },
     },
     "Summary_Stats": {
         "summary_max_text_rows": {
             "type": int,
-            "default": 7,
+            "_doc_default": 7,
             "validator": _validate_positive,
         },
         "text_max_string_len": {
             "type": int,
-            "default": 300,
+            "_doc_default": 300,
             "validator": _validate_positive,
         },
     },
     "Detail_Stats": {
         "max_num_numeric_top_values": {
             "type": int,
-            "default": 30,
+            "_doc_default": 30,
             "validator": _validate_positive,
         },
         "max_num_top_associations": {
             "type": int,
-            "default": 14,
+            "_doc_default": 14,
             "validator": _validate_positive,
         },
         "detail_max_text_rows": {
             "type": int,
-            "default": 60,
+            "_doc_default": 60,
             "validator": _validate_positive,
         },
         "max_num_breakdown_categories": {
             "type": int,
-            "default": 50,
+            "_doc_default": 50,
             "validator": _validate_positive,
         },
     },
     "Layout": {
         "show_logo": {
             "type": int,
-            "default": 1,
+            "_doc_default": 1,
             "validator": _validate_choice([0, 1]),
         },
         "full_page_padding_widescreen": {
             "type": int,
-            "default": 160,
+            "_doc_default": 160,
             "validator": _validate_non_negative,
         },
         "full_page_padding_vertical": {
             "type": int,
-            "default": 300,
+            "_doc_default": 300,
             "validator": _validate_non_negative,
         },
         "character_width_estimate": {
             "type": int,
-            "default": 6,
+            "_doc_default": 6,
             "validator": _validate_positive,
         },
         "summary_text_max_width": {
             "type": int,
-            "default": 618,
+            "_doc_default": 618,
             "validator": _validate_positive,
         },
         "pair_spacing": {
             "type": int,
-            "default": 84,
+            "_doc_default": 84,
             "validator": _validate_non_negative,
         },
         "col_spacing": {
             "type": int,
-            "default": 15,
+            "_doc_default": 15,
             "validator": _validate_non_negative,
         },
         "summary_top": {
             "type": int,
-            "default": 150,
+            "_doc_default": 150,
             "validator": _validate_non_negative,
         },
         "summary_spacing": {
             "type": int,
-            "default": 0,
+            "_doc_default": 0,
             "validator": _validate_non_negative,
         },
         "summary_height_per_element": {
             "type": int,
-            "default": 162,
+            "_doc_default": 162,
             "validator": _validate_positive,
         },
         "summary_vertical_detail_pos": {
             "type": int,
-            "default": 157,
+            "_doc_default": 157,
             "validator": _validate_non_negative,
         },
         "summary_vertical_padding": {
             "type": int,
-            "default": 8,
+            "_doc_default": 8,
             "validator": _validate_non_negative,
         },
         "cat_detail_graph_y": {
             "type": int,
-            "default": 75,
+            "_doc_default": 75,
             "validator": _validate_non_negative,
         },
         "cat_detail_breakdown_y_offset": {
             "type": int,
-            "default": 9,
+            "_doc_default": 9,
             "validator": _validate_non_negative,
         },
         "cat_detail_col_1_max_x": {
             "type": int,
-            "default": 217,
+            "_doc_default": 217,
             "validator": _validate_positive,
         },
         "cat_detail_col_x_padding_after_name": {
             "type": int,
-            "default": 30,
+            "_doc_default": 30,
             "validator": _validate_non_negative,
         },
         "cat_detail_col_target_extra_spacing": {
             "type": int,
-            "default": 15,
+            "_doc_default": 15,
             "validator": _validate_non_negative,
         },
         "cat_detail_col_spacing": {
             "type": int,
-            "default": 81,
+            "_doc_default": 81,
             "validator": _validate_non_negative,
         },
         "num_detail_max_listed_values": {
             "type": int,
-            "default": 15,
+            "_doc_default": 15,
             "validator": _validate_positive,
         },
         "detail_text_max_width": {
             "type": int,
-            "default": 800,
+            "_doc_default": 800,
             "validator": _validate_positive,
         },
     },
 }
+
+_INI_FALLBACK_ALLOWLIST: FrozenSet[str] = frozenset()
 
 
 def _convert_value_to_type(value: Any, target_type: type) -> Any:
@@ -383,6 +385,53 @@ def _convert_value_to_type(value: Any, target_type: type) -> Any:
             return value.replace("%%", "%")
         return str(value)
     return value
+
+
+def _ingest_ini_to_values(
+    ini_parser: configparser.ConfigParser,
+    schema: Dict[str, Dict[str, Dict[str, Any]]],
+    values: Dict[str, Dict[str, Any]],
+    source_label: str,
+):
+    missing = []
+    for section, keys in schema.items():
+        if section not in values:
+            values[section] = {}
+        for key, meta in keys.items():
+            if ini_parser.has_section(section) and ini_parser.has_option(section, key):
+                raw_value = ini_parser.get(section, key)
+            else:
+                missing.append((section, key))
+                continue
+            try:
+                typed_value = _convert_value_to_type(raw_value, meta["type"])
+                if meta.get("validator"):
+                    typed_value = meta["validator"](typed_value)
+                values[section][key] = typed_value
+            except (ValueError, TypeError) as e:
+                raise ValueError(
+                    f"Invalid value in {source_label} for "
+                    f"[{section}] {key} = '{raw_value}': {e}"
+                ) from e
+    if missing:
+        allowed = set(_INI_FALLBACK_ALLOWLIST)
+        unallowed = [(s, k) for s, k in missing if f"{s}.{k}" not in allowed]
+        if unallowed:
+            details = ", ".join(f"[{s}] {k}" for s, k in unallowed)
+            raise ValueError(
+                f"Configuration source '{source_label}' is missing required keys: {details}. "
+                f"Every key in the schema must be present in the ini file. "
+                f"Add the missing keys or, if truly optional, add them to _INI_FALLBACK_ALLOWLIST."
+            )
+        for section, key in missing:
+            if f"{section}.{key}" in allowed:
+                meta = schema[section][key]
+                doc_default = meta.get("_doc_default")
+                if doc_default is not None:
+                    typed_value = _convert_value_to_type(doc_default, meta["type"])
+                    if meta.get("validator"):
+                        typed_value = meta["validator"](typed_value)
+                    values[section][key] = typed_value
 
 
 class _SyncedConfigSection:
@@ -462,6 +511,14 @@ class _SyncedConfigParser(configparser.ConfigParser):
     @property
     def _schema(self):
         return object.__getattribute__(self, "_sv_ref")._schema
+
+    def _ingest_temp_parser(self, temp_parser: configparser.ConfigParser, source_label: str):
+        sv = object.__getattribute__(self, "_sv_ref")
+        sv._check_frozen()
+        for section in temp_parser.sections():
+            for key in temp_parser.options(section):
+                raw_value = temp_parser.get(section, key)
+                self.set(section, key, raw_value)
 
     def has_section(self, section: str) -> bool:
         return section in self._values
@@ -554,9 +611,47 @@ class _SyncedConfigParser(configparser.ConfigParser):
             ) from e
         self._values[section][option] = typed_value
 
+    def read(self, filenames: Any, encoding: str = None) -> Sequence[str]:
+        temp = configparser.ConfigParser()
+        result = temp.read(filenames, encoding=encoding)
+        self._ingest_temp_parser(temp, source_label=str(filenames))
+        return result
+
+    def read_file(self, f: IO, source: str = "<???>") -> None:
+        temp = configparser.ConfigParser()
+        temp.read_file(f, source=source)
+        self._ingest_temp_parser(temp, source_label=source)
+
+    def read_string(self, string: str, source: str = "<string>") -> Sequence[str]:
+        temp = configparser.ConfigParser()
+        result = temp.read_string(string, source=source)
+        self._ingest_temp_parser(temp, source_label=source)
+        return result
+
+    def read_dict(self, dictionary: Dict, source: str = "<dict>") -> None:
+        temp = configparser.ConfigParser()
+        temp.read_dict(dictionary, source=source)
+        self._ingest_temp_parser(temp, source_label=source)
+
+    def add_section(self, section: str):
+        raise TypeError(
+            "add_section() is not supported: sections are schema-managed. "
+            "Use sweetviz.settings.override() to set values on existing sections."
+        )
+
+    def remove_section(self, section: str) -> bool:
+        raise TypeError(
+            "remove_section() is not supported: sections are schema-managed and cannot be removed."
+        )
+
+    def remove_option(self, section: str, option: str) -> bool:
+        raise TypeError(
+            "remove_option() is not supported: keys are schema-managed and cannot be removed."
+        )
+
     def items(self, section: str = ..., raw=False, vars=None):
         if section is ...:
-            return super().items(raw=raw, vars=vars)
+            return [(s, _SyncedConfigSection(self, s)) for s in self._values.keys()]
         if section not in self._values:
             raise configparser.NoSectionError(section)
         return [(k, str(v)) for k, v in self._values[section].items()]
@@ -685,25 +780,10 @@ class SweetvizConfig:
         ini_file = pkg_resources.open_text("sweetviz", "sweetviz_defaults.ini")
         try:
             ini_parser.read_file(ini_file)
-            for section, keys in self._schema.items():
-                self._values[section] = {}
-                for key, meta in keys.items():
-                    if ini_parser.has_section(section) and ini_parser.has_option(section, key):
-                        raw_value = ini_parser.get(section, key)
-                        source = "ini"
-                    else:
-                        raw_value = meta["default"]
-                        source = "schema_fallback"
-                    try:
-                        typed_value = _convert_value_to_type(raw_value, meta["type"])
-                        if meta.get("validator"):
-                            typed_value = meta["validator"](typed_value)
-                        self._values[section][key] = typed_value
-                    except (ValueError, TypeError) as e:
-                        raise ValueError(
-                            f"Invalid default value [{section}] {key} = {raw_value!r} "
-                            f"(source: {source}): {e}"
-                        ) from e
+            _ingest_ini_to_values(
+                ini_parser, self._schema, self._values,
+                source_label="sweetviz_defaults.ini",
+            )
         finally:
             ini_file.close()
 
