@@ -39,6 +39,18 @@ def require_comet():
 
 
 class CometLogger():
+    """Thin wrapper around comet_ml.Experiment for automatic report logging.
+
+    Requires the optional ``comet_ml`` dependency. Install with::
+
+        pip install sweetviz[comet]
+        # or
+        pip install comet_ml>=3.0.0
+
+    If comet_ml is not installed or not configured (no API key), all
+    operations are silently skipped.
+    """
+
     def __init__(self):
         self._logging = False
         self._experiment = None

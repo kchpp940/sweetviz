@@ -10,6 +10,15 @@ include = [
   "sweetviz.templates",
   "sweetviz.templates.js",
 ]
+exclude = [
+  "tools",
+  "tests",
+  "tests.*",
+]
+
+[tool.setuptools.cmdclass]
+sdist = "tools._build_hook.checking_sdist"
+build_py = "tools._build_hook.checking_build_py"
 
 [tool.setuptools.package-data]
 "sweetviz" = [

@@ -98,6 +98,49 @@ Available requirements files:
 - `requirements-dev.txt` — Full development dependencies (includes test + optional extras + build tools)
 - `requirements-docs.txt` — Documentation dependencies
 
+> **IMPORTANT — Dependency single source of truth:**
+> All dependency declarations live **only in `pyproject.toml`**. The `requirements*.txt`
+> files are **auto-generated** and must not be edited by hand.
+>
+> - To add/update a dependency: edit `pyproject.toml` under `[project.dependencies]`
+>   or `[project.optional-dependencies]`, then run:
+>   ```bash
+>   python tools/generate_requirements.py
+>   ```
+> - To verify your working copy is in sync:
+>   ```bash
+>   python tools/check.py --requirements-only
+>   ```
+> - The build pipeline (pip / python -m build) will **refuse to build** if
+>   requirements files drift from pyproject.toml.
+
+### Development workflow
+Run the unified check script before committing or releasing:
+```bash
+# Full check: requirements sync + lint + tests
+python tools/check.py
+
+# Fast check (skip tests):
+python tools/check.py --fast
+```
+
+The `tools/check.py` entry point supports `--requirements-only`, `--lint-only`,
+and `--test-only` flags for focused runs.
+
+#### Optional: pre-commit hooks
+The repository ships a `.pre-commit-config.yaml` that runs the requirements
+sync check and ruff linter automatically on every `git commit`. Enable it with:
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+### Releasing
+1. Bump the version in `pyproject.toml`
+2. Run `python tools/check.py` (all checks must pass)
+3. Build: `python -m build`
+4. Upload: `twine upload dist/*`
+
 #### Installation issues & fixes
 In some rare cases, users have reported errors such as `ModuleNotFoundError: No module named 'sweetviz'` and `AttributeError: module 'sweetviz' has no attribute 'analyze'`.
 In those cases, we suggest the following:

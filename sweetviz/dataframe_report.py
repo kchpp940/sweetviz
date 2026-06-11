@@ -586,6 +586,17 @@ class DataframeReport:
             self._comet_ml_logger.end()
 
     def show_notebook(self, w=None, h=None, scale=None, layout=None, filepath=None, file_layout=None, file_scale=None):
+        """Render the report inside a Jupyter/Colab notebook via IFRAME.
+
+        Requires the optional ``ipython`` dependency. Install with::
+
+            pip install sweetviz[notebook]
+            # or
+            pip install ipython>=5.0
+
+        Raises:
+            ImportError: If IPython is not installed.
+        """
         w = self.use_config_if_none(w, "notebook_width")
         h = self.use_config_if_none(h, "notebook_height")
         scale = float(self.use_config_if_none(scale, "notebook_scale"))
@@ -665,6 +676,21 @@ class DataframeReport:
             self._comet_ml_logger.end()
 
     def log_comet(self, experiment):
+        """Upload the report to a Comet.ml experiment.
+
+        Requires the optional ``comet_ml`` dependency. Install with::
+
+            pip install sweetviz[comet]
+            # or
+            pip install comet_ml>=3.0.0
+
+        Args:
+            experiment: A ``comet_ml.Experiment`` instance configured with
+                your API key and workspace.
+
+        Raises:
+            ImportError: If comet_ml is not installed.
+        """
         from sweetviz.comet_ml_logger import require_comet
         require_comet()
         self.generate_comet_friendly_html()

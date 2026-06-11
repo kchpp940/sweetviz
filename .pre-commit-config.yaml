@@ -1,0 +1,24 @@
+# Pre-commit hooks for sweetviz development.
+# Enable locally with:
+#     pip install pre-commit
+#     pre-commit install
+#
+# Then all hooks below will run automatically on `git commit`.
+# You can also run them manually at any time:
+#     pre-commit run --all-files
+
+repos:
+  - repo: local
+    hooks:
+      - id: requirements-sync
+        name: Check requirements-*.txt are in sync with pyproject.toml
+        entry: python tools/generate_requirements.py --check
+        language: system
+        pass_filenames: false
+        files: ^(pyproject\.toml|requirements.*\.txt|tools/generate_requirements\.py)$
+
+      - id: ruff
+        name: Run ruff linter
+        entry: python -m ruff check
+        language: system
+        types: [python]
