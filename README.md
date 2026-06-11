@@ -53,18 +53,57 @@ _(see below for docs on these features)_
 Some people have experienced mixed results behavior upgrading through `pip`. To update to the latest from an existing install, it is recommended to `pip uninstall sweetviz` first, then simply install.
 
 # Installation
-Sweetviz currently supports Python 3.6+ and Pandas 0.25.3+. Reports are output using the base "os" module, so custom environments such as Google Colab which require custom file operations are not yet supported, although I am looking into a solution. 
+Sweetviz currently supports Python 3.7+ and Pandas 0.25.3+. Reports are output using the base "os" module, so custom environments such as Google Colab which require custom file operations are not yet supported, although I am looking into a solution.
+
 ## Using pip
 The best way to install sweetviz (other than from source) is to use pip:
-```
+```bash
 pip install sweetviz
 ```
+
+### Optional dependencies
+Sweetviz has optional features that require additional dependencies. You can install them using pip extras:
+
+- **Notebook support** (for `show_notebook()` in Jupyter/Colab):
+  ```bash
+  pip install sweetviz[notebook]
+  ```
+
+- **Comet.ml integration** (for automatic experiment logging):
+  ```bash
+  pip install sweetviz[comet]
+  ```
+
+- **All optional features**:
+  ```bash
+  pip install sweetviz[all]
+  ```
+
+### Installing for development
+To install sweetviz in editable/development mode along with all development dependencies:
+```bash
+git clone https://github.com/fbdesignpro/sweetviz.git
+cd sweetviz
+pip install -e ".[dev]"
+```
+
+Alternatively, you can use the requirements files directly:
+```bash
+pip install -r requirements-dev.txt
+```
+
+Available requirements files:
+- `requirements.txt` — Core runtime dependencies
+- `requirements-test.txt` — Test dependencies (includes core)
+- `requirements-dev.txt` — Full development dependencies (includes test + optional extras + build tools)
+- `requirements-docs.txt` — Documentation dependencies
+
 #### Installation issues & fixes
 In some rare cases, users have reported errors such as `ModuleNotFoundError: No module named 'sweetviz'` and `AttributeError: module 'sweetviz' has no attribute 'analyze'`.
 In those cases, we suggest the following:
 - Make sure none of your scripts are named `sweetviz.py`, as that interferes with the library itself. Delete or rename that script (and any associated `.pyc` files), and try again.
 - Try uninstalling the library using `pip uninstall sweetviz`, then reinstalling
-- The issue may stem from using multiple versions of Python, or from OS permissions. The following Stack Overflow articles have resolved many of these issues reported: [Article 1](https://stackoverflow.com/questions/32680081/importerror-after-successful-pip-installation/32680082), [Article 2](https://stackoverflow.com/questions/14295680/unable-to-import-a-module-that-is-definitely-installed), [Article 3](https://stackoverflow.com/questions/44528638/after-pip-successful-installed-modulenotfounderror) 
+- The issue may stem from using multiple versions of Python, or from OS permissions. The following Stack Overflow articles have resolved many of these issues reported: [Article 1](https://stackoverflow.com/questions/32680081/importerror-after-successful-pip-installation/32680082), [Article 2](https://stackoverflow.com/questions/14295680/unable-to-import-a-module-that-is-definitely-installed), [Article 3](https://stackoverflow.com/questions/44528638/after-pip-successful-installed-modulenotfounderror)
 - If all else fails, post a bug issue [here on github](https://github.com/fbdesignpro/sweetviz/issues). Thank you for taking the time, it may help resolve the issue for you and everyone else!
 # Basic Usage
 Creating a report is a quick 2-line process:

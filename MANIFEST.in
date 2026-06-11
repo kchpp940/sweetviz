@@ -8,6 +8,8 @@ include requirements-test.txt
 include requirements-dev.txt
 include requirements-docs.txt
 
+recursive-include tools *.py
+
 recursive-include sweetviz/fonts *
 recursive-include sweetviz/mpl_styles *
 recursive-include sweetviz/templates *

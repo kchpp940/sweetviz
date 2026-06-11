@@ -1,4 +1,4 @@
-from typing import Union, List, Tuple
+from typing import Union, List, Tuple, TYPE_CHECKING
 import os
 import time
 import pandas as pd
@@ -15,11 +15,13 @@ from sweetviz.graph_associations import CORRELATION_ERROR
 from sweetviz.graph_associations import CORRELATION_IDENTICAL
 from sweetviz.graph_legend import GraphLegend
 from sweetviz.config import config
-import sweetviz.comet_ml_logger as comet_ml_logger
 import sweetviz.sv_html as sv_html
 from sweetviz.feature_config import FeatureConfig
 import webbrowser
 from sweetviz.config import config
+
+if TYPE_CHECKING:
+    from sweetviz.comet_ml_logger import CometLogger as _CometLoggerT
 
 class DataframeReport:
     def __init__(self,
@@ -576,7 +578,8 @@ class DataframeReport:
                   "Affected correlations:" + str(self.corr_warning))
 
         # Auto-log to comet_ml if desired & present
-        self._comet_ml_logger = comet_ml_logger.CometLogger()
+        from sweetviz.comet_ml_logger import CometLogger
+        self._comet_ml_logger = CometLogger()
         if self._comet_ml_logger._logging:
             self.generate_comet_friendly_html()
             self._comet_ml_logger.log_html(self._page_html)
@@ -610,8 +613,15 @@ class DataframeReport:
         import html
         self._page_html = html.escape(self._page_html)
         iframe = f' <iframe width="{width}" height="{height}" srcdoc="{self._page_html}" frameborder="0" allowfullscreen></iframe>'
-        from IPython.display import display
-        from IPython.display import HTML
+        try:
+            from IPython.display import display
+            from IPython.display import HTML
+        except ImportError as e:
+            raise ImportError(
+                "IPython is required for show_notebook(). "
+                "Install it with: pip install sweetviz[notebook] "
+                "or pip install ipython>=5.0"
+            ) from e
         display(HTML(iframe))
 
         if filepath is not None:
@@ -647,18 +657,21 @@ class DataframeReport:
                   "Affected correlations:" + str(self.corr_warning))
 
         # Auto-log to comet_ml if desired & present
-        self._comet_ml_logger = comet_ml_logger.CometLogger()
+        from sweetviz.comet_ml_logger import CometLogger
+        self._comet_ml_logger = CometLogger()
         if self._comet_ml_logger._logging:
             self.generate_comet_friendly_html()
             self._comet_ml_logger.log_html(self._page_html)
             self._comet_ml_logger.end()
 
-    def log_comet(self, experiment: 'comet_ml_logger.Experiment'):
+    def log_comet(self, experiment):
+        from sweetviz.comet_ml_logger import require_comet
+        require_comet()
         self.generate_comet_friendly_html()
         try:
             experiment.log_html(self._page_html)
-        except:
-            print("log_comet(): error logging HTML report.")
+        except Exception as e:
+            print(f"log_comet(): error logging HTML report: {e}")
 
     def get_report_data(self, include_drift: bool = True) -> dict:
         return serialize.build_report_data(self, include_drift=include_drift)
