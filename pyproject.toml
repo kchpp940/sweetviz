@@ -73,16 +73,8 @@ docs = [
   "furo",
 ]
 
-[project.scripts]
-sweetviz-check = "sweetviz._pre_release:main"
-
 [project.urls]
 Homepage = "https://github.com/fbdesignpro/sweetviz"
 "Bug Tracker" = "https://github.com/fbdesignpro/sweetviz/issues"
 Discussions = "https://github.com/fbdesignpro/sweetviz/discussions"
 Changelog = "https://github.com/fbdesignpro/sweetviz/releases"
-
-[tool.pytest.ini_options]
-addopts = "-v"
-testpaths = ["tests"]
-python_files = ["test_*.py"]

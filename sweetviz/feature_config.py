@@ -1,6 +1,7 @@
 from typing import Tuple, Dict, Optional, Union
 
 from sweetviz.sv_types import FeatureType
+from sweetviz.diagnostics import SweetvizConfigError
 
 
 class FeatureConfig:
@@ -15,7 +16,10 @@ class FeatureConfig:
                 return [param]
             elif param is None:
                 return list()
-            raise ValueError("Invalid value passed in for FeatureConfig")
+            raise SweetvizConfigError(
+                f"FeatureConfig 收到无效的参数值: {type(param).__name__}",
+                resolution="请使用列表、元组或字符串作为参数值"
+            )
 
         def rename_index(list_of_feature_names):
             return [x if x != "index" else "df_index" for x in list_of_feature_names]

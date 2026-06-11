@@ -21,3 +21,12 @@ from sweetviz.dataframe_report import DataframeReport
 
 # This is the config_parser, use to customize settings
 from sweetviz.config import config as config_parser
+
+# Diagnostics layer: unified error handling and logging
+from sweetviz.diagnostics import (
+    set_verbosity, get_verbosity, set_debug,
+    get_warnings, clear_diagnostics,
+    SweetvizError, SweetvizInputError, SweetvizConfigError,
+    SweetvizResourceError, SweetvizProcessingError,
+    ErrorCategory
+)

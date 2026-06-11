@@ -1,6 +1,7 @@
 import pandas as pd
 from sweetviz.sv_types import FeatureType
 from sweetviz.from_profiling_pandas import is_boolean, is_numeric, is_categorical, could_be_numeric
+from sweetviz.diagnostics import SweetvizInputError, ErrorCategory, warn
 
 
 def determine_feature_type(series: pd.Series, counts: dict,
@@ -10,20 +11,20 @@ def determine_feature_type(series: pd.Series, counts: dict,
     # series.replace(to_replace=[np.inf, np.NINF, np.PINF], value=np.nan,
     #                inplace=True)
     if counts["value_counts_without_nan"].index.inferred_type.startswith("mixed"):
-        raise TypeError(f"\n\nColumn [{series.name}] has a 'mixed' inferred_type (as determined by Pandas).\n"
-                        f"This is is not currently supported; column types should not contain mixed data.\n"
-                        f"e.g. only floats or strings, but not a combination.\n\n"
-                        f"POSSIBLE RESOLUTIONS:\n"
-                        f"BEST -> Make sure series [{series.name}] only contains a certain type of data (numerical OR string).\n"
-                        f"OR -> Convert series [{series.name}] to a string (if makes sense) so it will be picked up as CATEGORICAL or TEXT.\n"
-                        f"     One way to do this is:\n"
-                        f"     df['{series.name}'] = df['{series.name}'].astype(str)\n"
-                        f"OR -> Convert series [{series.name}] to a numerical value (if makes sense):\n"
-                        f"     One way to do this is:\n"
-                        f"     df['{series.name}'] = pd.to_numeric(df['{series.name}'], errors='coerce')\n"
-                        f"     # (errors='coerce' will transform string values to NaN, that can then be replaced if desired;"
-                        f" consult Pandas manual pages for more details)\n"
-                        )
+        raise SweetvizInputError(
+            f"列 '{series.name}' 包含混合数据类型（Pandas 检测为 'mixed' 类型）。\n"
+            f"当前不支持混合数据类型；列应该只包含一种数据类型（纯数值或纯字符串）。",
+            resolution=(
+                f"最佳方案 -> 确保列 '{series.name}' 只包含一种数据类型（数值或字符串）。\n"
+                f"方案 2 -> 将列 '{series.name}' 转换为字符串类型（如果合理），将被识别为分类或文本类型。\n"
+                f"     示例代码:\n"
+                f"     df['{series.name}'] = df['{series.name}'].astype(str)\n"
+                f"方案 3 -> 将列 '{series.name}' 转换为数值类型（如果合理）:\n"
+                f"     示例代码:\n"
+                f"     df['{series.name}'] = pd.to_numeric(df['{series.name}'], errors='coerce')\n"
+                f"     # (errors='coerce' 会将无法转换的值变为 NaN，之后可以根据需要处理)"
+            )
+        )
 
     try:
         # TODO: must_be_this_type ENFORCING
@@ -63,13 +64,14 @@ def determine_feature_type(series: pd.Series, counts: dict,
             if could_be_numeric(series):
                 var_type = FeatureType.TYPE_NUM
             else:
-                raise TypeError(f"\n\nCannot force series '{series.name}' in {which_dataframe} to be converted from its {var_type} to\n"
-                                f"DESIRED type {must_be_this_type}. Check documentation for the possible coercion possibilities.\n"
-                                f"POSSIBLE RESOLUTIONS:\n"
-                                f" -> Use the feat_cfg parameter (see docs on git) to force the column to be a specific type (may or may not help depending on the type)\n"
-                                f" -> Modify the source data to be more explicitly of a single specific type\n"
-                                f" -> This could also be caused by a feature type mismatch between source and compare dataframes:\n"
-                                f"    In that case, make sure the source and compared dataframes are compatible.\n")
+                raise SweetvizInputError(
+                    f"无法将 {which_dataframe} 中的列 '{series.name}' 从 {var_type} 强制转换为 {must_be_this_type}。",
+                    resolution=(
+                        f"-> 使用 feat_cfg 参数来强制指定列的类型（效果取决于类型组合）\n"
+                        f"-> 修改源数据，使其更明确地为单一类型\n"
+                        f"-> 这也可能是由于源数据和对比数据的特征类型不匹配导致的，请确保两者兼容"
+                    )
+                )
         elif var_type == FeatureType.TYPE_NUM and must_be_this_type == FeatureType.TYPE_CAT:
             var_type = FeatureType.TYPE_CAT
         elif var_type == FeatureType.TYPE_BOOL and must_be_this_type == FeatureType.TYPE_CAT:
@@ -77,11 +79,12 @@ def determine_feature_type(series: pd.Series, counts: dict,
         elif var_type == FeatureType.TYPE_NUM and must_be_this_type == FeatureType.TYPE_TEXT:
             var_type = FeatureType.TYPE_TEXT
         else:
-            raise TypeError(f"\n\nCannot convert series '{series.name}' in {which_dataframe} from its {var_type}\n"
-                            f"to the desired type {must_be_this_type}.\nCheck documentation for the possible coercion possibilities.\n"
-                            f"POSSIBLE RESOLUTIONS:\n"
-                            f" -> Use the feat_cfg parameter (see docs on git) to force the column to be a specific type (may or may not help depending on the type)\n"
-                            f" -> Modify the source data to be more explicitly of a single specific type\n"
-                            f" -> This could also be caused by a feature type mismatch between source and compare dataframes:\n"
-                            f"    In that case, make sure the source and compared dataframes are compatible.\n")
+            raise SweetvizInputError(
+                f"无法将 {which_dataframe} 中的列 '{series.name}' 从 {var_type} 转换为目标类型 {must_be_this_type}。",
+                resolution=(
+                    f"-> 使用 feat_cfg 参数来强制指定列的类型（效果取决于类型组合）\n"
+                    f"-> 修改源数据，使其更明确地为单一类型\n"
+                    f"-> 这也可能是由于源数据和对比数据的特征类型不匹配导致的，请确保两者兼容"
+                )
+            )
     return var_type

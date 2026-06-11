@@ -3,6 +3,7 @@ import pandas as pd
 from collections import Counter
 import math
 import scipy.stats as ss
+from sweetviz.diagnostics import SweetvizProcessingError, warn, ErrorCategory
 
 # This file contains original and modified versions of the dython library,
 # which you should check out at the following URL:
@@ -72,11 +73,15 @@ def convert(data, to):
         elif isinstance(data, np.ndarray):
             converted = pd.DataFrame(data)
     else:
-        raise ValueError("Unknown data conversion: {}".format(to))
+        raise SweetvizProcessingError(
+            f"未知的数据转换类型: {to}",
+            resolution="请检查调用代码，确保使用正确的转换目标类型"
+        )
     if converted is None:
-        raise TypeError(
-            'cannot handle data conversion of type: {} to {}'.format(
-                type(data), to))
+        raise SweetvizProcessingError(
+            f"无法处理从 {type(data).__name__} 到 {to} 的数据转换",
+            resolution="请检查输入数据类型是否正确"
+        )
     else:
         return converted
 

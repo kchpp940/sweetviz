@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Union
 import pandas as pd
 
 from sweetviz.sv_types import NumWithPercent, FeatureType
+from sweetviz.diagnostics import SweetvizProcessingError, SweetvizResourceError, warn, ErrorCategory
 
 
 SCHEMA_VERSION = "1.0"
@@ -439,9 +440,24 @@ def build_report_data(report, include_drift: bool = True) -> dict:
 
 def to_json(report, filepath: str = None, include_drift: bool = True,
             indent: int = 2) -> str:
-    data = build_report_data(report, include_drift=include_drift)
-    json_str = json.dumps(data, ensure_ascii=False, indent=indent, default=str)
+    try:
+        data = build_report_data(report, include_drift=include_drift)
+        json_str = json.dumps(data, ensure_ascii=False, indent=indent, default=str)
+    except (TypeError, ValueError) as e:
+        raise SweetvizProcessingError(
+            f"JSON 序列化失败: {e}",
+            resolution="请检查报告数据是否包含无法序列化的类型",
+            original_error=e
+        ) from e
+
     if filepath is not None:
-        with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(json_str)
+        try:
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(json_str)
+        except IOError as e:
+            raise SweetvizResourceError(
+                f"无法写入 JSON 文件: {filepath}",
+                resolution="请检查文件路径是否正确，以及是否有写入权限",
+                original_error=e
+            ) from e
     return json_str

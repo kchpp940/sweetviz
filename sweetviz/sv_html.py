@@ -3,13 +3,14 @@ import numpy as np
 import html
 import re
 from operator import itemgetter
-from jinja2 import Environment, PackageLoader
+from jinja2 import Environment, PackageLoader, TemplateNotFound
 import sweetviz.sv_html_formatters
 from sweetviz.config import config
 from sweetviz.sv_types import NumWithPercent, FeatureType, OTHERS_GROUPED
 from sweetviz.graph_associations import CORRELATION_ERROR
 from sweetviz.graph_associations import CORRELATION_IDENTICAL
 from functools import cmp_to_key
+from sweetviz.diagnostics import SweetvizResourceError, SweetvizProcessingError, warn, ErrorCategory
 
 package_loader = PackageLoader("sweetviz", "templates")
 jinja2_env = Environment(lstrip_blocks = True,
@@ -28,6 +29,25 @@ jinja2_env.filters["fmt_div_icon_missing"] = sweetviz.sv_html_formatters.fmt_div
 jinja2_env.filters["fmt_div_color_override_missing"] = sweetviz.sv_html_formatters.fmt_div_color_override_missing
 jinja2_env.filters["to_safe_id"] = lambda name: re.sub(r'[^a-zA-Z0-9_-]', '_', str(name))
 jinja2_env.globals["hello"] = "Superduper"
+
+
+def _render_template(template_name: str, **kwargs) -> str:
+    """安全地渲染模板，捕获并包装模板相关异常。"""
+    try:
+        template = jinja2_env.get_template(template_name)
+        return template.render(**kwargs)
+    except TemplateNotFound as e:
+        raise SweetvizResourceError(
+            f"找不到模板文件: {template_name}",
+            resolution="请检查 sweetviz 包是否正确安装，templates 目录是否完整",
+            original_error=e
+        ) from e
+    except Exception as e:
+        raise SweetvizProcessingError(
+            f"渲染模板 {template_name} 时出错: {e}",
+            resolution="这可能是由于数据格式异常导致的，请检查输入数据",
+            original_error=e
+        ) from e
 
 def load_layout_globals_from_config():
     jinja2_env.globals["FeatureType"] = FeatureType
