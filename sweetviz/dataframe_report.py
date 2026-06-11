@@ -332,7 +332,7 @@ class DataframeReport:
         self.summarize_category_types(source_df, self.summary_source, fc.skip, self._target)
         if compare is not None:
             self.summarize_category_types(compare_df, self.summary_compare, fc.skip, self._target)
-        self.dataframe_summary_html = sv_html.generate_html_dataframe_summary(self)
+        self.dataframe_summary_html = sv_html.generate_html_dataframe_summary(self, diag=self._diag)
 
         self.graph_legend = GraphLegend(self)
 
@@ -578,10 +578,10 @@ class DataframeReport:
         sv_html.set_summary_positions(self)
         sv_html.generate_html_detail(self)
         if self.associations_html_source:
-            self.associations_html_source = sv_html.generate_html_associations(self, "source")
+            self.associations_html_source = sv_html.generate_html_associations(self, "source", diag=self._diag)
         if self.associations_html_compare:
-            self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
-        self._page_html = sv_html.generate_html_dataframe_page(self)
+            self.associations_html_compare = sv_html.generate_html_associations(self, "compare", diag=self._diag)
+        self._page_html = sv_html.generate_html_dataframe_page(self, diag=self._diag)
 
     def show_html(self, filepath='SWEETVIZ_REPORT.html', open_browser=True, layout='widescreen', scale=None):
         scale = float(self.use_config_if_none(scale, "html_scale"))
@@ -597,20 +597,26 @@ class DataframeReport:
         sv_html.set_summary_positions(self)
         sv_html.generate_html_detail(self)
         if self.associations_html_source:
-            self.associations_html_source = sv_html.generate_html_associations(self, "source")
+            self.associations_html_source = sv_html.generate_html_associations(self, "source", diag=self._diag)
         if self.associations_html_compare:
-            self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
-        self._page_html = sv_html.generate_html_dataframe_page(self)
+            self.associations_html_compare = sv_html.generate_html_associations(self, "compare", diag=self._diag)
+        self._page_html = sv_html.generate_html_dataframe_page(self, diag=self._diag)
 
         try:
             with open(filepath, 'w', encoding="utf-8") as f:
                 f.write(self._page_html)
         except IOError as e:
-            raise SweetvizResourceError(
+            exc = SweetvizResourceError(
                 f"无法写入 HTML 文件: {filepath}",
                 resolution="请检查文件路径是否正确，以及是否有写入权限",
                 original_error=e
-            ) from e
+            )
+            self._diag.warn(
+                f"HTML 文件写入失败: {filepath}: {e}",
+                category=ErrorCategory.RESOURCE,
+                resolution=exc.resolution
+            )
+            raise exc from e
 
         if open_browser:
             self._diag.info(f"报告 {filepath} 已生成！NOTEBOOK/COLAB 用户：浏览器可能不会自动弹出，但报告已保存到您的文件中。")
@@ -656,10 +662,10 @@ class DataframeReport:
         sv_html.set_summary_positions(self)
         sv_html.generate_html_detail(self)
         if self.associations_html_source:
-            self.associations_html_source = sv_html.generate_html_associations(self, "source")
+            self.associations_html_source = sv_html.generate_html_associations(self, "source", diag=self._diag)
         if self.associations_html_compare:
-            self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
-        self._page_html = sv_html.generate_html_dataframe_page(self)
+            self.associations_html_compare = sv_html.generate_html_associations(self, "compare", diag=self._diag)
+        self._page_html = sv_html.generate_html_dataframe_page(self, diag=self._diag)
 
         width = w
         height = h
@@ -675,11 +681,17 @@ class DataframeReport:
             from IPython.display import HTML
             display(HTML(iframe))
         except ImportError as e:
-            raise SweetvizResourceError(
+            exc = SweetvizResourceError(
                 "无法在 Notebook 中显示报告，缺少 IPython 依赖",
                 resolution="请确保您在 Jupyter Notebook 环境中运行，或使用 show_html() 方法生成 HTML 文件",
                 original_error=e
-            ) from e
+            )
+            self._diag.warn(
+                "缺少 IPython 依赖，无法在 Notebook 中显示",
+                category=ErrorCategory.RESOURCE,
+                resolution=exc.resolution
+            )
+            raise exc from e
 
         if filepath is not None:
             file_scale_val = float(self.use_config_if_none(file_scale, "html_scale"))
@@ -695,20 +707,26 @@ class DataframeReport:
             sv_html.set_summary_positions(self)
             sv_html.generate_html_detail(self)
             if self.associations_html_source:
-                self.associations_html_source = sv_html.generate_html_associations(self, "source")
+                self.associations_html_source = sv_html.generate_html_associations(self, "source", diag=self._diag)
             if self.associations_html_compare:
-                self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
-            self._page_html = sv_html.generate_html_dataframe_page(self)
+                self.associations_html_compare = sv_html.generate_html_associations(self, "compare", diag=self._diag)
+            self._page_html = sv_html.generate_html_dataframe_page(self, diag=self._diag)
 
             try:
                 with open(filepath, 'w', encoding="utf-8") as f:
                     f.write(self._page_html)
             except IOError as e:
-                raise SweetvizResourceError(
+                exc = SweetvizResourceError(
                     f"无法保存报告文件: {filepath}",
                     resolution="请检查文件路径是否正确，以及是否有写入权限",
                     original_error=e
-                ) from e
+                )
+                self._diag.warn(
+                    f"Notebook 文件写入失败: {filepath}: {e}",
+                    category=ErrorCategory.RESOURCE,
+                    resolution=exc.resolution
+                )
+                raise exc from e
             self._diag.info(f"报告 '{filepath}' 已保存。")
 
         # Auto-log to comet_ml if desired & present
@@ -745,10 +763,11 @@ class DataframeReport:
         return self._diag.get_warnings()
 
     def get_report_data(self, include_drift: bool = True) -> dict:
-        return serialize.build_report_data(self, include_drift=include_drift)
+        return serialize.build_report_data(self, include_drift=include_drift, diag=self._diag)
 
     def to_json(self, filepath: str = None, include_drift: bool = True,
                 indent: int = 2) -> str:
         return serialize.to_json(self, filepath=filepath,
                                  include_drift=include_drift,
-                                 indent=indent)
+                                 indent=indent,
+                                 diag=self._diag)

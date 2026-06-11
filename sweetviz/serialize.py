@@ -6,7 +6,10 @@ from typing import Any, Dict, List, Optional, Union
 import pandas as pd
 
 from sweetviz.sv_types import NumWithPercent, FeatureType
-from sweetviz.diagnostics import SweetvizProcessingError, SweetvizResourceError, warn, ErrorCategory
+from sweetviz.diagnostics import (
+    SweetvizProcessingError, SweetvizResourceError, warn, ErrorCategory,
+    DiagnosticManager, _resolve_diag
+)
 
 
 SCHEMA_VERSION = "1.0"
@@ -370,17 +373,34 @@ def _extract_feature(feature_dict: dict, include_drift: bool = True) -> dict:
     return result
 
 
-def compute_all_drifts(report) -> None:
+def compute_all_drifts(report, diag: Optional[DiagnosticManager] = None) -> None:
+    actual_diag = diag if diag is not None else getattr(report, '_diag', None)
     if report.compare_name is None:
         return
     for fdict in report._features.values():
         if "drift" not in fdict or fdict["drift"] is None:
-            fdict["drift"] = compute_drift(fdict)
+            try:
+                fdict["drift"] = compute_drift(fdict)
+            except Exception as e:
+                _resolve_diag(actual_diag).warn(
+                    f"计算特征 '{fdict.get('name', 'unknown')}' 的漂移时出错: {e}",
+                    category=ErrorCategory.PROCESSING,
+                    resolution="该特征的漂移数据将被跳过，不影响整体报告"
+                )
     if report._target is not None and "drift" not in report._target:
-        report._target["drift"] = compute_drift(report._target)
+        try:
+            report._target["drift"] = compute_drift(report._target)
+        except Exception as e:
+            _resolve_diag(actual_diag).warn(
+                f"计算目标特征的漂移时出错: {e}",
+                category=ErrorCategory.PROCESSING,
+                resolution="目标特征的漂移数据将被跳过，不影响整体报告"
+            )
 
 
-def build_report_data(report, include_drift: bool = True) -> dict:
+def build_report_data(report, include_drift: bool = True,
+                      diag: Optional[DiagnosticManager] = None) -> dict:
+    actual_diag = diag if diag is not None else getattr(report, '_diag', None)
     metadata = {
         "schema_version": SCHEMA_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -397,15 +417,29 @@ def build_report_data(report, include_drift: bool = True) -> dict:
     compare_summary = _convert_value(getattr(report, "summary_compare", None))
 
     if include_drift and report.compare_name is not None:
-        compute_all_drifts(report)
+        compute_all_drifts(report, diag=actual_diag)
 
     features = {}
     for fname, fdict in report._features.items():
-        features[fname] = _extract_feature(fdict, include_drift=include_drift)
+        try:
+            features[fname] = _extract_feature(fdict, include_drift=include_drift)
+        except Exception as e:
+            _resolve_diag(actual_diag).warn(
+                f"提取特征 '{fname}' 的数据时出错: {e}",
+                category=ErrorCategory.PROCESSING,
+                resolution="该特征将被跳过，不影响其他特征的输出"
+            )
 
     target = None
     if report._target is not None:
-        target = _extract_feature(report._target, include_drift=include_drift)
+        try:
+            target = _extract_feature(report._target, include_drift=include_drift)
+        except Exception as e:
+            _resolve_diag(actual_diag).warn(
+                f"提取目标特征数据时出错: {e}",
+                category=ErrorCategory.PROCESSING,
+                resolution="目标特征数据将被跳过，不影响其他内容的输出"
+            )
 
     associations = _convert_value(getattr(report, "_associations", None))
     associations_compare = _convert_value(getattr(report, "_associations_compare", None))
@@ -417,7 +451,14 @@ def build_report_data(report, include_drift: bool = True) -> dict:
             all_features_for_summary[fname] = fdict
         if report._target is not None:
             all_features_for_summary[report._target.get("name")] = report._target
-        drift_summary = compute_drift_summary(all_features_for_summary)
+        try:
+            drift_summary = compute_drift_summary(all_features_for_summary)
+        except Exception as e:
+            _resolve_diag(actual_diag).warn(
+                f"生成漂移摘要时出错: {e}",
+                category=ErrorCategory.PROCESSING,
+                resolution="漂移摘要将被省略，不影响其他数据的导出"
+            )
 
     result = {
         "metadata": metadata,
@@ -439,25 +480,38 @@ def build_report_data(report, include_drift: bool = True) -> dict:
 
 
 def to_json(report, filepath: str = None, include_drift: bool = True,
-            indent: int = 2) -> str:
+            indent: int = 2, diag: Optional[DiagnosticManager] = None) -> str:
+    actual_diag = diag if diag is not None else getattr(report, '_diag', None)
     try:
-        data = build_report_data(report, include_drift=include_drift)
+        data = build_report_data(report, include_drift=include_drift, diag=actual_diag)
         json_str = json.dumps(data, ensure_ascii=False, indent=indent, default=str)
     except (TypeError, ValueError) as e:
-        raise SweetvizProcessingError(
+        exc = SweetvizProcessingError(
             f"JSON 序列化失败: {e}",
             resolution="请检查报告数据是否包含无法序列化的类型",
             original_error=e
-        ) from e
+        )
+        _resolve_diag(actual_diag).warn(
+            f"JSON 序列化失败: {e}",
+            category=ErrorCategory.PROCESSING,
+            resolution=exc.resolution
+        )
+        raise exc from e
 
     if filepath is not None:
         try:
             with open(filepath, 'w', encoding='utf-8') as f:
                 f.write(json_str)
         except IOError as e:
-            raise SweetvizResourceError(
+            exc = SweetvizResourceError(
                 f"无法写入 JSON 文件: {filepath}",
                 resolution="请检查文件路径是否正确，以及是否有写入权限",
                 original_error=e
-            ) from e
+            )
+            _resolve_diag(actual_diag).warn(
+                f"JSON 文件写入失败: {filepath}: {e}",
+                category=ErrorCategory.RESOURCE,
+                resolution=exc.resolution
+            )
+            raise exc from e
     return json_str
