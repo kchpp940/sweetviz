@@ -1,5 +1,7 @@
 # CUSTOM SWEETVIZ DEV
 SWEETVIZ_REPORT.html
+SWEETVIZ_REPORT_COMPARED.html
+SWEETVIZ_REPORT_VERTICAL.html
 internal_tests/
 .idea/
 MainTest.py
@@ -8,6 +10,10 @@ Notes.txt
 Override.ini
 GENERATE.bat
 UPLOAD.bat
+UPLOAD_TEST.bat
+
+# Unified example runner output
+sweetviz_example_outputs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -139,17 +145,12 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-UPLOAD.bat
 /sweetviz/images/
 docs/images/Layout-Anim.psd
-docs/images/Layout-Anim2.gif
 docs/images/Layout-Anim2.psd
 docs/images/Layout-Anim3.psd
 docs/images/logo.PSD
 docs/images/logo-Recovered.psd
 docs/images/Layout-Animb3.psd
-SWEETVIZ_REPORT_COMPARED.html
-SWEETVIZ_REPORT_VERTICAL.html
 docs/images/Art-Targ.psd
 docs/images/Assoc.psd
-UPLOAD_TEST.bat
