@@ -124,19 +124,14 @@ feature_config = sv.FeatureConfig(skip="PassengerId", force_text=["Age"])
 #### Comparing two dataframes (e.g. Test vs Training sets)
 To compare two data sets, simply use the `compare()` function. Its parameters are the same as `analyze()`, except with an inserted second parameter to cover the comparison dataframe. It is recommended to use the [dataframe, "name"] format of parameters to better differentiate between the base and compared dataframes. (e.g. `[my_df, "Train"]` vs `my_df`)
 ```python
-train = sv.load_dataset("titanic_train")
-test  = sv.load_dataset("titanic_test")
-fc    = sv.FeatureConfig(skip="PassengerId")
-
-my_report = sv.compare([train, "Training Data"], [test, "Test Data"], "Survived", fc)
+my_report = sv.compare([my_dataframe, "Training Data"], [test_df, "Test Data"], "Survived", feature_config)
 ```
 #### Comparing two subsets of the same dataframe (e.g. Male vs Female)
 Another way to get great insights is to use the comparison functionality to split your dataset into 2 sub-populations.
 
 Support for this is built in through the `compare_intra()` function. This function takes a boolean series as one of the arguments, as well as an explicit "name" tuple for naming the (true, false) resulting datasets. Note that internally, this creates 2 separate dataframes to represent each resulting group. As such, it is more of a shorthand function of doing such processing manually.
 ```python
-df = sv.load_dataset("titanic_full")
-my_report = sv.compare_intra(df, df["Sex"] == "male", ["Male", "Female"], "Survived")
+my_report = sv.compare_intra(my_dataframe, my_dataframe["Sex"] == "male", ["Male", "Female"], "Survived", feature_config)
 ```
 ## Step 2: Show the report
 Once you have created your report object (e.g. `my_report` in the examples above), simply pass it into one of the two `show' functions:

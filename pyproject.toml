@@ -78,3 +78,38 @@ Homepage = "https://github.com/fbdesignpro/sweetviz"
 "Bug Tracker" = "https://github.com/fbdesignpro/sweetviz/issues"
 Discussions = "https://github.com/fbdesignpro/sweetviz/discussions"
 Changelog = "https://github.com/fbdesignpro/sweetviz/releases"
+
+# ---------------------------------------------------------------------------
+# Pre-release / CI integration
+#
+# Developers can invoke the release gate in 3 equivalent ways:
+#   1. Directly           –  python tools/check.py release
+#   2. Via pytest         –  pytest -k sweetviz_release_gate  .
+#   3. Via console script –  sweetviz-release-check           (requires pip install -e .)
+#
+# The CI workflow lives at .github/workflows/pre-release.yml and mirrors these.
+# ---------------------------------------------------------------------------
+
+[project.scripts]
+# Convenience entry point (developer-only; users never see this because
+# sweetviz is normally installed from PyPI wheels without tools/).
+sweetviz-release-check = "tools.check:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+addopts = "-ra"
+markers = [
+    "slow: marks tests that exercise end-to-end rendering (~30s total).",
+    "sweetviz_release_gate: canonical pre-release check (examples AND docs).",
+]
+norecursedirs = [
+    "node_modules",
+    "build",
+    "dist",
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "sweetviz_example_outputs",
+]
