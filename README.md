@@ -73,14 +73,13 @@ Creating a report is a quick 2-line process:
 
 ![Report_Show_Options](docs/images/Layout-Anim3.gif)
 
-> **Tip for new users / reproducible demos** – All examples in this README
-> use the unified built-in demo dataset shipped with sweetviz. You can run
-> every example in this section (and more) with a single command:
+> **Want to try it right now?**  Sweetviz ships with a built-in demo dataset and a
+> fully-scripted example runner. Run every example in this README with one command:
 > ```bash
 > python -m sweetviz.example_runner
 > ```
-> Outputs are written to `./sweetviz_example_outputs/`.  You can also import
-> the runner from Python – see the "Unified example runner" section below.
+> Outputs are written to `./sweetviz_example_outputs/`.
+> See [Unified example runner](#unified-example-runner) below for details.
 
 ## Step 1: Create the report
 There are 3 main functions for creating reports:
@@ -179,7 +178,7 @@ Note that since notebooks are generally a more constrained visual environment, i
 Every report can also be serialized to JSON for programmatic inspection,
 CI checks, or downstream tooling.  Two drift-analysis modes are supported:
 ```python
-report = sv.analyze(df, target_feat="Survived")
+report = sv.analyze(my_dataframe, target_feat="Survived")
 json_str  = report.to_json()                                   # string
 report.to_json(filepath="report_metadata.json")                # with drift
 report.to_json(filepath="nodrift_metadata.json", include_drift=False)
@@ -187,16 +186,19 @@ report.to_json(filepath="nodrift_metadata.json", include_drift=False)
 
 ---
 
-## Unified example runner (recommended)
-Sweetviz ships with a fully scripted, deterministic demo harness that
-exercises every public surface of the library against a single built-in
-Titanic-like dataset.  Use it for:
+## Unified example runner
+Sweetviz ships with a fully scripted, deterministic demo harness in the
+`sweetviz.example_runner` submodule.  It exercises every public surface of the
+library against a single built-in Titanic-like dataset.  Use it for:
 
-* **README / docs / notebooks** – so every page uses the same data + calls.
-* **New feature development** – one command to check that every report still
-  renders end-to-end.
-* **CI / regression checks** – run via `python -m sweetviz.example_runner`
-  and inspect the output folder.
+* **Quick-start demos** – run a single command to generate every kind of report.
+* **New feature development** – one command to verify every report still renders end-to-end.
+* **CI / regression checks** – inspect the output folder programmatically.
+
+> **Note** – the example runner lives in the **`sweetviz.example_runner`**
+> submodule, *not* on the top-level `sweetviz` namespace, to keep the public
+> API surface clean and focused on the core `analyze / compare / FeatureConfig`
+> experience.
 
 ### From the command line
 ```bash
@@ -216,18 +218,22 @@ python -m sweetviz.example_runner \
 ### From Python
 ```python
 import sweetviz as sv
+from sweetviz.example_runner import (
+    load_dataset, run_analyze, run_compare,
+    run_all_examples, ExampleResult,
+)
 
 # (a) Just grab a deterministic DataFrame
-df = sv.load_dataset("titanic_full")            # or titanic_train / titanic_test
+df = load_dataset("titanic_full")          # or titanic_train / titanic_test
 
 # (b) Run a single canned example
-result = sv.run_analyze()                       # -> ExampleResult
+result = run_analyze()                      # -> ExampleResult
 # result.report   : the DataframeReport object
 # result.outputs  : dict of "label" -> absolute output path
 # result.ok       : bool
 
 # (c) Run *all* examples end-to-end
-all_results = sv.run_all_examples()
+all_results = run_all_examples()
 ```
 
 ### Covered code paths
@@ -241,6 +247,9 @@ all_results = sv.run_all_examples()
 | `html`              | All `show_html()` combinations: layout × scale                           |
 | `json`              | `to_json(include_drift=True/False)` + parseable-JSON validation         |
 | `notebook`          | `show_notebook()` with the `filepath=` branch (safe in scripts)          |
+
+---
+
 # Customizing defaults: the Config file
 The package contains an INI file for configuration. You can override any setting by providing your own then calling this before creating a report:
 ```
