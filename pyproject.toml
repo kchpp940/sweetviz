@@ -10,30 +10,6 @@ include = [
   "sweetviz.templates",
   "sweetviz.templates.js",
 ]
-exclude = [
-  "tools",
-  "tests",
-  "tests.*",
-]
-
-[tool.setuptools.cmdclass]
-sdist = "tools._build_hook.checking_sdist"
-build_py = "tools._build_hook.checking_build_py"
-
-[tool.setuptools.package-data]
-"sweetviz" = [
-  "sweetviz_defaults.ini",
-  "templates/*.html",
-  "templates/*.css",
-  "templates/js/*.js",
-  "fonts/*.ttf",
-  "fonts/*.ttc",
-  "fonts/LICENSE*",
-  "mpl_styles/*.mplstyle",
-]
-
-[tool.setuptools]
-include-package-data = true
 
 [project]
 name = "sweetviz"
@@ -54,14 +30,12 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
     "Development Status :: 5 - Production/Stable",
     "Topic :: Scientific/Engineering :: Visualization",
     "Topic :: Software Development :: Libraries :: Python Modules",
-    "Framework :: Jupyter",
 ]
 keywords=[
     "pandas",
@@ -69,8 +43,6 @@ keywords=[
     "data-analysis",
     "python",
     "eda",
-    "exploratory-data-analysis",
-    "visualization",
 ]
 dependencies = [
     'pandas>=0.25.3,!=1.0.0,!=1.0.1,!=1.0.2',
@@ -79,29 +51,18 @@ dependencies = [
     'tqdm>=4.43.0',
     'scipy>=1.3.2',
     'jinja2>=2.11.1',
-    'importlib_resources>=1.2.0;python_version<"3.9"',
+    'importlib_resources>=1.2.0',
     'importlib_metadata;python_version<"3.8"',
 ]
 
 [project.optional-dependencies]
-notebook = [
-  "ipython>=5.0",
-]
-comet = [
-  "comet_ml>=3.0.0",
-]
-all = [
-  "sweetviz[notebook,comet]",
-]
 test = [
   "pytest >=6",
   "pytest-cov >=3",
 ]
 dev = [
-  "sweetviz[test,notebook,comet]",
-  "build >=0.10",
-  "twine >=4.0",
-  "ruff >=0.1",
+  "pytest >=6",
+  "pytest-cov >=3",
 ]
 docs = [
   "sphinx>=4.0",
@@ -112,9 +73,15 @@ docs = [
   "furo",
 ]
 
+[project.scripts]
+sweetviz-check = "sweetviz._pre_release:main"
+
 [project.urls]
 Homepage = "https://github.com/fbdesignpro/sweetviz"
 "Bug Tracker" = "https://github.com/fbdesignpro/sweetviz/issues"
 Discussions = "https://github.com/fbdesignpro/sweetviz/discussions"
 Changelog = "https://github.com/fbdesignpro/sweetviz/releases"
-Documentation = "https://github.com/fbdesignpro/sweetviz#readme"
+
+[tool.pytest.ini_options]
+addopts = "-v"
+testpaths = ["scripts"]

@@ -1,6 +1,6 @@
-![version](https://img.shields.io/badge/2.3.3-blue.svg?label=version) ![updated](https://img.shields.io/badge/June%202026-green.svg?label=updated)
+![version](https://img.shields.io/badge/2.3.2-blue.svg?label=version) ![updated](https://img.shields.io/badge/April%204%2C%202026-green.svg?label=updated)
 
-### !!! June 2026 UPDATE !!! - Version 2.3.3: Build system &amp; dependency management overhaul
+### !!! April 2026 UPDATE !!! -  Version 2.3.2: Long-standing issues fixed
 
 ---
 ![Sweetviz Logo](docs/images/logo.png) 
@@ -53,100 +53,18 @@ _(see below for docs on these features)_
 Some people have experienced mixed results behavior upgrading through `pip`. To update to the latest from an existing install, it is recommended to `pip uninstall sweetviz` first, then simply install.
 
 # Installation
-Sweetviz currently supports Python 3.7+ and Pandas 0.25.3+. Reports are output using the base "os" module, so custom environments such as Google Colab which require custom file operations are not yet supported, although I am looking into a solution.
-
+Sweetviz currently supports Python 3.6+ and Pandas 0.25.3+. Reports are output using the base "os" module, so custom environments such as Google Colab which require custom file operations are not yet supported, although I am looking into a solution. 
 ## Using pip
 The best way to install sweetviz (other than from source) is to use pip:
-```bash
+```
 pip install sweetviz
 ```
-
-### Optional dependencies
-Sweetviz has optional features that require additional dependencies. You can install them using pip extras:
-
-- **Notebook support** (for `show_notebook()` in Jupyter/Colab):
-  ```bash
-  pip install sweetviz[notebook]
-  ```
-
-- **Comet.ml integration** (for automatic experiment logging):
-  ```bash
-  pip install sweetviz[comet]
-  ```
-
-- **All optional features**:
-  ```bash
-  pip install sweetviz[all]
-  ```
-
-### Installing for development
-To install sweetviz in editable/development mode along with all development dependencies:
-```bash
-git clone https://github.com/fbdesignpro/sweetviz.git
-cd sweetviz
-pip install -e ".[dev]"
-```
-
-Alternatively, you can use the requirements files directly:
-```bash
-pip install -r requirements-dev.txt
-```
-
-Available requirements files:
-- `requirements.txt` — Core runtime dependencies
-- `requirements-test.txt` — Test dependencies (includes core)
-- `requirements-dev.txt` — Full development dependencies (includes test + optional extras + build tools)
-- `requirements-docs.txt` — Documentation dependencies
-
-> **IMPORTANT — Dependency single source of truth:**
-> All dependency declarations live **only in `pyproject.toml`**. The `requirements*.txt`
-> files are **auto-generated** and must not be edited by hand.
->
-> - To add/update a dependency: edit `pyproject.toml` under `[project.dependencies]`
->   or `[project.optional-dependencies]`, then run:
->   ```bash
->   python tools/generate_requirements.py
->   ```
-> - To verify your working copy is in sync:
->   ```bash
->   python tools/check.py --requirements-only
->   ```
-> - The build pipeline (pip / python -m build) will **refuse to build** if
->   requirements files drift from pyproject.toml.
-
-### Development workflow
-Run the unified check script before committing or releasing:
-```bash
-# Full check: requirements sync + lint + tests
-python tools/check.py
-
-# Fast check (skip tests):
-python tools/check.py --fast
-```
-
-The `tools/check.py` entry point supports `--requirements-only`, `--lint-only`,
-and `--test-only` flags for focused runs.
-
-#### Optional: pre-commit hooks
-The repository ships a `.pre-commit-config.yaml` that runs the requirements
-sync check and ruff linter automatically on every `git commit`. Enable it with:
-```bash
-pip install pre-commit
-pre-commit install
-```
-
-### Releasing
-1. Bump the version in `pyproject.toml`
-2. Run `python tools/check.py` (all checks must pass)
-3. Build: `python -m build`
-4. Upload: `twine upload dist/*`
-
 #### Installation issues & fixes
 In some rare cases, users have reported errors such as `ModuleNotFoundError: No module named 'sweetviz'` and `AttributeError: module 'sweetviz' has no attribute 'analyze'`.
 In those cases, we suggest the following:
 - Make sure none of your scripts are named `sweetviz.py`, as that interferes with the library itself. Delete or rename that script (and any associated `.pyc` files), and try again.
 - Try uninstalling the library using `pip uninstall sweetviz`, then reinstalling
-- The issue may stem from using multiple versions of Python, or from OS permissions. The following Stack Overflow articles have resolved many of these issues reported: [Article 1](https://stackoverflow.com/questions/32680081/importerror-after-successful-pip-installation/32680082), [Article 2](https://stackoverflow.com/questions/14295680/unable-to-import-a-module-that-is-definitely-installed), [Article 3](https://stackoverflow.com/questions/44528638/after-pip-successful-installed-modulenotfounderror)
+- The issue may stem from using multiple versions of Python, or from OS permissions. The following Stack Overflow articles have resolved many of these issues reported: [Article 1](https://stackoverflow.com/questions/32680081/importerror-after-successful-pip-installation/32680082), [Article 2](https://stackoverflow.com/questions/14295680/unable-to-import-a-module-that-is-definitely-installed), [Article 3](https://stackoverflow.com/questions/44528638/after-pip-successful-installed-modulenotfounderror) 
 - If all else fails, post a bug issue [here on github](https://github.com/fbdesignpro/sweetviz/issues). Thank you for taking the time, it may help resolve the issue for you and everyone else!
 # Basic Usage
 Creating a report is a quick 2-line process:
@@ -352,9 +270,37 @@ I expect there to be many quirks once the project is used by more and more peopl
 To make Sweetviz as useful as possible we need to hear what you would like it to do, or what it could do better! [Head on to our Discourse server and post your suggestions there; no login required!](https://sweetviz.fbdesignpro.com).
 
 ### 4. Contribute to the development
-I definitely welcome the help I can get on this project, simply get in touch on the issue tracker and/or our Discourse forum. 
+I definitely welcome the help I can get on this project, simply get in touch on the issue tracker and/or our Discourse forum.
 
 Please note that after a hectic development period, the code itself right now needs a bit of cleanup. :)
+
+### 5. Pre-release checks
+Before publishing a new version, run the pre-release check suite to catch missing resources, broken imports, or API drift early:
+
+```bash
+# Option 1: CLI command (after pip install -e .)
+sweetviz-check
+
+# Option 2: Direct script
+python scripts/pre_release_checks.py
+
+# Option 3: Via pytest
+pytest scripts/test_pre_release.py -v
+
+# Verbose output (shows byte sizes, counts, etc.)
+SWEETVIZ_PRERELEASE_VERBOSE=1 sweetviz-check
+
+# Skip a category (e.g. notebook checks in headless CI)
+sweetviz-check --skip=notebook
+```
+
+The 24 checks cover:
+- **resources** – templates, JS, fonts, mpl_styles, INI config all readable from the installed package; code-vs-disk template consistency
+- **api** – all public symbols (`analyze`, `compare`, `compare_intra`, `FeatureConfig`, `DataframeReport`, `config_parser`, `__version__`) importable; config loads correctly
+- **report** – `analyze()`, `compare()`, `compare_intra()`, target features, `FeatureConfig` skip all produce valid reports
+- **html** – `show_html()` generates valid widescreen/vertical/compare HTML files
+- **json** – `to_json()` and `get_report_data()` produce structurally valid JSON with correct metadata keys; `include_drift` flag works; file export round-trips
+- **notebook** – `show_notebook()` path runs end-to-end (with mocked IPython) for both layouts
 
 # Special thanks & related materials
 ### Contributors
