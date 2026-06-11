@@ -12,10 +12,6 @@ from sweetviz.sv_types import NumWithPercent, FeatureType
 SCHEMA_VERSION = "1.0"
 
 
-# --------------------------------------------------------------------------------------------------
-# JSON-safe type conversion
-# --------------------------------------------------------------------------------------------------
-
 def _nwp_to_dict(obj: NumWithPercent) -> Optional[Dict]:
     if obj is None:
         return None
@@ -30,6 +26,11 @@ def _convert_value(val: Any) -> Any:
         return _nwp_to_dict(val)
     if isinstance(val, FeatureType):
         return val.value
+    if isinstance(val, bytes):
+        try:
+            return val.decode("ascii")
+        except (UnicodeDecodeError, AttributeError):
+            return None
     if isinstance(val, (np.integer,)):
         return int(val)
     if isinstance(val, (np.floating,)):
@@ -63,9 +64,30 @@ def _convert_value(val: Any) -> Any:
     return val
 
 
-# --------------------------------------------------------------------------------------------------
-# Feature extraction (build JSON-safe feature structures)
-# --------------------------------------------------------------------------------------------------
+def _extract_graph_data(graph_obj) -> Optional[dict]:
+    if graph_obj is None:
+        return None
+    result = {}
+    base64 = getattr(graph_obj, "graph_base64", None)
+    if base64 is not None:
+        if isinstance(base64, bytes):
+            try:
+                result["graph_base64"] = base64.decode("ascii")
+            except (UnicodeDecodeError, AttributeError):
+                result["graph_base64"] = None
+        else:
+            result["graph_base64"] = base64
+    size = getattr(graph_obj, "size_in_inches", None)
+    if size is not None:
+        result["size_in_inches"] = [float(size[0]), float(size[1])]
+    idx = getattr(graph_obj, "index_for_css", None)
+    if idx is not None:
+        result["index_for_css"] = idx
+    button = getattr(graph_obj, "button_name", None)
+    if button is not None:
+        result["button_name"] = button
+    return result if result else None
+
 
 def _extract_base_stats(feature_dict: dict) -> dict:
     base_stats = feature_dict.get("base_stats", {})
@@ -87,37 +109,11 @@ def _extract_stats(feature_dict: dict) -> Optional[dict]:
     return _convert_value(stats)
 
 
-def _extract_details(feature_dict: dict, feature_type: FeatureType) -> Optional[dict]:
+def _extract_details(feature_dict: dict, feature_type) -> Optional[dict]:
     detail = feature_dict.get("detail")
     if detail is None:
         return None
-    result = {}
-    cv = _convert_value
-    if feature_type == FeatureType.TYPE_NUM:
-        for key in ("frequent_values", "min_values", "max_values"):
-            if key in detail:
-                converted = []
-                for item in detail[key]:
-                    if isinstance(item, (list, tuple)):
-                        entry = {"value": cv(item[0]), "count": cv(item[1])}
-                        if len(item) > 2:
-                            entry["count_compare"] = cv(item[2])
-                        converted.append(entry)
-                    elif isinstance(item, dict):
-                        converted.append(cv(item))
-                result[key] = converted
-    if feature_type in (FeatureType.TYPE_CAT, FeatureType.TYPE_BOOL, FeatureType.TYPE_TEXT):
-        full_count = detail.get("full_count", [])
-        converted = []
-        for row in full_count:
-            if isinstance(row, dict) and not row.get("is_total"):
-                entry = {"name": cv(row.get("name")), "count": cv(row.get("count"))}
-                if row.get("count_compare") is not None:
-                    entry["count_compare"] = cv(row.get("count_compare"))
-                converted.append(entry)
-        cat_key = "top_categories" if feature_type in (FeatureType.TYPE_CAT, FeatureType.TYPE_BOOL) else "top_values"
-        result[cat_key] = converted
-    return result if result else None
+    return _convert_value(detail)
 
 
 def _extract_compare(feature_dict: dict) -> Optional[dict]:
@@ -126,7 +122,8 @@ def _extract_compare(feature_dict: dict) -> Optional[dict]:
         return None
     result = {}
     if "type" in compare_dict:
-        result["type"] = compare_dict["type"].value
+        ct = compare_dict["type"]
+        result["type"] = ct.value if isinstance(ct, FeatureType) else ct
     if "base_stats" in compare_dict:
         result["base_stats"] = _extract_base_stats(compare_dict)
     if "stats" in compare_dict and compare_dict.get("stats"):
@@ -134,14 +131,18 @@ def _extract_compare(feature_dict: dict) -> Optional[dict]:
     return result
 
 
-def _extract_feature_for_json(feature_dict: dict) -> dict:
+def _extract_feature(feature_dict: dict) -> dict:
     feature_type = feature_dict.get("type")
     result = {
         "name": feature_dict.get("name"),
         "display_name": feature_dict.get("display_name", feature_dict.get("name")),
-        "type": feature_type.value if feature_type else None,
+        "safe_name": feature_dict.get("safe_name"),
+        "order_index": feature_dict.get("order_index"),
         "is_target": feature_dict.get("is_target", False),
     }
+    ft = feature_type.value if isinstance(feature_type, FeatureType) else feature_type
+    if ft is not None:
+        result["type"] = ft
     if "base_stats" in feature_dict:
         result["base_stats"] = _extract_base_stats(feature_dict)
     stats = _extract_stats(feature_dict)
@@ -149,18 +150,28 @@ def _extract_feature_for_json(feature_dict: dict) -> dict:
         result["stats"] = stats
     details = _extract_details(feature_dict, feature_type)
     if details:
-        result["details"] = details
+        result["detail"] = details
     compare = _extract_compare(feature_dict)
     if compare:
         result["compare"] = compare
     if "drift" in feature_dict and feature_dict["drift"] is not None:
         result["drift"] = _convert_value(feature_dict["drift"])
+    mini = feature_dict.get("minigraph")
+    if mini is not None:
+        mini_data = _extract_graph_data(mini)
+        if mini_data:
+            result["minigraph"] = mini_data
+    detail_graphs = feature_dict.get("detail_graphs")
+    if detail_graphs:
+        graphs = []
+        for g in detail_graphs:
+            gd = _extract_graph_data(g)
+            if gd:
+                graphs.append(gd)
+        if graphs:
+            result["detail_graphs"] = graphs
     return result
 
-
-# --------------------------------------------------------------------------------------------------
-# Drift computation
-# --------------------------------------------------------------------------------------------------
 
 def _compute_drift_numeric(source_stats: dict, compare_stats: dict,
                             source_base: dict, compare_base: dict) -> dict:
@@ -229,7 +240,7 @@ def _compute_drift_numeric(source_stats: dict, compare_stats: dict,
 
 def _compute_drift_categorical(source_details: dict, compare_details: dict,
                                 source_base: dict, compare_base: dict,
-                                feature_type: FeatureType) -> dict:
+                                feature_type) -> dict:
     details = {"base": {}, "category_shifts": []}
     total_score = 0.0
     reasons = []
@@ -256,9 +267,26 @@ def _compute_drift_categorical(source_details: dict, compare_details: dict,
             if key == "num_missing":
                 reasons.append("缺失率差异")
 
-    cat_key = "top_categories" if feature_type in (FeatureType.TYPE_CAT, FeatureType.TYPE_BOOL) else "top_values"
-    src_cats = {item.get("name"): item for item in (source_details or {}).get(cat_key, [])}
-    cmp_cats = {item.get("name"): item for item in (compare_details or {}).get(cat_key, [])}
+    ft = feature_type.value if isinstance(feature_type, FeatureType) else feature_type
+    cat_key = "top_categories" if ft in ("CATEGORICAL", "BOOL") else "top_values"
+
+    def _get_categories(details_dict):
+        if not details_dict:
+            return {}
+        if cat_key in details_dict:
+            return {item.get("name"): item for item in details_dict.get(cat_key, [])}
+        if "full_count" in details_dict:
+            result = {}
+            for row in details_dict["full_count"]:
+                if isinstance(row, dict) and not row.get("is_total"):
+                    name = row.get("name")
+                    if name is not None:
+                        result[name] = row
+            return result
+        return {}
+
+    src_cats = _get_categories(source_details)
+    cmp_cats = _get_categories(compare_details)
 
     for name in set(src_cats.keys()) | set(cmp_cats.keys()):
         src_item = src_cats.get(name)
@@ -279,7 +307,7 @@ def _compute_drift_categorical(source_details: dict, compare_details: dict,
         })
         if abs(diff_pct) > 5:
             total_score += abs(diff_pct) * 0.8
-            cat_label = "类别" if feature_type in (FeatureType.TYPE_CAT, FeatureType.TYPE_BOOL) else "值"
+            cat_label = "类别" if ft in ("CATEGORICAL", "BOOL") else "值"
             reasons.append(f"{cat_label} '{name}' 占比差异")
 
     score = round(min(total_score, 100), 1)
@@ -297,9 +325,10 @@ def compute_drift(feature_dict: dict) -> Optional[dict]:
     source_stats = _extract_stats(feature_dict)
     compare_stats = _extract_stats(compare_dict)
     source_details = _extract_details(feature_dict, feature_type)
-    if feature_type == FeatureType.TYPE_NUM:
+    ft = feature_type.value if isinstance(feature_type, FeatureType) else feature_type
+    if ft == "NUMERIC":
         return _compute_drift_numeric(source_stats, compare_stats, source_base, compare_base)
-    elif feature_type in (FeatureType.TYPE_CAT, FeatureType.TYPE_BOOL, FeatureType.TYPE_TEXT):
+    elif ft in ("CATEGORICAL", "BOOL", "TEXT"):
         compare_details = _extract_details(compare_dict, feature_type)
         return _compute_drift_categorical(source_details, compare_details, source_base, compare_base, feature_type)
     return None
@@ -351,10 +380,6 @@ def compute_drift_summary(features: Dict[str, dict], target: Optional[dict]) -> 
     }
 
 
-# --------------------------------------------------------------------------------------------------
-# Build report data (raw structure with original types, for both rendering and export)
-# --------------------------------------------------------------------------------------------------
-
 def build_report_data(report) -> dict:
     if report.compare_name is not None:
         compute_all_drifts(report._features, report._target)
@@ -371,17 +396,41 @@ def build_report_data(report) -> dict:
     except (ImportError, AttributeError):
         pass
 
-    source_summary = report.summary_source
-    compare_summary = report.summary_compare
+    source_summary = _convert_value(report.summary_source)
+    compare_summary = _convert_value(report.summary_compare) if report.summary_compare is not None else None
 
-    features = dict(report._features)
-    target = report._target
+    features = {}
+    for fname, fdict in report._features.items():
+        features[fname] = _extract_feature(fdict)
 
-    associations = report._associations
-    associations_compare = report._associations_compare
-    association_graphs = report._association_graphs if hasattr(report, '_association_graphs') else {}
-    association_graphs_compare = report._association_graphs_compare if hasattr(report, '_association_graphs_compare') else {}
-    graph_legend = report.graph_legend if hasattr(report, 'graph_legend') else None
+    target = None
+    if report._target is not None:
+        target = _extract_feature(report._target)
+
+    associations = _convert_value(report._associations)
+    associations_compare = _convert_value(report._associations_compare) if report._associations_compare is not None else None
+
+    graph_legend = None
+    if hasattr(report, 'graph_legend') and report.graph_legend is not None:
+        graph_legend = _extract_graph_data(report.graph_legend)
+
+    association_graphs = {}
+    if hasattr(report, '_association_graphs'):
+        for k, v in report._association_graphs.items():
+            gd = _extract_graph_data(v)
+            if gd:
+                association_graphs[k] = gd
+    if not association_graphs:
+        association_graphs = None
+
+    association_graphs_compare = {}
+    if hasattr(report, '_association_graphs_compare'):
+        for k, v in report._association_graphs_compare.items():
+            gd = _extract_graph_data(v)
+            if gd:
+                association_graphs_compare[k] = gd
+    if not association_graphs_compare:
+        association_graphs_compare = None
 
     drift_summary = compute_drift_summary(report._features, report._target)
 
@@ -398,38 +447,16 @@ def build_report_data(report) -> dict:
         result["associations"] = associations
     if associations_compare is not None:
         result["associations_compare"] = associations_compare
-    if association_graphs:
-        result["association_graphs"] = association_graphs
-    if association_graphs_compare:
-        result["association_graphs_compare"] = association_graphs_compare
     if graph_legend is not None:
         result["graph_legend"] = graph_legend
+    if association_graphs is not None:
+        result["association_graphs"] = association_graphs
+    if association_graphs_compare is not None:
+        result["association_graphs_compare"] = association_graphs_compare
     if drift_summary is not None:
         result["drift_summary"] = drift_summary
     return result
 
 
 def to_json_safe(report_data: dict) -> dict:
-    safe = {}
-    safe["metadata"] = _convert_value(report_data["metadata"])
-    safe["source_summary"] = _convert_value(report_data["source_summary"])
-    if "compare_summary" in report_data:
-        safe["compare_summary"] = _convert_value(report_data["compare_summary"])
-
-    safe_features = {}
-    for fname, fdict in report_data["features"].items():
-        safe_features[fname] = _extract_feature_for_json(fdict)
-    safe["features"] = safe_features
-
-    if report_data.get("target") is not None:
-        safe["target"] = _extract_feature_for_json(report_data["target"])
-
-    if report_data.get("associations") is not None:
-        safe["associations"] = _convert_value(report_data["associations"])
-    if report_data.get("associations_compare") is not None:
-        safe["associations_compare"] = _convert_value(report_data["associations_compare"])
-
-    if report_data.get("drift_summary") is not None:
-        safe["drift_summary"] = _convert_value(report_data["drift_summary"])
-
-    return safe
+    return _convert_value(report_data)

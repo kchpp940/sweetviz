@@ -11,6 +11,229 @@ from sweetviz.graph_associations import CORRELATION_ERROR
 from sweetviz.graph_associations import CORRELATION_IDENTICAL
 from functools import cmp_to_key
 
+
+class _AttrDict:
+    def __init__(self, data=None):
+        object.__setattr__(self, "_data", data if data is not None else {})
+
+    def __getattr__(self, name):
+        if name == "_data":
+            return object.__getattribute__(self, name)
+        if name in self._data:
+            return self._data[name]
+        raise AttributeError(name)
+
+    def __setattr__(self, key, value):
+        if key == "_data":
+            object.__setattr__(self, "_data", value)
+        else:
+            self._data[key] = value
+
+    def __getitem__(self, key):
+        return self._data[key]
+
+    def __setitem__(self, key, value):
+        self._data[key] = value
+
+    def __contains__(self, key):
+        return key in self._data
+
+    def __repr__(self):
+        return repr(self._data)
+
+    def keys(self):
+        return self._data.keys()
+
+    def values(self):
+        return self._data.values()
+
+    def items(self):
+        return self._data.items()
+
+    def get(self, key, default=None):
+        return self._data.get(key, default)
+
+
+def _restore_nwp(obj):
+    if isinstance(obj, NumWithPercent):
+        return obj
+    if isinstance(obj, dict) and "number" in obj and "percentage" in obj and len(obj) <= 3:
+        num = obj["number"]
+        pct = obj["percentage"]
+        if num is None or pct is None:
+            nwp = NumWithPercent(1, 0)
+            nwp.number = None
+            nwp.perc = None
+            return nwp
+        if pct == 0:
+            return NumWithPercent(num, 1 if num == 0 else (num * 100.0) / max(pct, 1e-9))
+        total = (num * 100.0) / pct
+        nwp = NumWithPercent(num, total)
+        nwp.perc = pct
+        return nwp
+    if isinstance(obj, dict):
+        return _AttrDict({k: _restore_nwp(v) for k, v in obj.items()})
+    if isinstance(obj, list):
+        return [_restore_nwp(v) for v in obj]
+    return obj
+
+
+_TYPE_MAP = {
+    "NUMERIC": FeatureType.TYPE_NUM,
+    "CATEGORICAL": FeatureType.TYPE_CAT,
+    "BOOL": FeatureType.TYPE_BOOL,
+    "TEXT": FeatureType.TYPE_TEXT,
+}
+
+
+def _restore_type(t):
+    if isinstance(t, FeatureType):
+        return t
+    return _TYPE_MAP.get(t, t)
+
+
+def _restore_graph(obj):
+    if obj is None:
+        return None
+    if isinstance(obj, _AttrDict):
+        return obj
+    if isinstance(obj, dict):
+        return _AttrDict(obj)
+    return obj
+
+
+def _restore_feature(fdict):
+    if fdict is None:
+        return None
+    restored = _restore_nwp(fdict)
+    if "type" in restored:
+        restored["type"] = _restore_type(restored["type"])
+    if "minigraph" in restored:
+        restored["minigraph"] = _restore_graph(restored["minigraph"])
+    if "detail_graphs" in restored:
+        restored["detail_graphs"] = [_restore_graph(g) for g in restored["detail_graphs"]]
+    if "compare" in restored and isinstance(restored["compare"], dict):
+        restored["compare"] = _restore_feature(restored["compare"])
+    return restored
+
+
+class RenderViewModel:
+    def __init__(self, report_data):
+        self._report_data = report_data
+        rd = report_data
+        self.metadata = rd["metadata"]
+        self.source_name = rd["metadata"].get("source_name")
+        self.compare_name = rd["metadata"].get("compare_name")
+
+        self.summary_source = _restore_nwp(rd.get("source_summary", {}))
+        self.summary_compare = _restore_nwp(rd.get("compare_summary"))
+
+        self.features = {}
+        for fname, fdict in rd.get("features", {}).items():
+            self.features[fname] = _restore_feature(copy.deepcopy(fdict))
+
+        self.target = _restore_feature(copy.deepcopy(rd.get("target"))) if rd.get("target") else None
+
+        self.associations = rd.get("associations")
+        self.associations_compare = rd.get("associations_compare")
+
+        self.graph_legend = _restore_graph(rd.get("graph_legend"))
+        ag = rd.get("association_graphs")
+        self.association_graphs = {k: _restore_graph(v) for k, v in ag.items()} if ag else {}
+        agc = rd.get("association_graphs_compare")
+        self.association_graphs_compare = {k: _restore_graph(v) for k, v in agc.items()} if agc else {}
+
+        self.drift_summary = rd.get("drift_summary")
+
+        self.associations_html_source = True if rd.get("associations") is not None else None
+        self.associations_html_compare = True if rd.get("associations_compare") is not None else None
+        self.dataframe_summary_html = None
+        self.page_layout = None
+        self.scale = None
+        self.page_height = None
+        self.test_mode = False
+
+        num_feat = len(self.features)
+        if self.target is not None:
+            num_feat += 1
+        self.num_summaries = num_feat
+
+    def __getitem__(self, key):
+        if key in self.features:
+            return self.features[key]
+        if self.target is not None and key == self.target.get("name"):
+            return self.target
+        return None
+
+    def __setitem__(self, key, value):
+        self.features[key] = value
+
+    def get_target_type(self):
+        if self.target is None:
+            return None
+        return self.target["type"]
+
+    def get_type(self, feature_name):
+        if feature_name in self.features:
+            return self.features[feature_name].get("type")
+        if self.target is not None and feature_name == self.target.get("name"):
+            return self.target["type"]
+        return None
+
+    def get_what_influences_me(self, feature_name):
+        influenced = {}
+        if self.associations is None:
+            return influenced
+        for cur_name, cur_associations in self.associations.items():
+            if cur_name == feature_name:
+                continue
+            influence = cur_associations.get(feature_name)
+            if influence is not None:
+                influenced[cur_name] = influence
+        return influenced
+
+    def all_features(self):
+        result = list(self.features.values())
+        if self.target is not None:
+            result.append(self.target)
+        return result
+
+    def prepare_for_render(self):
+        set_summary_positions(self)
+        self._generate_html_summaries()
+        generate_html_detail(self)
+        self.dataframe_summary_html = generate_html_dataframe_summary(self)
+        if self.associations_html_source:
+            self.associations_html_source = generate_html_associations(self, "source")
+        else:
+            self.associations_html_source = None
+        if self.associations_html_compare:
+            self.associations_html_compare = generate_html_associations(self, "compare")
+        else:
+            self.associations_html_compare = None
+
+    def _generate_html_summaries(self):
+        for feature in self.all_features():
+            self._generate_one_summary(feature)
+
+    def _generate_one_summary(self, feature):
+        compare_dict = feature.get("compare")
+        is_target = feature.get("is_target", False)
+        ftype = feature["type"]
+        if ftype == FeatureType.TYPE_NUM:
+            if is_target:
+                feature["html_summary"] = generate_html_summary_target_numeric(feature, compare_dict)
+            else:
+                feature["html_summary"] = generate_html_summary_numeric(feature, compare_dict)
+        elif ftype in (FeatureType.TYPE_CAT, FeatureType.TYPE_BOOL):
+            if is_target:
+                feature["html_summary"] = generate_html_summary_target_cat(feature, compare_dict)
+            else:
+                feature["html_summary"] = generate_html_summary_cat(feature, compare_dict)
+        elif ftype == FeatureType.TYPE_TEXT:
+            feature["html_summary"] = generate_html_summary_text(feature, compare_dict)
+
+
 package_loader = PackageLoader("sweetviz", "templates")
 jinja2_env = Environment(lstrip_blocks = True,
                          trim_blocks = True,

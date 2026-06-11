@@ -1,5 +1,4 @@
 import html
-import sweetviz.sv_html as sv_html
 from sweetviz.sv_types import NumWithPercent, FeatureToProcess
 
 
@@ -43,8 +42,3 @@ def analyze(to_process: FeatureToProcess, feature_dict: dict):
         compare_dict["stats"] = dict()
 
     do_detail_text(to_process, feature_dict)
-
-    if to_process.is_target():
-        raise ValueError
-    else:
-        feature_dict["html_summary"] = sv_html.generate_html_summary_text(feature_dict, compare_dict)

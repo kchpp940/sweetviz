@@ -527,41 +527,44 @@ class DataframeReport:
             return config["Output_Defaults"][config_name]
         return passed_value
 
+    def _build_render_view_model(self, layout: str, scale: float):
+        sv_html.load_layout_globals_from_config()
+        vm = sv_html.RenderViewModel(self._report_data)
+        vm.page_layout = layout
+        vm.scale = scale
+        vm.prepare_for_render()
+        page_height = 160 + (vm.num_summaries * (config["Layout"].getint("summary_height_per_element")))
+        if layout == "widescreen":
+            padding_type = "full_page_padding_widescreen"
+        else:
+            padding_type = "full_page_padding_vertical"
+        padding = config["Layout"].getint(padding_type)
+        page_height += padding
+        vm.page_height = page_height
+        return vm
+
+    def _render_html(self, vm) -> str:
+        return sv_html.generate_html_dataframe_page(vm)
+
     def generate_comet_friendly_html(self):
-        # Enforce comet_ml-friendly layout and re-output report based on INI settings (comet_ml_Defaults)
-        self.page_layout = config["comet_ml_defaults"]["html_layout"]
-        self.scale = float(config["comet_ml_defaults"]["html_scale"])
-        sv_html.set_summary_positions(self)
-        sv_html.generate_html_detail(self)
-        if self.associations_html_source:
-            self.associations_html_source = sv_html.generate_html_associations(self, "source")
-        if self.associations_html_compare:
-            self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
-        self._page_html = sv_html.generate_html_dataframe_page(self)
+        layout = config["comet_ml_defaults"]["html_layout"]
+        scale = float(config["comet_ml_defaults"]["html_scale"])
+        vm = self._build_render_view_model(layout, scale)
+        self._page_html = self._render_html(vm)
 
     def show_html(self, filepath='SWEETVIZ_REPORT.html', open_browser=True, layout='widescreen', scale=None):
         scale = float(self.use_config_if_none(scale, "html_scale"))
         layout = self.use_config_if_none(layout, "html_layout")
         if layout not in ['widescreen', 'vertical']:
             raise ValueError(f"'layout' parameter must be either 'widescreen' or 'vertical'")
-        sv_html.load_layout_globals_from_config()
-        self.page_layout = layout
-        self.scale = scale
-        sv_html.set_summary_positions(self)
-        sv_html.generate_html_detail(self)
-        if self.associations_html_source:
-            self.associations_html_source = sv_html.generate_html_associations(self, "source")
-        if self.associations_html_compare:
-            self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
-        self._page_html = sv_html.generate_html_dataframe_page(self)
+        vm = self._build_render_view_model(layout, scale)
+        self._page_html = self._render_html(vm)
 
         f = open(filepath, 'w', encoding="utf-8")
         f.write(self._page_html)
         f.close()
         if open_browser:
             self.verbose_print(f"Report {filepath} was generated! NOTEBOOK/COLAB USERS: the web browser MAY not pop up, regardless, the report IS saved in your notebook/colab files.")
-            # Not sure how to work around this: not fatal but annoying...Notebook/colab
-            # https://bugs.python.org/issue5993
             webbrowser.open('file://' + os.path.realpath(filepath))
         else:
             self.verbose_print(f"Report {filepath} was generated.")
@@ -570,7 +573,6 @@ class DataframeReport:
                   "(likely due to only having a single row, containing non-NaN values for both correlated features)\n"
                   "Affected correlations:" + str(self.corr_warning))
 
-        # Auto-log to comet_ml if desired & present
         self._comet_ml_logger = comet_ml_logger.CometLogger()
         if self._comet_ml_logger._logging:
             self.generate_comet_friendly_html()
@@ -585,54 +587,31 @@ class DataframeReport:
         if layout not in ['widescreen', 'vertical']:
             raise ValueError(f"'layout' parameter must be either 'widescreen' or 'vertical'")
 
-        sv_html.load_layout_globals_from_config()
-        self.page_layout = layout
-        self.scale = scale
-        sv_html.set_summary_positions(self)
-        sv_html.generate_html_detail(self)
-        if self.associations_html_source:
-            self.associations_html_source = sv_html.generate_html_associations(self, "source")
-        if self.associations_html_compare:
-            self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
-        self._page_html = sv_html.generate_html_dataframe_page(self)
+        vm = self._build_render_view_model(layout, scale)
+        self._page_html = self._render_html(vm)
 
-        width=w
-        height=h
+        width = w
+        height = h
         if str(height).lower() == "full":
-            height = self.page_height
+            height = vm.page_height
 
-        # Output to iFrame
         import html
-        self._page_html = html.escape(self._page_html)
-        iframe = f' <iframe width="{width}" height="{height}" srcdoc="{self._page_html}" frameborder="0" allowfullscreen></iframe>'
+        escaped_html = html.escape(self._page_html)
+        iframe = f' <iframe width="{width}" height="{height}" srcdoc="{escaped_html}" frameborder="0" allowfullscreen></iframe>'
         from IPython.display import display
         from IPython.display import HTML
         display(HTML(iframe))
 
         if filepath is not None:
-            # We cannot just write out the same HTML as the notebook, as that one has been processed so as to
-            # remove extraneous headings so it is nicely inserted into the notebook.
-            # Instead, just do something similar to the "show_html()" code, but without its less-relevant printouts etc.
-            # f = open(filepath, 'w', encoding="utf-8")
-            # f.write(self._page_html)
-            # f.close()
-            scale = float(self.use_config_if_none(file_scale, "html_scale"))
-            layout = self.use_config_if_none(file_layout, "html_layout")
-            if layout not in ['widescreen', 'vertical']:
+            file_scale_val = float(self.use_config_if_none(file_scale, "html_scale"))
+            file_layout_val = self.use_config_if_none(file_layout, "html_layout")
+            if file_layout_val not in ['widescreen', 'vertical']:
                 raise ValueError(f"'layout' parameter for file output must be either 'widescreen' or 'vertical'")
-            sv_html.load_layout_globals_from_config()
-            self.page_layout = layout
-            self.scale = scale
-            sv_html.set_summary_positions(self)
-            sv_html.generate_html_detail(self)
-            if self.associations_html_source:
-                self.associations_html_source = sv_html.generate_html_associations(self, "source")
-            if self.associations_html_compare:
-                self.associations_html_compare = sv_html.generate_html_associations(self, "compare")
-            self._page_html = sv_html.generate_html_dataframe_page(self)
+            vm_file = self._build_render_view_model(file_layout_val, file_scale_val)
+            file_html = self._render_html(vm_file)
 
             f = open(filepath, 'w', encoding="utf-8")
-            f.write(self._page_html)
+            f.write(file_html)
             f.close()
             self.verbose_print(f"Report '{filepath}' was saved to storage.")
 
@@ -641,7 +620,6 @@ class DataframeReport:
                   "(likely due to only a single row containing non-NaN values for both correlated features)\n"
                   "Affected correlations:" + str(self.corr_warning))
 
-        # Auto-log to comet_ml if desired & present
         self._comet_ml_logger = comet_ml_logger.CometLogger()
         if self._comet_ml_logger._logging:
             self.generate_comet_friendly_html()

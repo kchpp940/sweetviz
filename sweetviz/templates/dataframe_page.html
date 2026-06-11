@@ -25,31 +25,31 @@
 
     <style>
         {% if dataframe.target is not none: %}
-            span.minigraph-target::before { content: url(data:image/png;base64,{{ dataframe.target.minigraph.graph_base64.decode('ascii') }});}
+            span.minigraph-target::before { content: url(data:image/png;base64,{{ dataframe.target.minigraph.graph_base64 }});}
             {% if "detail_graphs" in dataframe.target.keys(): %}
                 {% for detail_graph in dataframe.target.detail_graphs %}
-                    span.detail_graph-{{ dataframe.target.safe_name }}-{{ detail_graph.index_for_css }}::before { content: url(data:image/png;base64,{{ detail_graph.graph_base64.decode('ascii') }});}
+                    span.detail_graph-{{ dataframe.target.safe_name }}-{{ detail_graph.index_for_css }}::before { content: url(data:image/png;base64,{{ detail_graph.graph_base64 }});}
                 {% endfor %}
             {% endif %}
         {% endif %}
 
         {% for item in dataframe.features.values() %}
             {% if "minigraph" in item.keys(): %}
-                span.minigraph-{{ item.safe_name }}::before { content: url(data:image/png;base64,{{ item.minigraph.graph_base64.decode('ascii') }});}
+                span.minigraph-{{ item.safe_name }}::before { content: url(data:image/png;base64,{{ item.minigraph.graph_base64 }});}
             {% endif %}
             {% if "detail_graphs" in item.keys(): %}
                 {% for detail_graph in item.detail_graphs %}
-                    span.detail_graph-{{ item.safe_name }}-{{ detail_graph.index_for_css }}::before { content: url(data:image/png;base64,{{ detail_graph.graph_base64.decode('ascii') }});}
+                    span.detail_graph-{{ item.safe_name }}-{{ detail_graph.index_for_css }}::before { content: url(data:image/png;base64,{{ detail_graph.graph_base64 }});}
                 {% endfor %}
             {% endif %}
         {% endfor %}
         {% if dataframe.associations is not none: %}
-            span.association-graph-source::before { content: url(data:image/png;base64,{{ dataframe.association_graphs.all.graph_base64.decode('ascii') }});}
+            span.association-graph-source::before { content: url(data:image/png;base64,{{ dataframe.association_graphs.all.graph_base64 }});}
         {% endif %}
         {% if dataframe.associations_compare is not none: %}
-            span.association-graph-compare::before { content: url(data:image/png;base64,{{ dataframe.association_graphs_compare.all.graph_base64.decode('ascii') }});}
+            span.association-graph-compare::before { content: url(data:image/png;base64,{{ dataframe.association_graphs_compare.all.graph_base64 }});}
         {% endif %}
-        span.graph-legend { content: url(data:image/png;base64,{{ dataframe.graph_legend.graph_base64.decode('ascii') }});}
+        span.graph-legend { content: url(data:image/png;base64,{{ dataframe.graph_legend.graph_base64 }});}
     </style>
 <script>
     g_height = {{ dataframe.page_height }};

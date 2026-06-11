@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 from sweetviz.graph_numeric import GraphNumeric
-import sweetviz.sv_html as sv_html
 from sweetviz.sv_types import NumWithPercent, FeatureType, FeatureToProcess
 from sweetviz.config import config
 
@@ -105,8 +104,3 @@ def analyze(to_process: FeatureToProcess, feature_dict: dict):
         new_graph = GraphNumeric("detail-"+str(num_bins), to_process)
         if new_graph:
             feature_dict["detail_graphs"].append(new_graph)
-
-    if to_process.is_target():
-        feature_dict["html_summary"] = sv_html.generate_html_summary_target_numeric(feature_dict, compare_dict)
-    else:
-        feature_dict["html_summary"] = sv_html.generate_html_summary_numeric(feature_dict, compare_dict)
