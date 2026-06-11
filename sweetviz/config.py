@@ -443,20 +443,29 @@ class _SyncedConfigSection:
         if self._section not in self._owner._values:
             raise KeyError(self._section)
 
+    def _norm(self, key: str) -> str:
+        return self._owner.optionxform(key)
+
     def __getitem__(self, key: str):
         self._check_section()
-        if key not in self._owner._values[self._section]:
+        key_norm = self._norm(key)
+        if key_norm not in self._owner._values[self._section]:
             raise KeyError(key)
-        return str(self._owner._values[self._section][key])
+        return str(self._owner._values[self._section][key_norm])
 
     def __setitem__(self, key: str, value):
         self._owner.set(self._section, key, value)
 
-    def __contains__(self, key: str):
-        return (
-            self._section in self._owner._values
-            and key in self._owner._values[self._section]
+    def __delitem__(self, key: str):
+        raise TypeError(
+            "Deleting config keys is not supported: keys are schema-managed. "
+            "Use sweetviz.settings.override() to change values."
         )
+
+    def __contains__(self, key: str):
+        if self._section not in self._owner._values:
+            return False
+        return self._norm(key) in self._owner._values[self._section]
 
     def get(self, key: str, fallback=None):
         try:
@@ -466,7 +475,8 @@ class _SyncedConfigSection:
 
     def getint(self, key: str) -> int:
         self._check_section()
-        val = self._owner._values[self._section][key]
+        key_norm = self._norm(key)
+        val = self._owner._values[self._section][key_norm]
         if isinstance(val, bool):
             return int(val)
         if isinstance(val, int):
@@ -475,14 +485,16 @@ class _SyncedConfigSection:
 
     def getfloat(self, key: str) -> float:
         self._check_section()
-        val = self._owner._values[self._section][key]
+        key_norm = self._norm(key)
+        val = self._owner._values[self._section][key_norm]
         if isinstance(val, (int, float)) and not isinstance(val, bool):
             return float(val)
         return float(str(val).strip())
 
     def getboolean(self, key: str) -> bool:
         self._check_section()
-        val = self._owner._values[self._section][key]
+        key_norm = self._norm(key)
+        val = self._owner._values[self._section][key_norm]
         if isinstance(val, bool):
             return val
         if isinstance(val, int):
@@ -495,8 +507,52 @@ class _SyncedConfigSection:
         self._check_section()
         return list(self._owner._values[self._section].keys())
 
+    def values(self):
+        self._check_section()
+        return [str(v) for v in self._owner._values[self._section].values()]
+
+    def items(self):
+        self._check_section()
+        return [(k, str(v)) for k, v in self._owner._values[self._section].items()]
+
     def __iter__(self):
         return iter(self.keys())
+
+    def __len__(self):
+        self._check_section()
+        return len(self._owner._values[self._section])
+
+    def clear(self):
+        raise TypeError(
+            "clear() is not supported on config sections: keys are schema-managed and cannot be removed."
+        )
+
+    def pop(self, key: str, *args):
+        raise TypeError(
+            "pop() is not supported on config sections: keys are schema-managed and cannot be removed. "
+            "Use sweetviz.settings.override() to change values."
+        )
+
+    def popitem(self):
+        raise TypeError(
+            "popitem() is not supported on config sections: keys are schema-managed and cannot be removed."
+        )
+
+    def update(self, *args, **kwargs):
+        other = {}
+        if args:
+            other.update(args[0])
+        other.update(kwargs)
+        for key, value in other.items():
+            self._owner.set(self._section, key, value)
+
+    def setdefault(self, key: str, default=None):
+        key_norm = self._norm(key)
+        self._check_section()
+        if key_norm in self._owner._values[self._section]:
+            return str(self._owner._values[self._section][key_norm])
+        self._owner.set(self._section, key, default)
+        return str(default)
 
 
 class _SyncedConfigParser(configparser.ConfigParser):
@@ -511,6 +567,9 @@ class _SyncedConfigParser(configparser.ConfigParser):
     @property
     def _schema(self):
         return object.__getattribute__(self, "_sv_ref")._schema
+
+    def _norm_option(self, option: str) -> str:
+        return self.optionxform(option)
 
     def _ingest_temp_parser(self, temp_parser: configparser.ConfigParser, source_label: str):
         sv = object.__getattribute__(self, "_sv_ref")
@@ -527,7 +586,9 @@ class _SyncedConfigParser(configparser.ConfigParser):
         return list(self._values.keys())
 
     def has_option(self, section: str, option: str) -> bool:
-        return section in self._values and option in self._values[section]
+        if section not in self._values:
+            return False
+        return self._norm_option(option) in self._values[section]
 
     def options(self, section: str):
         if section not in self._values:
@@ -539,22 +600,24 @@ class _SyncedConfigParser(configparser.ConfigParser):
             if fallback is not ...:
                 return fallback
             raise configparser.NoSectionError(section)
-        if option not in self._values[section]:
+        opt_norm = self._norm_option(option)
+        if opt_norm not in self._values[section]:
             if fallback is not ...:
                 return fallback
             raise configparser.NoOptionError(option, section)
-        return str(self._values[section][option])
+        return str(self._values[section][opt_norm])
 
     def getint(self, section: str, option: str, *, raw=False, vars=None, fallback=...):
         if section not in self._values:
             if fallback is not ...:
                 return fallback
             raise configparser.NoSectionError(section)
-        if option not in self._values[section]:
+        opt_norm = self._norm_option(option)
+        if opt_norm not in self._values[section]:
             if fallback is not ...:
                 return fallback
             raise configparser.NoOptionError(option, section)
-        val = self._values[section][option]
+        val = self._values[section][opt_norm]
         if isinstance(val, bool):
             return int(val)
         if isinstance(val, int):
@@ -566,11 +629,12 @@ class _SyncedConfigParser(configparser.ConfigParser):
             if fallback is not ...:
                 return fallback
             raise configparser.NoSectionError(section)
-        if option not in self._values[section]:
+        opt_norm = self._norm_option(option)
+        if opt_norm not in self._values[section]:
             if fallback is not ...:
                 return fallback
             raise configparser.NoOptionError(option, section)
-        val = self._values[section][option]
+        val = self._values[section][opt_norm]
         if isinstance(val, (int, float)) and not isinstance(val, bool):
             return float(val)
         return float(str(val).strip())
@@ -580,11 +644,12 @@ class _SyncedConfigParser(configparser.ConfigParser):
             if fallback is not ...:
                 return fallback
             raise configparser.NoSectionError(section)
-        if option not in self._values[section]:
+        opt_norm = self._norm_option(option)
+        if opt_norm not in self._values[section]:
             if fallback is not ...:
                 return fallback
             raise configparser.NoOptionError(option, section)
-        val = self._values[section][option]
+        val = self._values[section][opt_norm]
         if isinstance(val, bool):
             return val
         if isinstance(val, int):
@@ -598,9 +663,10 @@ class _SyncedConfigParser(configparser.ConfigParser):
         sv._check_frozen()
         if section not in self._schema:
             raise KeyError(f"Unknown config section: '{section}'")
-        if option not in self._schema[section]:
+        opt_norm = self._norm_option(option)
+        if opt_norm not in self._schema[section]:
             raise KeyError(f"Unknown config key '{option}' in section '{section}'")
-        meta = self._schema[section][option]
+        meta = self._schema[section][opt_norm]
         try:
             typed_value = _convert_value_to_type(value, meta["type"])
             if meta.get("validator"):
@@ -609,7 +675,7 @@ class _SyncedConfigParser(configparser.ConfigParser):
             raise ValueError(
                 f"Invalid value for [{section}] {option} = {value!r}: {e}"
             ) from e
-        self._values[section][option] = typed_value
+        self._values[section][opt_norm] = typed_value
 
     def read(self, filenames: Any, encoding: str = None) -> Sequence[str]:
         temp = configparser.ConfigParser()
@@ -633,6 +699,14 @@ class _SyncedConfigParser(configparser.ConfigParser):
         temp.read_dict(dictionary, source=source)
         self._ingest_temp_parser(temp, source_label=source)
 
+    def readfp(self, fp: IO, filename=None) -> None:
+        if filename is None:
+            if hasattr(fp, "name"):
+                filename = fp.name
+            else:
+                filename = "<???>"
+        self.read_file(fp, source=filename)
+
     def add_section(self, section: str):
         raise TypeError(
             "add_section() is not supported: sections are schema-managed. "
@@ -648,6 +722,45 @@ class _SyncedConfigParser(configparser.ConfigParser):
         raise TypeError(
             "remove_option() is not supported: keys are schema-managed and cannot be removed."
         )
+
+    def clear(self):
+        raise TypeError(
+            "clear() is not supported: configuration sections and keys are schema-managed."
+        )
+
+    def pop(self, section: str, *args):
+        raise TypeError(
+            "pop() is not supported: sections are schema-managed and cannot be removed."
+        )
+
+    def popitem(self):
+        raise TypeError(
+            "popitem() is not supported: sections are schema-managed and cannot be removed."
+        )
+
+    def update(self, *args, **kwargs):
+        other = {}
+        if args:
+            if hasattr(args[0], "keys"):
+                for section in args[0]:
+                    if section not in other:
+                        other[section] = {}
+                    other[section].update(args[0][section])
+            else:
+                for section, section_data in args[0]:
+                    if section not in other:
+                        other[section] = {}
+                    other[section].update(section_data)
+        for section, section_data in kwargs.items():
+            if section not in other:
+                other[section] = {}
+            other[section].update(section_data)
+        for section, section_data in other.items():
+            for key, value in section_data.items():
+                self.set(section, key, value)
+
+    def defaults(self):
+        return {}
 
     def items(self, section: str = ..., raw=False, vars=None):
         if section is ...:
@@ -667,8 +780,19 @@ class _SyncedConfigParser(configparser.ConfigParser):
             "Use config[section][key] = value or sweetviz.settings.override()."
         )
 
+    def __delitem__(self, section: str):
+        raise TypeError(
+            "Deleting sections is not supported: sections are schema-managed."
+        )
+
     def __contains__(self, section: str):
         return section in self._values
+
+    def __len__(self):
+        return len(self._values)
+
+    def __iter__(self):
+        return iter(self._values.keys())
 
 
 class _FrozenConfig:
